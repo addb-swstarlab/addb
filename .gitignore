@@ -1,0 +1,10 @@
+*.o
+.cproject
+.project
+src/Makefile.dep
+src/redis-benchmark
+src/redis-check-aof
+src/redis-check-rdb
+src/redis-cli
+src/redis-sentinel
+src/redis-server
