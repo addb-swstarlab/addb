@@ -33,6 +33,7 @@
 #include "fmacros.h"
 #include "config.h"
 #include "solarisfixes.h"
+#include "persistent_store.h"
 #include "rio.h"
 
 #include <stdio.h>
@@ -615,6 +616,10 @@ typedef struct redisDb {
     dict *watched_keys;         /* WATCHED keys for MULTI/EXEC CAS */
     int id;                     /* Database ID */
     long long avg_ttl;          /* Average TTL, just for stats */
+
+    /* ADDB */
+    dict *persistent_dict;
+    persistent_store_t *persistent_store;
 } redisDb;
 
 /* Client MULTI/EXEC state */

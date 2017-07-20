@@ -575,7 +575,10 @@ endif  # PLATFORM_SHARED_EXT
 
 all: $(LIBRARY) $(BENCHMARKS) tools tools_lib test_libs $(TESTS)
 
-static_lib: $(LIBRARY)
+# ADDB
+ROCKSDB_DEP_LIBS = shared_libz shared_libbz2 shared_libsnappy shared_liblz4 shared_libzstd
+
+static_lib: $(LIBRARY) $(ROCKSDB_DEP_LIBS)
 
 shared_lib: $(SHARED)
 
@@ -1528,6 +1531,18 @@ libz.a:
 	cd zlib-$(ZLIB_VER) && CFLAGS='-fPIC ${EXTRA_CFLAGS}' LDFLAGS='${EXTRA_LDFLAGS}' ./configure --static && make
 	cp zlib-$(ZLIB_VER)/libz.a .
 
+shared_libz:
+	-rm -rf zlib-$(ZLIB_VER)
+	curl -O -L ${ZLIB_DOWNLOAD_BASE}/zlib-$(ZLIB_VER).tar.gz
+	ZLIB_SHA256_ACTUAL=`$(SHA256_CMD) zlib-$(ZLIB_VER).tar.gz | cut -d ' ' -f 1`; \
+	if [ "$(ZLIB_SHA256)" != "$$ZLIB_SHA256_ACTUAL" ]; then \
+		echo zlib-$(ZLIB_VER).tar.gz checksum mismatch, expected=\"$(ZLIB_SHA256)\" actual=\"$$ZLIB_SHA256_ACTUAL\"; \
+		exit 1; \
+	fi
+	tar xvzf zlib-$(ZLIB_VER).tar.gz
+	cd zlib-$(ZLIB_VER) && CFLAGS='-fPIC ${EXTRA_CFLAGS}' LDFLAGS='${EXTRA_LDFLAGS}' ./configure --shared && make
+	cp zlib-$(ZLIB_VER)/libz.so .
+
 libbz2.a:
 	-rm -rf bzip2-$(BZIP2_VER)
 	curl -O -L ${BZIP2_DOWNLOAD_BASE}/$(BZIP2_VER)/bzip2-$(BZIP2_VER).tar.gz
@@ -1539,6 +1554,18 @@ libbz2.a:
 	tar xvzf bzip2-$(BZIP2_VER).tar.gz
 	cd bzip2-$(BZIP2_VER) && make CFLAGS='-fPIC -O2 -g -D_FILE_OFFSET_BITS=64 ${EXTRA_CFLAGS}' AR='ar ${EXTRA_ARFLAGS}'
 	cp bzip2-$(BZIP2_VER)/libbz2.a .
+
+shared_libbz2:
+	-rm -rf bzip2-$(BZIP2_VER)
+	curl -O -L ${BZIP2_DOWNLOAD_BASE}/$(BZIP2_VER)/bzip2-$(BZIP2_VER).tar.gz
+	BZIP2_SHA256_ACTUAL=`$(SHA256_CMD) bzip2-$(BZIP2_VER).tar.gz | cut -d ' ' -f 1`; \
+	if [ "$(BZIP2_SHA256)" != "$$BZIP2_SHA256_ACTUAL" ]; then \
+		echo bzip2-$(BZIP2_VER).tar.gz checksum mismatch, expected=\"$(BZIP2_SHA256)\" actual=\"$$BZIP2_SHA256_ACTUAL\"; \
+		exit 1; \
+	fi
+	tar xvzf bzip2-$(BZIP2_VER).tar.gz
+	cd bzip2-$(BZIP2_VER) && make -f Makefile-libbz2_so CFLAGS='-fPIC -O2 -g -D_FILE_OFFSET_BITS=64 ${EXTRA_CFLAGS}' AR='ar ${EXTRA_ARFLAGS}'
+	cp bzip2-$(BZIP2_VER)/libbz2.so.1.0 ./libbz2.so
 
 libsnappy.a:
 	-rm -rf snappy-$(SNAPPY_VER)
@@ -1553,6 +1580,19 @@ libsnappy.a:
 	cd snappy-$(SNAPPY_VER) && make ${SNAPPY_MAKE_TARGET}
 	cp snappy-$(SNAPPY_VER)/.libs/libsnappy.a .
 
+shared_libsnappy:
+	-rm -rf snappy-$(SNAPPY_VER)
+	curl -O -L ${SNAPPY_DOWNLOAD_BASE}/$(SNAPPY_VER)/snappy-$(SNAPPY_VER).tar.gz
+	SNAPPY_SHA256_ACTUAL=`$(SHA256_CMD) snappy-$(SNAPPY_VER).tar.gz | cut -d ' ' -f 1`; \
+	if [ "$(SNAPPY_SHA256)" != "$$SNAPPY_SHA256_ACTUAL" ]; then \
+		echo snappy-$(SNAPPY_VER).tar.gz checksum mismatch, expected=\"$(SNAPPY_SHA256)\" actual=\"$$SNAPPY_SHA256_ACTUAL\"; \
+		exit 1; \
+	fi
+	tar xvzf snappy-$(SNAPPY_VER).tar.gz
+	cd snappy-$(SNAPPY_VER) && CFLAGS='${EXTRA_CFLAGS}' CXXFLAGS='${EXTRA_CXXFLAGS}' LDFLAGS='${EXTRA_LDFLAGS}' ./configure --with-pic --enable-shared --disable-static
+	cd snappy-$(SNAPPY_VER) && make ${SNAPPY_MAKE_TARGET}
+	cp snappy-$(SNAPPY_VER)/.libs/libsnappy.so .
+
 liblz4.a:
 	-rm -rf lz4-$(LZ4_VER)
 	curl -O -L ${LZ4_DOWNLOAD_BASE}/v$(LZ4_VER).tar.gz
@@ -1566,6 +1606,19 @@ liblz4.a:
 	cd lz4-$(LZ4_VER)/lib && make CFLAGS='-fPIC -O2 ${EXTRA_CFLAGS}' all
 	cp lz4-$(LZ4_VER)/lib/liblz4.a .
 
+shared_liblz4:
+	-rm -rf lz4-$(LZ4_VER)
+	curl -O -L ${LZ4_DOWNLOAD_BASE}/v$(LZ4_VER).tar.gz
+	mv v$(LZ4_VER).tar.gz lz4-$(LZ4_VER).tar.gz
+	LZ4_SHA256_ACTUAL=`$(SHA256_CMD) lz4-$(LZ4_VER).tar.gz | cut -d ' ' -f 1`; \
+	if [ "$(LZ4_SHA256)" != "$$LZ4_SHA256_ACTUAL" ]; then \
+		echo lz4-$(LZ4_VER).tar.gz checksum mismatch, expected=\"$(LZ4_SHA256)\" actual=\"$$LZ4_SHA256_ACTUAL\"; \
+		exit 1; \
+	fi
+	tar xvzf lz4-$(LZ4_VER).tar.gz
+	cd lz4-$(LZ4_VER)/lib && make CFLAGS='-fPIC -O2 ${EXTRA_CFLAGS}' all
+	cp lz4-$(LZ4_VER)/lib/liblz4.so .
+
 libzstd.a:
 	-rm -rf zstd-$(ZSTD_VER)
 	curl -O -L ${ZSTD_DOWNLOAD_BASE}/v$(ZSTD_VER).tar.gz
@@ -1578,6 +1631,19 @@ libzstd.a:
 	tar xvzf zstd-$(ZSTD_VER).tar.gz
 	cd zstd-$(ZSTD_VER)/lib && make CFLAGS='-fPIC -O2 ${EXTRA_CFLAGS}' all
 	cp zstd-$(ZSTD_VER)/lib/libzstd.a .
+
+shared_libzstd:
+	-rm -rf zstd-$(ZSTD_VER)
+	curl -O -L ${ZSTD_DOWNLOAD_BASE}/v$(ZSTD_VER).tar.gz
+	mv v$(ZSTD_VER).tar.gz zstd-$(ZSTD_VER).tar.gz
+	ZSTD_SHA256_ACTUAL=`$(SHA256_CMD) zstd-$(ZSTD_VER).tar.gz | cut -d ' ' -f 1`; \
+	if [ "$(ZSTD_SHA256)" != "$$ZSTD_SHA256_ACTUAL" ]; then \
+		echo zstd-$(ZSTD_VER).tar.gz checksum mismatch, expected=\"$(ZSTD_SHA256)\" actual=\"$$ZSTD_SHA256_ACTUAL\"; \
+		exit 1; \
+	fi
+	tar xvzf zstd-$(ZSTD_VER).tar.gz
+	cd zstd-$(ZSTD_VER)/lib && make CFLAGS='-fPIC -O2 ${EXTRA_CFLAGS}' all
+	cp zstd-$(ZSTD_VER)/lib/libzstd.so .
 
 # A version of each $(LIBOBJECTS) compiled with -fPIC and a fixed set of static compression libraries
 java_static_libobjects = $(patsubst %,jls/%,$(LIBOBJECTS))

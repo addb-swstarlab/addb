@@ -1852,6 +1852,11 @@ void initServer(void) {
         server.db[j].watched_keys = dictCreate(&keylistDictType,NULL);
         server.db[j].id = j;
         server.db[j].avg_ttl = 0;
+
+        /* ADDB */
+        /* currently, DB name is set to the number of Redis DB */
+        server.db[j].persistent_dict = dictCreate(&dbDictType,NULL);
+        server.db[j].persistent_store = createPersistentStore(j);
     }
     evictionPoolAlloc(); /* Initialize the LRU keys pool. */
     server.pubsub_channels = dictCreate(&keylistDictType,NULL);
