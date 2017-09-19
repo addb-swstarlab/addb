@@ -932,7 +932,7 @@ package:
 # 	Unit tests and tools
 # ---------------------------------------------------------------------------
 $(LIBRARY): $(LIBOBJECTS)
-	$(AM_V_AR)rm -f $@
+	$(AM_V_AR)rm -f $@ $(warning $(AM_V_AR))
 	$(AM_V_at)$(AR) $(ARFLAGS) $@ $(LIBOBJECTS)
 
 $(TOOLS_LIBRARY): $(BENCH_LIB_SOURCES:.cc=.o) $(TOOL_LIB_SOURCES:.cc=.o) $(LIB_SOURCES:.cc=.o) $(TESTUTIL)
