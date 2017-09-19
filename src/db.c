@@ -30,6 +30,7 @@
 #include "server.h"
 #include "cluster.h"
 #include "atomicvar.h"
+#include "persistent_store.h"
 
 #include <signal.h>
 #include <ctype.h>
@@ -43,6 +44,50 @@
  * lookupKeyWrite() and lookupKeyReadWithFlags(). */
 robj *lookupKey(redisDb *db, robj *key, int flags) {
     dictEntry *de = dictFind(db->dict,key->ptr);
+    robj *val = NULL;
+
+    if (de) {
+        val = dictGetVal(de);
+    } else {
+        de = dictFind(db->persistent_dict,key->ptr);
+        /* */
+        if(de && (flags & LOOKUP_ALL)) {
+            /* ADDB */
+            size_t val_len;
+            char* err = NULL;
+            char* retVal = rocksdb_get_cf(db->persistent_store->ps, db->persistent_store->ps_options->roptions, db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW], key->ptr, sdslen(key->ptr), &val_len, &err);
+            if(err) {
+                serverPanic("[ERROR] Getting a value from Persistent store is failed due to %s", err);
+            }
+            val = createStringObject(retVal, val_len);
+            rocksdb_free(retVal);
+        } else {
+            return NULL;
+        }
+    }
+
+    /* TODO LRU update for persistent values that are generated temporarily */
+    /* Update the access time for the ageing algorithm.
+     * Don't do it if we have a saving child, as this will trigger
+     * a copy on write madness. */
+    if (server.rdb_child_pid == -1 &&
+        server.aof_child_pid == -1 &&
+        !(flags & LOOKUP_NOTOUCH))
+    {
+        if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
+            unsigned long ldt = val->lru >> 8;
+            unsigned long counter = LFULogIncr(val->lru & 255);
+            val->lru = (ldt << 8) | counter;
+        } else {
+            val->lru = LRU_CLOCK();
+        }
+    }
+    return val;
+}
+
+/* ADDB */
+robj *lookupPkey(redisDb *db, robj *key, int flags) {
+    dictEntry *de = dictFind(db->persistent_dict,key->ptr);
     if (de) {
         robj *val = dictGetVal(de);
 
@@ -125,10 +170,60 @@ robj *lookupKeyReadWithFlags(redisDb *db, robj *key, int flags) {
     return val;
 }
 
+/* ADDB */
+robj *lookupPkeyReadWithFlags(redisDb *db, robj *key, int flags) {
+    robj *val;
+
+    /* TODO Support the expire feature */
+    if (expireIfNeeded(db,key) == 1) {
+        /* Key expired. If we are in the context of a master, expireIfNeeded()
+         * returns 0 only when the key does not exist at all, so it's safe
+         * to return NULL ASAP. */
+        if (server.masterhost == NULL) return NULL;
+
+        /* However if we are in the context of a slave, expireIfNeeded() will
+         * not really try to expire the key, it only returns information
+         * about the "logical" status of the key: key expiring is up to the
+         * master in order to have a consistent view of master's data set.
+         *
+         * However, if the command caller is not the master, and as additional
+         * safety measure, the command invoked is a read-only command, we can
+         * safely return NULL here, and provide a more consistent behavior
+         * to clients accessign expired values in a read-only fashion, that
+         * will say the key as non exisitng.
+         *
+         * Notably this covers GETs when slaves are used to scale reads. */
+        if (server.current_client &&
+            server.current_client != server.master &&
+            server.current_client->cmd &&
+            server.current_client->cmd->flags & CMD_READONLY)
+        {
+            return NULL;
+        }
+    }
+    val = lookupPkey(db,key,flags);
+    if (val == NULL)
+        server.stat_keyspace_misses++;
+    else
+        server.stat_keyspace_hits++;
+    return val;
+}
+
 /* Like lookupKeyReadWithFlags(), but does not use any flag, which is the
  * common case. */
 robj *lookupKeyRead(redisDb *db, robj *key) {
     return lookupKeyReadWithFlags(db,key,LOOKUP_NONE);
+}
+
+/* ADDB */
+robj *lookupAllKeyRead(redisDb *db, robj *key) {
+    return lookupKeyReadWithFlags(db,key,LOOKUP_ALL);
+}
+
+
+/* ADDB */
+robj *lookupPkeyRead(redisDb *db, robj *key) {
+    return lookupPkeyReadWithFlags(db,key,LOOKUP_NONE);
 }
 
 /* Lookup a key for write operations, and as a side effect, if needed, expires
@@ -147,6 +242,20 @@ robj *lookupKeyReadOrReply(client *c, robj *key, robj *reply) {
     return o;
 }
 
+/* ADDB */
+robj *lookupAllKeyReadOrReply(client *c, robj *key, robj *reply) {
+    robj *o = lookupAllKeyRead(c->db, key);
+    if (!o) addReply(c,reply);
+    return o;
+}
+
+robj *lookupPkeyReadOrReply(client *c, robj *key, robj *reply) {
+    robj *o = lookupPkeyRead(c->db, key);
+    if (!o) addReply(c,reply);
+    return o;
+}
+
+
 robj *lookupKeyWriteOrReply(client *c, robj *key, robj *reply) {
     robj *o = lookupKeyWrite(c->db, key);
     if (!o) addReply(c,reply);
@@ -164,6 +273,13 @@ void dbAdd(redisDb *db, robj *key, robj *val) {
     serverAssertWithInfo(NULL,key,retval == DICT_OK);
     if (val->type == OBJ_LIST) signalListAsReady(db, key);
     if (server.cluster_enabled) slotToKeyAdd(key);
+ }
+
+/* ADDB */
+void dbPersist(redisDb *db, robj *key) {
+    int retval = dictAdd(db->persistent_dict, key->ptr, NULL);
+
+    serverAssertWithInfo(NULL,key,retval == DICT_OK);
  }
 
 /* Overwrite an existing key with a new value. Incrementing the reference
@@ -208,6 +324,11 @@ int dbExists(redisDb *db, robj *key) {
     return dictFind(db->dict,key->ptr) != NULL;
 }
 
+/* ADDB */
+int isPersistent(redisDb *db, robj *key) {
+    return dictFind(db->persistent_dict,key->ptr) != NULL;
+}
+
 /* Return a random key, in form of a Redis object.
  * If there are no keys, NULL is returned.
  *
@@ -232,6 +353,41 @@ robj *dbRandomKey(redisDb *db) {
         }
         return keyobj;
     }
+}
+
+/* ADDB */
+/* Append a key to be persisted into persistent_dict */
+/* If there is duplicated key, return a error code */
+static void appendPersistentKey(redisDb *db,robj *key) {
+    if (!isPersistent(db,key)) {
+        dbPersist(db,key);
+    } else {
+        /* TODO Need to consider overwrite */
+    }
+    /* TODO Need to consider expiration */
+    removePersistentExpire(db,key);
+}
+
+/* ADDB */
+void persistKey(redisDb *db, robj *key) {
+    dictEntry* de = dictUnlink(db->dict, key->ptr);
+
+    /* Copy the key from dict to persistent_dict */
+    /* Copy the value from robj to persistent_store */
+    /* Free unlinkedEntry except for the key to be used for persistent_dict */
+    appendPersistentKey(db,key);
+
+    robj* targetVal = dictGetVal(de);
+    robj* persistentValue = getDecodedObject(targetVal);
+    robj* targetKey = key;
+    sds persistKeyStr = targetKey->ptr;
+    int persistKeyStrLen = sdslen(persistKeyStr);
+    char *persistValStr = targetVal->ptr;
+    int persistValStrLen = sdslen(persistValStr);
+    setPersistentKey(db->persistent_store,persistKeyStr,persistKeyStrLen,persistValStr,persistValStrLen);
+    decrRefCount(persistentValue);
+
+    dictFreeUnlinkedEntryAndValue(db->dict, de);
 }
 
 /* Delete a key, value, and associated expiration entry if any, from the DB */
@@ -501,6 +657,34 @@ void keysCommand(client *c) {
     void *replylen = addDeferredMultiBulkLength(c);
 
     di = dictGetSafeIterator(c->db->dict);
+    allkeys = (pattern[0] == '*' && pattern[1] == '\0');
+    while((de = dictNext(di)) != NULL) {
+        sds key = dictGetKey(de);
+        robj *keyobj;
+
+        if (allkeys || stringmatchlen(pattern,plen,key,sdslen(key),0)) {
+            keyobj = createStringObject(key,sdslen(key));
+            if (expireIfNeeded(c->db,keyobj) == 0) {
+                addReplyBulk(c,keyobj);
+                numkeys++;
+            }
+            decrRefCount(keyobj);
+        }
+    }
+    dictReleaseIterator(di);
+    setDeferredMultiBulkLength(c,replylen,numkeys);
+}
+
+/* ADDB */
+void pkeysCommand(client *c) {
+    dictIterator *di;
+    dictEntry *de;
+    sds pattern = c->argv[1]->ptr;
+    int plen = sdslen(pattern), allkeys;
+    unsigned long numkeys = 0;
+    void *replylen = addDeferredMultiBulkLength(c);
+
+    di = dictGetSafeIterator(c->db->persistent_dict);
     allkeys = (pattern[0] == '*' && pattern[1] == '\0');
     while((de = dictNext(di)) != NULL) {
         sds key = dictGetKey(de);
@@ -1022,6 +1206,13 @@ int removeExpire(redisDb *db, robj *key) {
     /* An expire may only be removed if there is a corresponding entry in the
      * main dict. Otherwise, the key will never be freed. */
     serverAssertWithInfo(NULL,key,dictFind(db->dict,key->ptr) != NULL);
+    return dictDelete(db->expires,key->ptr) == DICT_OK;
+}
+
+int removePersistentExpire(redisDb *db, robj *key) {
+    /* An expire may only be removed if there is a corresponding entry in the
+     * main dict. Otherwise, the key will never be freed. */
+    serverAssertWithInfo(NULL,key,dictFind(db->persistent_dict,key->ptr) != NULL);
     return dictDelete(db->expires,key->ptr) == DICT_OK;
 }
 

@@ -156,9 +156,34 @@ void psetexCommand(client *c) {
 
 int getGenericCommand(client *c) {
     robj *o;
-
+#ifdef ADDB
+    if ((o = lookupAllKeyReadOrReply(c,c->argv[1],shared.nullbulk)) == NULL) {
+        return C_OK;
+    }
+#else
     if ((o = lookupKeyReadOrReply(c,c->argv[1],shared.nullbulk)) == NULL)
         return C_OK;
+#endif
+
+    if (o->type != OBJ_STRING) {
+        addReply(c,shared.wrongtypeerr);
+        return C_ERR;
+    } else {
+        addReplyBulk(c,o);
+        return C_OK;
+    }
+}
+
+int pgetGenericCommand(client *c) {
+    robj *o;
+
+    if ((o = lookupKeyReadOrReply(c,c->argv[1],shared.nullbulk)) != NULL) {
+        if((o = lookupPkeyReadOrReply(c,c->argv[1],shared.nullbulk)) == NULL) {
+            return C_OK;
+        }
+    } else {
+        return C_OK;
+    }
 
     if (o->type != OBJ_STRING) {
         addReply(c,shared.wrongtypeerr);
@@ -171,6 +196,10 @@ int getGenericCommand(client *c) {
 
 void getCommand(client *c) {
     getGenericCommand(c);
+}
+
+void pgetCommand(client *c) {
+    pgetGenericCommand(c);
 }
 
 void getsetCommand(client *c) {

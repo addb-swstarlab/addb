@@ -438,6 +438,13 @@ void dictFreeUnlinkedEntry(dict *d, dictEntry *he) {
     zfree(he);
 }
 
+/* ADDB */
+void dictFreeUnlinkedEntryAndValue(dict *d, dictEntry *he) {
+    if (he == NULL) return;
+    dictFreeVal(d, he);
+    zfree(he);
+}
+
 /* Destroy an entire dictionary */
 int _dictClear(dict *d, dictht *ht, void(callback)(void *)) {
     unsigned long i;

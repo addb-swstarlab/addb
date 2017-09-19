@@ -583,7 +583,8 @@ typedef struct RedisModuleDigest {
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
 typedef struct redisObject {
-    unsigned type:4;
+    unsigned type:3;
+    unsigned location:1;   /* ADDB - Data location : Memory or Persistent store */
     unsigned encoding:4;
     unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
                             * LFU data (least significant 8 bits frequency
@@ -1707,28 +1708,47 @@ int rewriteConfig(char *path);
 
 /* db.c -- Keyspace access API */
 int removeExpire(redisDb *db, robj *key);
+int removePersistentExpire(redisDb *db, robj *key);
 void propagateExpire(redisDb *db, robj *key, int lazy);
 int expireIfNeeded(redisDb *db, robj *key);
 long long getExpire(redisDb *db, robj *key);
 void setExpire(client *c, redisDb *db, robj *key, long long when);
 robj *lookupKey(redisDb *db, robj *key, int flags);
 robj *lookupKeyRead(redisDb *db, robj *key);
+robj *lookupAllKeyRead(redisDb *db, robj *key);
 robj *lookupKeyWrite(redisDb *db, robj *key);
+
+/* ADDB */
+robj *lookupPkey(redisDb *db, robj *key, int flags);
+robj *lookupPkeyRead(redisDb *db, robj *key);
+
 robj *lookupKeyReadOrReply(client *c, robj *key, robj *reply);
+robj *lookupAllKeyReadOrReply(client *c, robj *key, robj *reply);
 robj *lookupKeyWriteOrReply(client *c, robj *key, robj *reply);
+
+/* ADDB */
+robj *lookupPkeyReadWithFlags(redisDb *db, robj *key, int flags);
+robj *lookupPkeyReadOrReply(client *c, robj *key, robj *reply);
+
 robj *lookupKeyReadWithFlags(redisDb *db, robj *key, int flags);
 robj *objectCommandLookup(client *c, robj *key);
 robj *objectCommandLookupOrReply(client *c, robj *key, robj *reply);
 #define LOOKUP_NONE 0
 #define LOOKUP_NOTOUCH (1<<0)
+/* ADDB */
+#define LOOKUP_ALL (1<<1)
 void dbAdd(redisDb *db, robj *key, robj *val);
 void dbOverwrite(redisDb *db, robj *key, robj *val);
 void setKey(redisDb *db, robj *key, robj *val);
 int dbExists(redisDb *db, robj *key);
+/* ADDB */
+int isPersistent(redisDb *db, robj *key);
 robj *dbRandomKey(redisDb *db);
 int dbSyncDelete(redisDb *db, robj *key);
 int dbDelete(redisDb *db, robj *key);
 robj *dbUnshareStringValue(redisDb *db, robj *key, robj *o);
+/* ADDB */
+void persistKey(redisDb *db, robj *key);
 
 #define EMPTYDB_NO_FLAGS 0      /* No flags. */
 #define EMPTYDB_ASYNC (1<<0)    /* Reclaim memory in another thread. */
@@ -1818,6 +1838,10 @@ char *redisGitSHA1(void);
 char *redisGitDirty(void);
 uint64_t redisBuildId(void);
 
+/* ADDB */
+void pgetCommand(client *c);
+void psetCommand(client *c);
+
 /* Commands prototypes */
 void authCommand(client *c);
 void pingCommand(client *c);
@@ -1845,6 +1869,7 @@ void selectCommand(client *c);
 void swapdbCommand(client *c);
 void randomkeyCommand(client *c);
 void keysCommand(client *c);
+void pkeysCommand(client *c);
 void scanCommand(client *c);
 void dbsizeCommand(client *c);
 void lastsaveCommand(client *c);

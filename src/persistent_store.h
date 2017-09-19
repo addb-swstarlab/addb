@@ -45,5 +45,5 @@ typedef struct _persistent_store {
 void createPersistentStoreOptions(persistent_store_t *ps);
 void createPersistentStoreDb(persistent_store_t *ps);
 persistent_store_t* createPersistentStore(int dbnum);
-
+void setPersistentKey(persistent_store_t* ps, const void *key, const int keylen, const void *val, const int vallen);
 #endif /* SRC_PERSISTENT_STORE_H_ */

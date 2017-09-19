@@ -17,8 +17,10 @@ void createPersistentStoreOptions(persistent_store_t *ps) {
     ps_options->roptions = rocksdb_readoptions_create();
     ps_options->woptions = rocksdb_writeoptions_create();
     ps_options->coptions = rocksdb_compactoptions_create();
+    ps_options->cache = rocksdb_cache_create_lru(100000);
 
     rocksdb_options_set_create_if_missing(ps_options->options, 1);
+    rocksdb_options_set_create_missing_column_families(ps_options->options, 1);
     rocksdb_options_set_info_log(ps_options->options, NULL);
     rocksdb_options_set_write_buffer_size(ps_options->options, 100000);
     rocksdb_options_set_paranoid_checks(ps_options->options, 1);
@@ -46,27 +48,32 @@ void createPersistentStoreOptions(persistent_store_t *ps) {
 }
 
 void createPersistentStoreDb(persistent_store_t *ps) {
-    char *err;
+    char *err = NULL;
     size_t i=0;
 
     /* First, DB creation by opening */
-    ps->ps = rocksdb_open(ps->ps_options->options, ps->dbname, &err);
-
-    if(err != NULL)
-    {
-        rocksdb_free(err);
-        panic("[PERSISTENT_STORE] Persistent DB open failed due to : %s", err);
-    }
-
-    rocksdb_close(ps->ps);
+//    ps->ps = rocksdb_open(ps->ps_options->options, ps->dbname, &err);
+//
+//    if(err != NULL)
+//    {
+//        panic("[PERSISTENT_STORE] Persistent DB open failed due to : %s", err);
+//    }
+//
+//    rocksdb_column_family_handle_t* cfh;
+//    cfh = rocksdb_create_column_family(ps->ps, ps->ps_options->options, "RW", &err);
+//    rocksdb_column_family_handle_destroy(cfh);
+//
+//    rocksdb_close(ps->ps);
 
     /* Get list of CFs */
-    size_t cflen;
-    ps->cf_names = rocksdb_list_column_families(ps->ps_options->options, (const char*)ps->dbname, &cflen, &err);
-    if(err) {
-        rocksdb_free(err);
-        panic("[PERSISTENT_STORE] list column families failed due to %s", err);
-    }
+    size_t cflen = 2;
+    char* cf_names[2] = {"default", "RW"};
+//    ps->cf_names = cf_names;
+//    ps->cf_names = rocksdb_list_column_families(ps->ps_options->options, (const char*)ps->dbname, &cflen, &err);
+//    if(err) {
+//        rocksdb_free(err);
+//        panic("[PERSISTENT_STORE] list column families failed due to %s", err);
+//    }
     ps->cflen = cflen;
 
     /* Open CFs */
@@ -77,9 +84,8 @@ void createPersistentStoreDb(persistent_store_t *ps) {
     }
 
     /* Open RocksDB */
-    ps->ps = rocksdb_open_column_families((const rocksdb_options_t*)ps->ps_options->options, (const char*)ps->dbname, cflen, (const char**)ps->cf_names, (const struct rocksdb_options_t **)cfs_options, ps->ps_cf_handles, &err);
+    ps->ps = rocksdb_open_column_families((const rocksdb_options_t*)ps->ps_options->options, (const char*)ps->dbname, cflen, (const char**)cf_names, (const struct rocksdb_options_t **)cfs_options, ps->ps_cf_handles, &err);
     if(err) {
-        rocksdb_free(err);
         panic("[PERSISTENT_STORE] open column families failed due to %s", err);
     }
 
@@ -99,6 +105,14 @@ persistent_store_t* createPersistentStore(int dbnum) {
     createPersistentStoreOptions(ps);
     createPersistentStoreDb(ps);
     return ps;
+}
+
+void setPersistentKey(persistent_store_t* ps, const void *key, const int keylen, const void *val, const int vallen) {
+    char *err = NULL;
+    rocksdb_put_cf(ps->ps, ps->ps_options->woptions, ps->ps_cf_handles[PERSISTENT_STORE_CF_RW], (const char*)key, keylen, (const char*)val, vallen, &err);
+    if(err) {
+        panic("[PERSISTENT_STORE] putting a key failed due to %s", err);
+    }
 }
 
 void destroyPersistentStoreOptions(persistent_store_t* ps) {
