@@ -1767,6 +1767,7 @@ void slotToKeyAdd(robj *key);
 void slotToKeyDel(robj *key);
 void slotToKeyFlush(void);
 int dbAsyncDelete(redisDb *db, robj *key);
+int dbUnlinkAndTiering(redisDb *db, robj *key);
 void emptyDbAsync(redisDb *db);
 void slotToKeyFlushAsync(void);
 size_t lazyfreeGetPendingObjectsCount(void);

@@ -84,6 +84,28 @@ int dbAsyncDelete(redisDb *db, robj *key) {
     }
 }
 
+int dbUnlinkAndTiering(redisDb *db, robj *key) {
+    /* Deleting an entry from the expires dict will not free the sds of
+     * the key, because it is shared with the main dictionary. */
+    if (dictSize(db->expires) > 0) dictDelete(db->expires,key->ptr);
+
+    /* If the value is composed of a few allocations, to free in a lazy way
+     * is actually just slower... So under a certain limit we just free
+     * the object synchronously. */
+    dictEntry *de = dictUnlink(db->dict,key->ptr);
+    if (de) {
+        /*
+         * TODO ADDB
+         * In this case, value is just a string.
+         * However, the value will be a hash structure which is used for relation structure.
+         */
+        bioCreateBackgroundJob(BIO_TIERING,de,NULL,NULL);
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 /* Empty a Redis DB asynchronously. What the function does actually is to
  * create a new empty set of hash tables and scheduling the old ones for
  * lazy freeing. */

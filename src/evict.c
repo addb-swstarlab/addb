@@ -507,7 +507,10 @@ int freeMemoryIfNeeded(void) {
             latencyStartMonitor(eviction_latency);
 #ifdef ADDB
             /* ADDB */
-            persistKey(db,keyobj);
+            /* 1. Synchronous Tiering - deprecated */
+            /* persistKey(db,keyobj); */
+            /* 2. Eager-background Tiering */
+            dbUnlinkAndTiering(db,keyobj);
             incrRefCount(keyobj);
 #else
             if (server.lazyfree_lazy_eviction)
