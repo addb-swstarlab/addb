@@ -368,17 +368,12 @@ static void appendPersistentKey(redisDb *db,robj *key) {
 }
 
 /* ADDB */
-void persistKey(redisDb *db, robj *key) {
-    dictEntry* de = dictUnlink(db->dict, key->ptr);
-
-    /* Copy the key from dict to persistent_dict */
-    /* Copy the value from robj to persistent_store */
-    /* Free unlinkedEntry except for the key to be used for persistent_dict */
-    appendPersistentKey(db,key);
-
+/* In this method, value is only raw string type */
+/* TODO In the future, the type of value will be hash object */
+void persistKey(redisDb *db, dictEntry *de, robj *keyobj) {
     robj* targetVal = dictGetVal(de);
     robj* persistentValue = getDecodedObject(targetVal);
-    robj* targetKey = key;
+    robj* targetKey = keyobj;
     sds persistKeyStr = targetKey->ptr;
     int persistKeyStrLen = sdslen(persistKeyStr);
     char *persistValStr = targetVal->ptr;
@@ -386,7 +381,7 @@ void persistKey(redisDb *db, robj *key) {
     setPersistentKey(db->persistent_store,persistKeyStr,persistKeyStrLen,persistValStr,persistValStrLen);
     decrRefCount(persistentValue);
 
-    dictFreeUnlinkedEntryAndValue(db->dict, de);
+    dictFreeUnlinkedEntry(db->dict, de);
 }
 
 /* Delete a key, value, and associated expiration entry if any, from the DB */
