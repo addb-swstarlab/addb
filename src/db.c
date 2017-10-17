@@ -50,7 +50,6 @@ robj *lookupKey(redisDb *db, robj *key, int flags) {
         val = dictGetVal(de);
     } else {
         de = dictFind(db->persistent_dict,key->ptr);
-        /* */
         if(de && (flags & LOOKUP_ALL)) {
             /* ADDB */
             size_t val_len;
