@@ -199,6 +199,13 @@ void *bioProcessBackgroundJobs(void *arg) {
                 lazyfreeFreeDatabaseFromBioThread(job->arg2,job->arg3);
             else if (job->arg3)
                 lazyfreeFreeSlotsMapFromBioThread(job->arg3);
+        } else if (type == BIO_TIERING) {
+            /* ADDB */
+            redisDb *db = (redisDb *)job->arg1;
+            dictEntry *de = (dictEntry *)job->arg2;
+            robj *keyobj = (robj *)job->arg3;
+            persistKey(db, de, keyobj);
+            decrRefCount(keyobj);
         } else {
             serverPanic("Wrong job type in bioProcessBackgroundJobs().");
         }

@@ -99,7 +99,7 @@ int dbUnlinkAndTiering(redisDb *db, robj *key) {
          * In this case, value is just a string.
          * However, the value will be a hash structure which is used for relation structure.
          */
-        bioCreateBackgroundJob(BIO_TIERING,de,NULL,NULL);
+        bioCreateBackgroundJob(BIO_TIERING,db,de,key);
         return 1;
     } else {
         return 0;

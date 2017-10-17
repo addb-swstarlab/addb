@@ -505,19 +505,18 @@ int freeMemoryIfNeeded(void) {
              * we only care about memory used by the key space. */
             delta = (long long) zmalloc_used_memory();
             latencyStartMonitor(eviction_latency);
-#ifdef ADDB
-            /* ADDB */
-            /* 1. Synchronous Tiering - deprecated */
-            /* persistKey(db,keyobj); */
-            /* 2. Eager-background Tiering */
-            dbUnlinkAndTiering(db,keyobj);
-            incrRefCount(keyobj);
-#else
-            if (server.lazyfree_lazy_eviction)
-                dbAsyncDelete(db,keyobj);
-            else
-                dbSyncDelete(db,keyobj);
-#endif
+            if (server.tiering_enabled) {
+                /* ADDB */
+                /* 1. Synchronous Tiering - deprecated */
+                /* persistKey(db,keyobj); */
+                /* 2. Eager-background Tiering */
+                dbUnlinkAndTiering(db,keyobj);
+            } else {
+                if (server.lazyfree_lazy_eviction)
+                    dbAsyncDelete(db,keyobj);
+                else
+                    dbSyncDelete(db,keyobj);
+            }
             latencyEndMonitor(eviction_latency);
             latencyAddSampleIfNeeded("eviction-del",eviction_latency);
             latencyRemoveNestedEvent(latency,eviction_latency);
@@ -526,7 +525,8 @@ int freeMemoryIfNeeded(void) {
             server.stat_evictedkeys++;
             notifyKeyspaceEvent(NOTIFY_EVICTED, "evicted",
                 keyobj, db->id);
-            decrRefCount(keyobj);
+            if(!server.tiering_enabled)
+                decrRefCount(keyobj);
             keys_freed++;
 
             /* When the memory to free starts to be big enough, we may

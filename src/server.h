@@ -154,6 +154,7 @@ typedef long long mstime_t; /* millisecond time type. */
 #define CONFIG_DEFAULT_LAZYFREE_LAZY_EVICTION 0
 #define CONFIG_DEFAULT_LAZYFREE_LAZY_EXPIRE 0
 #define CONFIG_DEFAULT_LAZYFREE_LAZY_SERVER_DEL 0
+#define CONFIG_DEFAULT_TIERING 0
 #define CONFIG_DEFAULT_ALWAYS_SHOW_LOGO 0
 #define CONFIG_DEFAULT_ACTIVE_DEFRAG 0
 #define CONFIG_DEFAULT_DEFRAG_THRESHOLD_LOWER 10 /* don't defrag when fragmentation is below 10% */
@@ -618,7 +619,9 @@ typedef struct redisDb {
     int id;                     /* Database ID */
     long long avg_ttl;          /* Average TTL, just for stats */
 
-    /* ADDB */
+    /* ADDB                                            */
+    /* TODO persistent_dict will be deprecated         */
+    /* Getting the key from RocksDB performed directly */
     dict *persistent_dict;
     persistent_store_t *persistent_store;
 } redisDb;
@@ -1188,6 +1191,7 @@ struct redisServer {
     int lazyfree_lazy_eviction;
     int lazyfree_lazy_expire;
     int lazyfree_lazy_server_del;
+    int tiering_enabled;
     /* Latency monitor */
     long long latency_monitor_threshold;
     dict *latency_events;
@@ -1748,7 +1752,7 @@ int dbSyncDelete(redisDb *db, robj *key);
 int dbDelete(redisDb *db, robj *key);
 robj *dbUnshareStringValue(redisDb *db, robj *key, robj *o);
 /* ADDB */
-void persistKey(redisDb *db, robj *key);
+void persistKey(redisDb *db, dictEntry *de, robj *keyobj);
 
 #define EMPTYDB_NO_FLAGS 0      /* No flags. */
 #define EMPTYDB_ASYNC (1<<0)    /* Reclaim memory in another thread. */
