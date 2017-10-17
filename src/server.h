@@ -619,9 +619,9 @@ typedef struct redisDb {
     int id;                     /* Database ID */
     long long avg_ttl;          /* Average TTL, just for stats */
 
-    /* ADDB                                            */
-    /* TODO persistent_dict will be deprecated         */
-    /* Getting the key from RocksDB performed directly */
+    /* ADDB                                                    */
+    /* TODO persistent_dict will be deprecated                 */
+    /* Getting the key from RocksDB will be directly performed */
     dict *persistent_dict;
     persistent_store_t *persistent_store;
 } redisDb;
