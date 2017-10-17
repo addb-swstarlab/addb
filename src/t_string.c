@@ -174,6 +174,9 @@ int getGenericCommand(client *c) {
     }
 }
 
+/* ADDB */
+/* TODO This command will be deprecated        */
+/* All the related functions should be removed */
 int pgetGenericCommand(client *c) {
     robj *o;
 
