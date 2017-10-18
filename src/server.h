@@ -582,10 +582,16 @@ typedef struct RedisModuleDigest {
 #define LRU_CLOCK_MAX ((1<<LRU_BITS)-1) /* Max value of obj->lru */
 #define LRU_CLOCK_RESOLUTION 1000 /* LRU clock resolution in ms */
 
+/* ADDB */
+#define LOCATION_REDIS_ONLY 0
+#define LOCATION_TIERING    1
+#define LOCATION_PERSISTED  2
+
 #define OBJ_SHARED_REFCOUNT INT_MAX
 typedef struct redisObject {
     unsigned type:3;
     unsigned location:1;   /* ADDB - Data location : Memory or Persistent store */
+                           /* 0 : REDIS_ONLY, 1 : TIERING, 2 : PERSISTED */
     unsigned encoding:4;
     unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
                             * LFU data (least significant 8 bits frequency
