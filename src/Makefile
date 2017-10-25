@@ -130,7 +130,8 @@ REDIS_CC=$(QUIET_CC)$(CC) $(FINAL_CFLAGS)
 REDIS_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
 REDIS_LDPLUS=$(QUIET_LINK)$(REDIS_CCPLUS) $(FINAL_LDFLAGS)
 REDIS_INSTALL=$(QUIET_INSTALL)$(INSTALL)
-ROCKSDB_LIBS=-llz4 -lz -lbz2 -lsnappy -ljemalloc -lgflags
+#ROCKSDB_LIBS=-llz4 -lz -lbz2 -lsnappy -ljemalloc -lgflags
+ROCKSDB_LIBS=../deps/rocksdb/liblz4.so ../deps/rocksdb/libz.so ../deps/rocksdb/libbz2.so ../deps/rocksdb/libsnappy.so ../deps/jemalloc/lib/libjemalloc.a
 
 CCCOLOR="\033[34m"
 LINKCOLOR="\033[34;1m"
