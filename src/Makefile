@@ -16,7 +16,7 @@ release_hdr := $(shell sh -c './mkreleasehdr.sh')
 uname_S := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 uname_M := $(shell sh -c 'uname -m 2>/dev/null || echo not')
 OPTIMIZATION?=-O2
-DEPENDENCY_TARGETS=hiredis linenoise lua rocksdb
+DEPENDENCY_TARGETS=hiredis linenoise lua jemalloc rocksdb
 NODEPS:=clean distclean
 
 # Default settings
@@ -107,7 +107,7 @@ endif
 endif
 endif
 # Include paths to dependencies
-FINAL_CFLAGS+= -I../deps/hiredis -I../deps/linenoise -I../deps/lua/src -I../deps/rocksdb/include
+FINAL_CFLAGS+= -I../deps/hiredis -I../deps/linenoise -I../deps/lua/src -I../deps/rocksdb/include -I../deps/jemalloc/include
 
 ifeq ($(MALLOC),tcmalloc)
 	FINAL_CFLAGS+= -DUSE_TCMALLOC
@@ -122,7 +122,7 @@ endif
 ifeq ($(MALLOC),jemalloc)
 	DEPENDENCY_TARGETS+= jemalloc
 	FINAL_CFLAGS+= -DUSE_JEMALLOC -I../deps/jemalloc/include
-	FINAL_LIBS+= ../deps/jemalloc/lib/libjemalloc.a
+	FINAL_LIBS+= ../deps/jemalloc/lib/libjemalloc.so
 endif
 
 REDIS_CCPLUS=g++
@@ -131,7 +131,7 @@ REDIS_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
 REDIS_LDPLUS=$(QUIET_LINK)$(REDIS_CCPLUS) $(FINAL_LDFLAGS)
 REDIS_INSTALL=$(QUIET_INSTALL)$(INSTALL)
 #ROCKSDB_LIBS=-llz4 -lz -lbz2 -lsnappy -ljemalloc -lgflags
-ROCKSDB_LIBS=../deps/rocksdb/liblz4.so ../deps/rocksdb/libz.so ../deps/rocksdb/libbz2.so ../deps/rocksdb/libsnappy.so ../deps/jemalloc/lib/libjemalloc.a
+#ROCKSDB_LIBS=../deps/rocksdb/liblz4.so ../deps/rocksdb/libz.so ../deps/rocksdb/libbz2.so ../deps/rocksdb/libsnappy.so ../deps/jemalloc/lib/libjemalloc.so
 
 CCCOLOR="\033[34m"
 LINKCOLOR="\033[34;1m"
@@ -201,7 +201,7 @@ endif
 # redis-server
 $(REDIS_SERVER_NAME): $(REDIS_SERVER_OBJ)
 #	$(REDIS_LD) -o $@ $^ ../deps/hiredis/libhiredis.a ../deps/lua/src/liblua.a ../deps/rocksdb/librocksdb.a $(FINAL_LIBS)
-	$(REDIS_LDPLUS) -o $@ $^ ../deps/hiredis/libhiredis.a ../deps/lua/src/liblua.a ../deps/rocksdb/librocksdb.a $(FINAL_LIBS) $(ROCKSDB_LIBS)
+	$(REDIS_LDPLUS) -o $@ $^ ../deps/hiredis/libhiredis.a ../deps/lua/src/liblua.a ../deps/rocksdb/librocksdb.so $(FINAL_LIBS) $(ROCKSDB_LIBS)
 
 # redis-sentinel
 $(REDIS_SENTINEL_NAME): $(REDIS_SERVER_NAME)
