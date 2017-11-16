@@ -55,7 +55,9 @@ robj *lookupKey(redisDb *db, robj *key, int flags) {
             char* err = NULL;
             char* retVal = rocksdb_get_cf(db->persistent_store->ps, db->persistent_store->ps_options->roptions, db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW], key->ptr, sdslen(key->ptr), &val_len, &err);
             if(err) {
-                serverLog(LL_NOTICE, "Null Error Check : %s", err);
+                serverPanic("[RocksDB] Getting the key from RocksDB is failed.");
+            } else {
+                /* IsNotFound */
                 return NULL;
             }
             val = createStringObject(retVal, val_len);
