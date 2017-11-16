@@ -1858,7 +1858,6 @@ void initServer(void) {
 
         /* ADDB */
         /* currently, DB name is set to the number of Redis DB */
-        server.db[j].persistent_dict = dictCreate(&dbDictType,NULL);
         server.db[j].persistent_store = createPersistentStore(j);
     }
     evictionPoolAlloc(); /* Initialize the LRU keys pool. */

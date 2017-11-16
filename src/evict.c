@@ -510,7 +510,7 @@ int freeMemoryIfNeeded(void) {
                 /* 1. Synchronous Tiering - deprecated */
                 /* persistKey(db,keyobj); */
                 /* 2. Eager-background Tiering */
-                dbUnlinkAndTiering(db,keyobj);
+                dbPersistOrClear(db,keyobj);
             } else {
                 if (server.lazyfree_lazy_eviction)
                     dbAsyncDelete(db,keyobj);

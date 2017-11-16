@@ -84,22 +84,27 @@ int dbAsyncDelete(redisDb *db, robj *key) {
     }
 }
 
-int dbUnlinkAndTiering(redisDb *db, robj *key) {
-    /* Deleting an entry from the expires dict will not free the sds of
-     * the key, because it is shared with the main dictionary. */
-    if (dictSize(db->expires) > 0) dictDelete(db->expires,key->ptr);
-
+int dbPersistOrClear(redisDb *db, robj *key) {
     /* If the value is composed of a few allocations, to free in a lazy way
      * is actually just slower... So under a certain limit we just free
      * the object synchronously. */
-    dictEntry *de = dictUnlink(db->dict,key->ptr);
+    dictEntry *de = dictFind(db->dict,key->ptr);
     if (de) {
-        /*
-         * TODO ADDB
-         * In this case, value is just a string.
-         * However, the value will be a hash structure which is used for relation structure.
-         */
-        bioCreateBackgroundJob(BIO_TIERING,db,de,key);
+        robj *val = dictGetVal(de);
+        if(val->location == LOCATION_PERSISTED) {
+            /* Deleting an entry from the expires dict will not free the sds of
+             * the key, because it is shared with the main dictionary. */
+            if (dictSize(db->expires) > 0) dictDelete(db->expires,key->ptr);
+            dictDelete(db->dict,key->ptr);
+        } else if(val->location == LOCATION_REDIS_ONLY){
+            /*
+             * TODO ADDB
+             * In this case, value is just a string.
+             * However, the value will be a hash structure which is used for relation structure.
+             */
+            val->location = LOCATION_IS_TIERING;
+            bioCreateBackgroundJob(BIO_TIERING,db,de,key);
+        }
         return 1;
     } else {
         return 0;

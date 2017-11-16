@@ -584,7 +584,7 @@ typedef struct RedisModuleDigest {
 
 /* ADDB */
 #define LOCATION_REDIS_ONLY 0
-#define LOCATION_TIERING    1
+#define LOCATION_IS_TIERING 1
 #define LOCATION_PERSISTED  2
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
@@ -592,6 +592,7 @@ typedef struct redisObject {
     unsigned type:3;
     unsigned location:1;   /* ADDB - Data location : Memory or Persistent store */
                            /* 0 : REDIS_ONLY, 1 : TIERING, 2 : PERSISTED */
+                           /* TODO Need to change as an atomic variable */
     unsigned encoding:4;
     unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
                             * LFU data (least significant 8 bits frequency
@@ -625,10 +626,6 @@ typedef struct redisDb {
     int id;                     /* Database ID */
     long long avg_ttl;          /* Average TTL, just for stats */
 
-    /* ADDB                                                    */
-    /* TODO persistent_dict will be deprecated                 */
-    /* Getting the key from RocksDB will be directly performed */
-    dict *persistent_dict;
     persistent_store_t *persistent_store;
 } redisDb;
 
@@ -1730,15 +1727,10 @@ robj *lookupKeyWrite(redisDb *db, robj *key);
 
 /* ADDB */
 robj *lookupPkey(redisDb *db, robj *key, int flags);
-robj *lookupPkeyRead(redisDb *db, robj *key);
 
 robj *lookupKeyReadOrReply(client *c, robj *key, robj *reply);
 robj *lookupAllKeyReadOrReply(client *c, robj *key, robj *reply);
 robj *lookupKeyWriteOrReply(client *c, robj *key, robj *reply);
-
-/* ADDB */
-robj *lookupPkeyReadWithFlags(redisDb *db, robj *key, int flags);
-robj *lookupPkeyReadOrReply(client *c, robj *key, robj *reply);
 
 robj *lookupKeyReadWithFlags(redisDb *db, robj *key, int flags);
 robj *objectCommandLookup(client *c, robj *key);
@@ -1777,7 +1769,7 @@ void slotToKeyAdd(robj *key);
 void slotToKeyDel(robj *key);
 void slotToKeyFlush(void);
 int dbAsyncDelete(redisDb *db, robj *key);
-int dbUnlinkAndTiering(redisDb *db, robj *key);
+int dbPersistOrClear(redisDb *db, robj *key);
 void emptyDbAsync(redisDb *db);
 void slotToKeyFlushAsync(void);
 size_t lazyfreeGetPendingObjectsCount(void);

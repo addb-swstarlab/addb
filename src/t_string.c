@@ -181,9 +181,7 @@ int pgetGenericCommand(client *c) {
     robj *o;
 
     if ((o = lookupKeyReadOrReply(c,c->argv[1],shared.nullbulk)) != NULL) {
-        if((o = lookupPkeyReadOrReply(c,c->argv[1],shared.nullbulk)) == NULL) {
-            return C_OK;
-        }
+        return C_ERR;
     } else {
         return C_OK;
     }
