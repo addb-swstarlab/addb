@@ -212,11 +212,11 @@ proc start_server {options {code undefined}} {
     set stderr [format "%s/%s" [dict get $config "dir"] "stderr"]
 
     if {$::valgrind} {
-        set pid [exec /usr/bin/env LD_LIBRARY_PATH=/var/lib/jenkins/workspace/ADDB/deps/jemalloc:/var/lib/jenkins/workspace/ADDB/deps/rocksdb valgrind --track-origins=yes --suppressions=src/valgrind.sup --show-reachable=no --show-possibly-lost=no --leak-check=full src/redis-server $config_file > $stdout 2> $stderr &]
+        set pid [exec /usr/bin/env LD_LIBRARY_PATH=/var/lib/jenkins/workspace/ADDB/deps/jemalloc/lib:/var/lib/jenkins/workspace/ADDB/deps/rocksdb valgrind --track-origins=yes --suppressions=src/valgrind.sup --show-reachable=no --show-possibly-lost=no --leak-check=full src/redis-server $config_file > $stdout 2> $stderr &]
     } elseif ($::stack_logging) {
-        set pid [exec /usr/bin/env LD_LIBRARY_PATH=/var/lib/jenkins/workspace/ADDB/deps/jemalloc:/var/lib/jenkins/workspace/ADDB/deps/rocksdb MallocStackLogging=1 MallocLogFile=/tmp/malloc_log.txt src/redis-server $config_file > $stdout 2> $stderr &]
+        set pid [exec /usr/bin/env LD_LIBRARY_PATH=/var/lib/jenkins/workspace/ADDB/deps/jemalloc/lib:/var/lib/jenkins/workspace/ADDB/deps/rocksdb MallocStackLogging=1 MallocLogFile=/tmp/malloc_log.txt src/redis-server $config_file > $stdout 2> $stderr &]
     } else {
-        set pid [exec /usr/bin/env LD_LIBRARY_PATH=/var/lib/jenkins/workspace/ADDB/deps/jemalloc:/var/lib/jenkins/workspace/ADDB/deps/rocksdb src/redis-server $config_file > $stdout 2> $stderr &]
+        set pid [exec /usr/bin/env LD_LIBRARY_PATH=/var/lib/jenkins/workspace/ADDB/deps/jemalloc/lib:/var/lib/jenkins/workspace/ADDB/deps/rocksdb src/redis-server $config_file > $stdout 2> $stderr &]
     }
 
     # Tell the test server about this new instance.
