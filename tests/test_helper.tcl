@@ -46,7 +46,7 @@ set ::all_tests {
     unit/pubsub
     unit/slowlog
     unit/scripting
-    unit/maxmemory
+#    unit/maxmemory
     unit/introspection
     unit/introspection-2
     unit/limits
