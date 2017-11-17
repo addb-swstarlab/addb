@@ -415,6 +415,7 @@ int freeMemoryIfNeeded(void) {
         redisDb *db;
         dict *dict;
         dictEntry *de;
+        int isPersisted = 0;
 
         if (server.maxmemory_policy & (MAXMEMORY_FLAG_LRU|MAXMEMORY_FLAG_LFU) ||
             server.maxmemory_policy == MAXMEMORY_VOLATILE_TTL)
@@ -510,7 +511,7 @@ int freeMemoryIfNeeded(void) {
                 /* 1. Synchronous Tiering - deprecated */
                 /* persistKey(db,keyobj); */
                 /* 2. Eager-background Tiering */
-                dbPersistOrClear(db,keyobj);
+                isPersisted = dbPersistOrClear(db,keyobj);
             } else {
                 if (server.lazyfree_lazy_eviction)
                     dbAsyncDelete(db,keyobj);
@@ -557,6 +558,9 @@ int freeMemoryIfNeeded(void) {
             latencyAddSampleIfNeeded("eviction-cycle",latency);
             goto cant_free; /* nothing to free... */
         }
+
+        if(isPersisted)
+            break;
     }
     latencyEndMonitor(latency);
     latencyAddSampleIfNeeded("eviction-cycle",latency);

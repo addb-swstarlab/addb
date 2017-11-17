@@ -95,7 +95,8 @@ int dbPersistOrClear(redisDb *db, robj *key) {
             /* Deleting an entry from the expires dict will not free the sds of
              * the key, because it is shared with the main dictionary. */
             if (dictSize(db->expires) > 0) dictDelete(db->expires,key->ptr);
-            dictDelete(db->dict,key->ptr);
+            dictEntry *entry = dictUnlink(db->dict,key->ptr);
+            bioCreateBackgroundJob(BIO_TIERED_FREE,db,entry,NULL);
         } else if(val->location == LOCATION_REDIS_ONLY){
             /*
              * TODO ADDB

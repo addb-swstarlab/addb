@@ -40,4 +40,5 @@ void bioKillThreads(void);
 #define BIO_AOF_FSYNC     1 /* Deferred AOF fsync. */
 #define BIO_LAZY_FREE     2 /* Deferred objects freeing. */
 #define BIO_TIERING       3 /* Deferred data insertion to RocksDB */
-#define BIO_NUM_OPS       4
+#define BIO_TIERED_FREE   4
+#define BIO_NUM_OPS       5

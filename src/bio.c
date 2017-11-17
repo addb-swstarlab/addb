@@ -206,6 +206,15 @@ void *bioProcessBackgroundJobs(void *arg) {
             robj *keyobj = (robj *)job->arg3;
             persistKey(db, de, keyobj);
             decrRefCount(keyobj);
+        } else if (type == BIO_TIERED_FREE) {
+            /* ADDB */
+            dictEntry *de = (dictEntry *)job->arg1;
+            sds key = dictGetKey(de);
+            robj* val = dictGetVal(de);
+
+            sdsfree(key);
+            decrRefCount(val);
+            zfree(de);
         } else {
             serverPanic("Wrong job type in bioProcessBackgroundJobs().");
         }
