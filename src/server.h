@@ -584,8 +584,7 @@ typedef struct RedisModuleDigest {
 
 /* ADDB */
 #define LOCATION_REDIS_ONLY 0
-#define LOCATION_IS_TIERING 1
-#define LOCATION_PERSISTED  2
+#define LOCATION_PERSISTED  1
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
 typedef struct redisObject {

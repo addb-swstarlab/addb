@@ -103,7 +103,6 @@ int dbPersistOrClear(redisDb *db, robj *key) {
              * In this case, value is just a string.
              * However, the value will be a hash structure which is used for relation structure.
              */
-            val->location = LOCATION_IS_TIERING;
             bioCreateBackgroundJob(BIO_TIERING,db,de,key);
         }
         return 1;
