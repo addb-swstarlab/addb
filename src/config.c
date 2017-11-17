@@ -423,6 +423,10 @@ void loadServerConfigFromString(char *config) {
             if ((server.repl_slave_lazy_flush = yesnotoi(argv[1])) == -1) {
                 err = "argument must be 'yes' or 'no'"; goto loaderr;
             }
+        } else if (!strcasecmp(argv[0],"tiering_enabled") && argc == 2) {
+            if ((server.tiering_enabled = yesnotoi(argv[1])) == -1) {
+                err = "argument must be 'yes' or 'no'"; goto loaderr;
+            }
         } else if (!strcasecmp(argv[0],"activedefrag") && argc == 2) {
             if ((server.active_defrag_enabled = yesnotoi(argv[1])) == -1) {
                 err = "argument must be 'yes' or 'no'"; goto loaderr;
