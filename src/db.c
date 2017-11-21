@@ -268,16 +268,13 @@ robj *dbRandomKey(redisDb *db) {
 /* ADDB */
 /* In this method, value is only raw string type */
 /* TODO In the future, the type of value will be hash object */
-void persistKey(redisDb *db, dictEntry *de, robj *keyobj) {
-    robj* targetVal = dictGetVal(de);
-    robj* persistentValue = getDecodedObject(targetVal);
+void persistKey(redisDb *db, robj *keyobj, robj *targetVal) {
     robj* targetKey = keyobj;
     sds persistKeyStr = targetKey->ptr;
     int persistKeyStrLen = sdslen(persistKeyStr);
     char *persistValStr = targetVal->ptr;
     int persistValStrLen = sdslen(persistValStr);
     setPersistentKey(db->persistent_store,persistKeyStr,persistKeyStrLen,persistValStr,persistValStrLen);
-    decrRefCount(persistentValue);
     targetVal->location = LOCATION_PERSISTED;
 }
 

@@ -96,14 +96,14 @@ int dbPersistOrClear(redisDb *db, robj *key) {
              * the key, because it is shared with the main dictionary. */
             if (dictSize(db->expires) > 0) dictDelete(db->expires,key->ptr);
             dictEntry *entry = dictUnlink(db->dict,key->ptr);
-            bioCreateBackgroundJob(BIO_TIERED_FREE,db,entry,NULL);
+            bioCreateBackgroundJob(BIO_TIERED_FREE,entry,NULL,NULL);
         } else if(val->location == LOCATION_REDIS_ONLY){
             /*
              * TODO ADDB
              * In this case, value is just a string.
              * However, the value will be a hash structure which is used for relation structure.
              */
-            bioCreateBackgroundJob(BIO_TIERING,db,de,key);
+            bioCreateBackgroundJob(BIO_TIERING,db,key,getDecodedObject(dictGetVal(de)));
         }
         return 1;
     } else {

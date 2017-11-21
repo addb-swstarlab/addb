@@ -590,7 +590,7 @@ typedef struct RedisModuleDigest {
 typedef struct redisObject {
     unsigned type:3;
     unsigned location:1;   /* ADDB - Data location : Memory or Persistent store */
-                           /* 0 : REDIS_ONLY, 1 : TIERING, 2 : PERSISTED */
+                           /* 0 : REDIS_ONLY, 1 : PERSISTED */
                            /* TODO Need to change as an atomic variable */
     unsigned encoding:4;
     unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
@@ -1749,7 +1749,7 @@ int dbSyncDelete(redisDb *db, robj *key);
 int dbDelete(redisDb *db, robj *key);
 robj *dbUnshareStringValue(redisDb *db, robj *key, robj *o);
 /* ADDB */
-void persistKey(redisDb *db, dictEntry *de, robj *keyobj);
+void persistKey(redisDb *db, robj *keyobj, robj *targetVal);
 
 #define EMPTYDB_NO_FLAGS 0      /* No flags. */
 #define EMPTYDB_ASYNC (1<<0)    /* Reclaim memory in another thread. */

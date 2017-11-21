@@ -202,10 +202,11 @@ void *bioProcessBackgroundJobs(void *arg) {
         } else if (type == BIO_TIERING) {
             /* ADDB */
             redisDb *db = (redisDb *)job->arg1;
-            dictEntry *de = (dictEntry *)job->arg2;
-            robj *keyobj = (robj *)job->arg3;
-            persistKey(db, de, keyobj);
+            robj *keyobj = (robj *)job->arg2;
+            robj *valobj = (robj *)job->arg3;
+            persistKey(db, keyobj, valobj);
             decrRefCount(keyobj);
+            decrRefCount(valobj);
         } else if (type == BIO_TIERED_FREE) {
             /* ADDB */
             dictEntry *de = (dictEntry *)job->arg1;
