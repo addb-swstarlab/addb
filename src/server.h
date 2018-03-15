@@ -2023,6 +2023,16 @@ void latencyCommand(client *c);
 void moduleCommand(client *c);
 void securityWarningCommand(client *c);
 
+/*
+ * 2018.3.15
+ * hssung@yonsei.ac.kr
+ */
+void fpWriteCommand(client *c);
+void fpReadCommand(client *c);
+void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire, int unit, robj *ok_reply, robj *abort_reply);
+int getGenericCommand(client *c);
+
+
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));
 void free(void *ptr) __attribute__ ((deprecated));

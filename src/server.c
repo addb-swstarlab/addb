@@ -306,7 +306,13 @@ struct redisCommand redisCommandTable[] = {
     {"pfdebug",pfdebugCommand,-3,"w",0,NULL,0,0,0,0,0},
     {"post",securityWarningCommand,-1,"lt",0,NULL,0,0,0,0,0},
     {"host:",securityWarningCommand,-1,"lt",0,NULL,0,0,0,0,0},
-    {"latency",latencyCommand,-2,"aslt",0,NULL,0,0,0,0,0}
+    {"latency",latencyCommand,-2,"aslt",0,NULL,0,0,0,0,0},
+	/*
+	 * 2018.3.15
+	 * hssung@yonsei.ac.kr
+	 */
+    {"fpread",fpReadCommand,2,"rF",0,NULL,1,1,1,0,0},
+    {"fpwrite",fpWriteCommand,-3,"wm",0,NULL,1,1,1,0,0}
 };
 
 /*============================ Utility functions ============================ */
