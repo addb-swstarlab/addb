@@ -5,6 +5,7 @@
  */
 
 #include "server.h"
+#include "global.h"
 
 #define FPWRITE_NO_FLAGS 0
 #define FPWRITE_NX (1<<0)     /* Set if key not exists. */
@@ -12,54 +13,42 @@
 #define FPWRITE_EX (1<<2)     /* Set if time in seconds is given */
 #define FPWRITE_PX (1<<3)     /* Set if time in ms in given */
 
+
+/*ADDB*/
+/*fpWrite parameter list
+ * arg1 : dataKeyInfo
+ * arg2 : partitionInfo
+ * arg3 : filter index column
+ * arg4 : */
+
 void fpWriteCommand(client *c){
 
 	serverLog(LL_VERBOSE,"FPWRITE COMMAND START");
-    int j;
-    robj *expire = NULL;
-    int unit = UNIT_SECONDS;
-    int flags = FPWRITE_NO_FLAGS;
 
-    for (j = 3; j < c->argc; j++) {
-        char *a = c->argv[j]->ptr;
-        robj *next = (j == c->argc-1) ? NULL : c->argv[j+1];
+	int fpWrite_result = 0;
+	int i;
 
-        if ((a[0] == 'n' || a[0] == 'N') &&
-            (a[1] == 'x' || a[1] == 'X') && a[2] == '\0' &&
-            !(flags & FPWRITE_XX))
-        {
-            flags |= FPWRITE_NX;
-        } else if ((a[0] == 'x' || a[0] == 'X') &&
-                   (a[1] == 'x' || a[1] == 'X') && a[2] == '\0' &&
-                   !(flags & FPWRITE_NX))
-        {
-            flags |= FPWRITE_XX;
-        } else if ((a[0] == 'e' || a[0] == 'E') &&
-                   (a[1] == 'x' || a[1] == 'X') && a[2] == '\0' &&
-                   !(flags & FPWRITE_PX) && next)
-        {
-            flags |= FPWRITE_EX;
-            unit = UNIT_SECONDS;
-            expire = next;
-            j++;
-        } else if ((a[0] == 'p' || a[0] == 'P') &&
-                   (a[1] == 'x' || a[1] == 'X') && a[2] == '\0' &&
-                   !(flags & FPWRITE_EX) && next)
-        {
-            flags |= FPWRITE_PX;
-            unit = UNIT_MILLISECONDS;
-            expire = next;
-            j++;
-        } else {
-            addReply(c,shared.syntaxerr);
-            return;
-        }
-    }
+	struct redisClient *fakeClient = NULL;
 
-    c->argv[2] = tryObjectEncoding(c->argv[2]);
-    setGenericCommand(c,flags,c->argv[1],c->argv[2],expire,unit,NULL,NULL);
+	serverLog(LL_VERBOSE, "fpWrite Param List ==> Key : %s, partition :%s, num_of_column : %s, indexColumn : %s",
+			(char *) c->argv[1]->ptr,(char *) c->argv[2]->ptr, (char *) c->argv[3]->ptr , (char *) c->argv[4]->ptr);
 
+	/*parsing*/
+	NewDataKeyInfo *dataKeyInfo = createDataKeyInfo((sds) c->argv[1]->ptr);
+
+
+	/*meta lookup*/
+	/*pk*/
+	/*dict- hashdict */
+	/*insert*/
+	/*filter*/
+	/*free*/
+	/*eviction insert*/
+
+	serverLog(LL_VERBOSE,"FPWRITE COMMAND END");
+	addReply(c, shared.ok);
 }
+
 
 void fpReadCommand(client *c) {
 	serverLog(LL_VERBOSE,"FPREAD COMMAND START");
