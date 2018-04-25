@@ -56,6 +56,9 @@
 #include <locale.h>
 #include <sys/socket.h>
 
+#include "addb_relational.h"
+
+
 /* Our shared "common" objects */
 
 struct sharedObjectsStruct shared;
