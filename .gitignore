@@ -8,3 +8,12 @@ src/redis-check-rdb
 src/redis-cli
 src/redis-sentinel
 src/redis-server
+deps/.make-cflags
+deps/.make-ldflags
+deps/.make-prerequisites
+deps/lua/src/liblua.a
+deps/lua/src/lua
+deps/lua/src/luac
+src/.make-prerequisites
+src/.make-settings
+*.rdb
