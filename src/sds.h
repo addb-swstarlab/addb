@@ -72,6 +72,14 @@ struct __attribute__ ((__packed__)) sdshdr64 {
     char buf[];
 };
 
+/*addb add sdshdr struct*/
+struct sdshdr{
+	unsigned int len;
+	unsigned int free;
+	char init[];
+
+};
+
 #define SDS_TYPE_5  0
 #define SDS_TYPE_8  1
 #define SDS_TYPE_16 2
@@ -265,6 +273,9 @@ void *sdsAllocPtr(sds s);
 void *sds_malloc(size_t size);
 void *sds_realloc(void *ptr, size_t size);
 void sds_free(void *ptr);
+
+/*addb initialize sds buffer*/
+sds sdsIntialize(const char *init, size_t size);
 
 #ifdef REDIS_TEST
 int sdsTest(int argc, char *argv[]);

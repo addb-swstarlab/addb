@@ -626,6 +626,9 @@ typedef struct redisDb {
     int id;                     /* Database ID */
     long long avg_ttl;          /* Average TTL, just for stats */
 
+    /*addb add Metadict*/
+    dict *Metadict;            /*using for relational metadata */
+
     persistent_store_t *persistent_store;
 } redisDb;
 

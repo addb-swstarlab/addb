@@ -717,6 +717,10 @@ void tryResizeHashTables(int dbid) {
         dictResize(server.db[dbid].dict);
     if (htNeedsResize(server.db[dbid].expires))
         dictResize(server.db[dbid].expires);
+
+    /*addb add Metadict*/
+    if (htNeedsResize(server.db[dbid].Metadict))
+        dictResize(server.db[dbid].Metadict);
 }
 
 /* Our hash table implementation performs rehashing incrementally while
@@ -735,6 +739,12 @@ int incrementallyRehash(int dbid) {
     /* Expires */
     if (dictIsRehashing(server.db[dbid].expires)) {
         dictRehashMilliseconds(server.db[dbid].expires,1);
+        return 1; /* already used our millisecond for this loop... */
+    }
+
+    /*Metadict*/
+    if (dictIsRehashing(server.db[dbid].Metadict)) {
+        dictRehashMilliseconds(server.db[dbid].Metadict,1);
         return 1; /* already used our millisecond for this loop... */
     }
     return 0;
@@ -1015,8 +1025,10 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
         for (j = 0; j < server.dbnum; j++) {
             long long size, used, vkeys;
 
-            size = dictSlots(server.db[j].dict);
-            used = dictSize(server.db[j].dict);
+
+            /*addb add metadict size & used*/
+            size = dictSlots(server.db[j].dict) + dictSlots(server.db[j].Metadict);
+            used = dictSize(server.db[j].dict) + dictSlots(server.db[j].Metadict);
             vkeys = dictSize(server.db[j].expires);
             if (used || vkeys) {
                 serverLog(LL_VERBOSE,"DB %d: %lld keys (%lld volatile) in %lld slots HT.",j,used,vkeys,size);
@@ -1859,6 +1871,9 @@ void initServer(void) {
     for (j = 0; j < server.dbnum; j++) {
         server.db[j].dict = dictCreate(&dbDictType,NULL);
         server.db[j].expires = dictCreate(&keyptrDictType,NULL);
+        /*addb create Metadict*/
+        server.db[j].Metadict = dictCreate(&dbDictType, NULL);
+
         server.db[j].blocking_keys = dictCreate(&keylistDictType,NULL);
         server.db[j].ready_keys = dictCreate(&objectKeyPointerValueDictType,NULL);
         server.db[j].watched_keys = dictCreate(&keylistDictType,NULL);
@@ -3302,13 +3317,17 @@ sds genRedisInfoString(char *section) {
         info = sdscatprintf(info, "# Keyspace\r\n");
         for (j = 0; j < server.dbnum; j++) {
             long long keys, vkeys;
+            long long metaKeys =0; /*addb metakey*/
 
-            keys = dictSize(server.db[j].dict);
+            keys = dictSize(server.db[j].dict) + dictSize(server.db[j].Metadict);
             vkeys = dictSize(server.db[j].expires);
+
+            /*addb Metakey*/
+            metaKeys = dictSize(server.db[j].Metadict);
             if (keys || vkeys) {
                 info = sdscatprintf(info,
-                    "db%d:keys=%lld,expires=%lld,avg_ttl=%lld\r\n",
-                    j, keys, vkeys, server.db[j].avg_ttl);
+                    "db%d:keys=%lld,metaKeys=%lld,expires=%lld,avg_ttl=%lld\r\n",
+                    j, keys, metaKeys, vkeys, server.db[j].avg_ttl);
             }
         }
     }

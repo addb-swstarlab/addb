@@ -1100,6 +1100,16 @@ void *sds_malloc(size_t size) { return s_malloc(size); }
 void *sds_realloc(void *ptr, size_t size) { return s_realloc(ptr,size); }
 void sds_free(void *ptr) { s_free(ptr); }
 
+/*addb initialize sds*/
+sds sdsIntialize(const char *init, size_t size){
+	sds ret = (char *) init + sizeof(struct sdshdr);
+	struct sdshdr *header = (struct sdshdr *) init;
+	header->len = 0;
+	header->free = size - sizeof(struct sdshdr);
+	return ret;
+}
+
+
 #if defined(SDS_TEST_MAIN)
 #include <stdio.h>
 #include "testhelp.h"

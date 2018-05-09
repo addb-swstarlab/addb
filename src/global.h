@@ -6,16 +6,15 @@
 #include <stdint.h>
 
 #define RELMODEL_DELIMITER ":"
-#define RELMODEL_META_PREFIX "M"
-#define RELMODEL_ROWIDX_PREFIX "C"
 #define RELMODEL_DATA_PREFIX "D"
+#define RELMODEL_META_PREFIX "M"
 #define RELMODEL_INDEX_PREFIX "I"
 #define RELMODEL_BRACE_PREFIX "{"
 #define RELMODEL_BRACE_SUFFIX "}"
-#define RELMODEL_ROWGROUPID_PREFIX "G:"
+#define RELMODEL_ROWGROUPNUMBER_PREFIX "G:"
 
 
-#define DATA_KEY_SIZE_MAX 256
+#define DATA_KEY_MAX_SIZE 256
 #define PARTITION_KEY_SIZE_MAX 256
 #define PARTITION_KEY_CNT_MAX (PARTITION_KEY_SIZE_MAX/sizeof(unsigned long long))	//32
 
@@ -26,9 +25,9 @@ typedef union Partition {
 } Partition;
 
 typedef struct NewDataKeyInfo {
-	int tableId;
-	int rowGroupId;
-	int rowCnt;
+	int table_number;
+	int rowGroup_number;
+	int row_number;
 	uint32_t isPartitionString:1, partitionCnt:31;
 	Partition partitionInfo;
 	uint32_t timeStamp;

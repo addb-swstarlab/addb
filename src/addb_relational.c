@@ -15,7 +15,7 @@
 NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
 
   assert(dataKeyString != NULL);
-  serverLog(LL_VERBOSE,"Create DATAKEYINFO START");
+  serverLog(LL_DEBUG,"Create DATAKEYINFO START");
 
   NewDataKeyInfo *ret = zcalloc(sizeof(NewDataKeyInfo));
   char copyStr[MAX_TMPBUF_SIZE];
@@ -29,47 +29,59 @@ NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
   memcpy(copyStr, dataKeyString, size);
 
   //parsing the prefix
-  if ((token = strtok_r(copyStr, RELMODEL_DELIMITER, &saveptr)) == NULL)
-          goto fail;
+  if ((token = strtok_r(copyStr, RELMODEL_DELIMITER, &saveptr)) == NULL){
+	  serverLog(LL_WARNING, "Fatal: DataKey broken Error: [%s]", dataKeyString);
+	  zfree(ret);
+	  return NULL;
+  }
+  /*skip IDX prefix ("I") */
+  if (strcasecmp(token, RELMODEL_INDEX_PREFIX) == 0 ) {
+	  // skip idxType field
+	  strtok_r(NULL, RELMODEL_DELIMITER, &saveptr);
+  }
+  // parsing table_number
+  if ((token = strtok_r(NULL, RELMODEL_DELIMITER, &saveptr)) == NULL){
+	  serverLog(LL_WARNING, "Fatal: DataKey broken Error: [%s]", dataKeyString);
+	  zfree(ret);
+	  return NULL;
+  }
+  ret->table_number = atoi(token + strlen(RELMODEL_BRACE_PREFIX));
+  //parsing partitionInfo
+  if ((token = strtok_r(NULL, RELMODEL_BRACE_SUFFIX, &saveptr)) == NULL){
+	  serverLog(LL_WARNING, "Fatal: DataKey broken Error: [%s]", dataKeyString);
+	  zfree(ret);
+	  return NULL;
+  }
+  size_t part_size = strlen(token)+1;
+  assert(part_size <= PARTITION_KEY_SIZE_MAX);
+  memcpy(ret->partitionInfo.partitionString, token, part_size);
+  ret->isPartitionString = true;
 
-      /*skip IDX prefix ("I") */
-      if (strcasecmp(token, RELMODEL_INDEX_PREFIX) == 0 ) {
-          // skip idxType field
-          strtok_r(NULL, RELMODEL_DELIMITER, &saveptr);
-      }
+  //parsing rowgroup number
+  if (saveptr != NULL && (token = strtok_r(NULL, RELMODEL_ROWGROUPNUMBER_PREFIX, &saveptr)) != NULL)
+	  ret->rowGroup_number = atoi(token);
+  else
+	  ret->rowGroup_number = 0;
 
-      // parsing tableId
-      if ((token = strtok_r(NULL, RELMODEL_DELIMITER, &saveptr)) == NULL)
-          goto fail;
-      ret->tableId = atoi(token + strlen(RELMODEL_BRACE_PREFIX));
+  serverLog(LL_DEBUG, "BEFORE RETURN TO ADDB_TABLE");
+  serverLog(LL_DEBUG,"TOKEN : %s, SAVEPTR: %s, table_number : %d, partitionInfo : %s, rowgroup : %d",
+              token, saveptr, ret->table_number,ret->partitionInfo.partitionString, ret->rowGroup_number);
+  serverLog(LL_DEBUG,"Create DATAKEYINFO END");
 
-      //parsing partitionInfo
-      if ((token = strtok_r(NULL, RELMODEL_BRACE_SUFFIX, &saveptr)) == NULL)
-          goto fail;
-
-      size_t part_size = strlen(token)+1;
-      assert(part_size <= PARTITION_KEY_SIZE_MAX);
-      memcpy(ret->partitionInfo.partitionString, token, part_size);
-      ret->isPartitionString = true;
-
-      //parsing rowgroup id
-      if (saveptr != NULL &&
-          (token = strtok_r(NULL, RELMODEL_ROWGROUPID_PREFIX, &saveptr)) != NULL)
-          ret->rowGroupId = atoi(token);
-      else
-          ret->rowGroupId = 0;
-
-      serverLog(LL_VERBOSE, "BEFORE RETURN TO ADDB_TABLE");
-      serverLog(LL_VERBOSE,"TOKEN : %s, SAVEPTR: %s, tableId : %d, partitionInfo : %s, rowgroup : %d",
-              token, saveptr, ret->tableId,ret->partitionInfo.partitionString, ret->rowGroupId);
-      serverLog(LL_VERBOSE,"Create DATAKEYINFO END");
-
-      return ret;
-
-fail:
-  serverLog(LL_WARNING, "Fatal: data key is broken: [%s]", dataKeyString);
-  zfree(ret);
-  return NULL;
-
+  return ret;
 }
 
+/*addb get RowgroupInfo from Metadict*/
+int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *keyInfo){
+	char tmp[SDS_DATA_KEY_MAX];
+	sds findKey = sdsIntialize(tmp, sizeof(tmp));
+	return true;
+}
+
+
+int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
+    serverLog(LL_VERBOSE,"GET ROWGROUP INFO START");
+    int number =0;
+    return number;
+
+}

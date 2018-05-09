@@ -7,7 +7,7 @@
 #include "global.h"
 
 #define MAX_TMPBUF_SIZE 128
-
+#define SDS_DATA_KEY_MAX (sizeof(struct sdshdr) + DATA_KEY_MAX_SIZE)
 
 //typedef struct DataKeyInfo {
 //    char dataKeyCopy[MAX_TMPBUF_SIZE];  //the whole string
@@ -21,3 +21,8 @@
 
 NewDataKeyInfo *parsingDataKeyInfo(sds dataKeyString);
 int changeDataKeyInfo(NewDataKeyInfo *dataKeyInfo, int number);
+
+
+/*addb Metadict*/
+int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *keyInfo);
+int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo);
