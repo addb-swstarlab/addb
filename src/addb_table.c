@@ -76,3 +76,33 @@ void fpReadCommand(client *c) {
     getGenericCommand(c);
 }
 
+/*
+ * fpScanCommand
+ * Scan data from the database(Redis & RocksDB)
+ * --- Parameters ---
+ *  arg1: Key(Table ID & PartitionInfo ID)
+ *  arg2: Column IDs to find
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      tableId: "3"
+ *      partitionInfoId: "1:2"
+ *      columnIds: ["2", "3", "4"]
+ *  Command:
+ *      redis-cli> FPSCAN D:{3:2:1} 2,3,4
+ *  Results:
+ *      redis-cli> "20180509"
+ *      redis-cli> "Do young Kim"
+ *      redis-cli> "Yonsei Univ"
+ *      ...
+ */
+void fpScanCommand(client *c) {
+    serverLog(LL_VERBOSE, "FPSCAN COMMAND START");
+
+    /*Creates scan parameters*/
+    /*Populates row group information to scan parameters*/
+    /*Load data from Redis or RocksDB*/
+    /*Scan data to client*/
+
+    addReply(c, shared.ok);
+}

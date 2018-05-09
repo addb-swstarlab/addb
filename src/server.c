@@ -315,7 +315,8 @@ struct redisCommand redisCommandTable[] = {
 	 * hssung@yonsei.ac.kr
 	 */
     {"fpread",fpReadCommand,2,"rF",0,NULL,1,1,1,0,0},
-    {"fpwrite",fpWriteCommand,-3,"wm",0,NULL,1,1,1,0,0}
+    {"fpwrite",fpWriteCommand,-3,"wm",0,NULL,1,1,1,0,0},
+    {"fpscan",fpScanCommand,-3,"rF",0,NULL,1,1,1,0,0}
 };
 
 /*============================ Utility functions ============================ */
