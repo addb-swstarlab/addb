@@ -121,8 +121,8 @@ void fpScanCommand(client *c) {
     for (int i = 0; i < scanParam->columnParam->columnCount; ++i) {
         serverLog(LL_DEBUG, "i: %d, columnId: %d, columnIdStr: %s",
                   i,
-                  *(int *) vectorGet(&scanParam->columnParam->columnIdList, i),
-                  (char *) vectorGet(
+                  vectorGetInt(&scanParam->columnParam->columnIdList, i),
+                  vectorGetSds(
                       &scanParam->columnParam->columnIdStrList, i));
     }
 
