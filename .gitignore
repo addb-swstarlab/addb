@@ -17,3 +17,7 @@ deps/lua/src/luac
 src/.make-prerequisites
 src/.make-settings
 *.rdb
+*.swo
+*.swp
+tags
+*\:default/

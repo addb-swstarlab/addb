@@ -55,7 +55,7 @@ void fpWriteCommand(client *c){
 
     serverLog(LL_VERBOSE,"END PARSING STEP");
     serverLog(LL_VERBOSE,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
-              dataKeyInfo->table_number, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroup_number);
+              dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroupId);
 
 
     /*meta lookup*/
@@ -98,11 +98,37 @@ void fpReadCommand(client *c) {
  */
 void fpScanCommand(client *c) {
     serverLog(LL_VERBOSE, "FPSCAN COMMAND START");
+    serverLog(LL_DEBUG, "DEBUG: command parameter");
+    serverLog(LL_DEBUG, "first: %s, second: %s", (sds) c->argv[1]->ptr,
+              (sds) c->argv[2]->ptr);
 
     /*Creates scan parameters*/
+    ScanParameter *scanParam = createScanParameter(c);
+    serverLog(LL_DEBUG, "DEBUG: parse scan parameter");
+    serverLog(LL_DEBUG, "startRowGroupId: %d, totalRowGroupCount: %d",
+              scanParam->startRowGroupId, scanParam->totalRowGroupCount);
+    serverLog(LL_DEBUG, "dataKeyInfo");
+    serverLog(LL_DEBUG,
+              "tableId: %d, partitionInfo: %s, rowGroupId: %d, rowCnt: %d",
+              scanParam->dataKeyInfo->tableId,
+              scanParam->dataKeyInfo->partitionInfo.partitionString,
+              scanParam->dataKeyInfo->rowGroupId,
+              scanParam->dataKeyInfo->row_number);
+    serverLog(LL_DEBUG, "columnParam");
+    serverLog(LL_DEBUG, "original: %s, columnCount: %d",
+              scanParam->columnParam->original,
+              scanParam->columnParam->columnCount);
+    for (int i = 0; i < scanParam->columnParam->columnCount; ++i) {
+        serverLog(LL_DEBUG, "i: %d, columnId: %d, columnIdStr: %s",
+                  i,
+                  scanParam->columnParam->columnIdList[i],
+                  scanParam->columnParam->columnIdStrList[i]);
+    }
+
     /*Populates row group information to scan parameters*/
     /*Load data from Redis or RocksDB*/
     /*Scan data to client*/
 
     addReply(c, shared.ok);
 }
+

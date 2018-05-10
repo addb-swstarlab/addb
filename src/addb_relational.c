@@ -39,13 +39,13 @@ NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
 	  // skip idxType field
 	  strtok_r(NULL, RELMODEL_DELIMITER, &saveptr);
   }
-  // parsing table_number
+  // parsing tableId
   if ((token = strtok_r(NULL, RELMODEL_DELIMITER, &saveptr)) == NULL){
 	  serverLog(LL_WARNING, "Fatal: DataKey broken Error: [%s]", dataKeyString);
 	  zfree(ret);
 	  return NULL;
   }
-  ret->table_number = atoi(token + strlen(RELMODEL_BRACE_PREFIX));
+  ret->tableId = atoi(token + strlen(RELMODEL_BRACE_PREFIX));
   //parsing partitionInfo
   if ((token = strtok_r(NULL, RELMODEL_BRACE_SUFFIX, &saveptr)) == NULL){
 	  serverLog(LL_WARNING, "Fatal: DataKey broken Error: [%s]", dataKeyString);
@@ -59,13 +59,13 @@ NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
 
   //parsing rowgroup number
   if (saveptr != NULL && (token = strtok_r(NULL, RELMODEL_ROWGROUPNUMBER_PREFIX, &saveptr)) != NULL)
-	  ret->rowGroup_number = atoi(token);
+	  ret->rowGroupId = atoi(token);
   else
-	  ret->rowGroup_number = 0;
+	  ret->rowGroupId = 0;
 
   serverLog(LL_DEBUG, "BEFORE RETURN TO ADDB_TABLE");
-  serverLog(LL_DEBUG,"TOKEN : %s, SAVEPTR: %s, table_number : %d, partitionInfo : %s, rowgroup : %d",
-              token, saveptr, ret->table_number,ret->partitionInfo.partitionString, ret->rowGroup_number);
+  serverLog(LL_DEBUG,"TOKEN : %s, SAVEPTR: %s, tableId : %d, partitionInfo : %s, rowgroup : %d",
+              token, saveptr, ret->tableId,ret->partitionInfo.partitionString, ret->rowGroupId);
   serverLog(LL_DEBUG,"Create DATAKEYINFO END");
 
   return ret;
@@ -84,4 +84,58 @@ int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
     int number =0;
     return number;
 
+}
+
+/* ADDB Create Scan parameter*/
+#define INIT_COLUMN_PARAMTER_LIST_SIZE 10
+ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
+    ColumnParameter *param = (ColumnParameter *) zmalloc(
+            sizeof(ColumnParameter));
+    param->original = sdsdup(rawColumnIdsString);
+
+    size_t allocSize = INIT_COLUMN_PARAMTER_LIST_SIZE;
+    param->columnIdList = (int *) zmalloc(sizeof(int) * allocSize);
+    param->columnIdStrList = (char **) zmalloc(sizeof(char *) * allocSize);
+
+    char *savePtr = NULL;
+    sds copied_original = sdsdup(param->original);
+    char *token = strtok_r(copied_original, RELMODEL_COLUMN_DELIMITER,
+                           &savePtr);
+
+    if (token == NULL) {
+        serverLog(LL_WARNING, "Fatal: column parameter is broken: no data");
+        serverPanic("column parameter is broken");
+    }
+
+    size_t index = 0;
+    while (token != NULL) {
+        if (index >= allocSize) {
+            // Reallocation
+            allocSize += INIT_COLUMN_PARAMTER_LIST_SIZE;
+            param->columnIdList = (int *) zrealloc(param->columnIdList,
+                                                   sizeof(int) * allocSize);
+            param->columnIdStrList = (char **) zrealloc(
+                    param->columnIdStrList,
+                    sizeof(char *) * allocSize);
+        }
+
+        // TODO(totoro): Checks that column ID is valid.
+        param->columnIdStrList[index] = token;
+        param->columnIdList[index] = atoi(token);
+        index++;
+        token = strtok_r(NULL, RELMODEL_COLUMN_DELIMITER, &savePtr);
+    }
+    param->columnCount = index;
+    sdsfree(copied_original);
+    return param;
+}
+
+ScanParameter *createScanParameter(const client *c) {
+    ScanParameter *param = (ScanParameter *) zmalloc(sizeof(ScanParameter));
+    param->startRowGroupId = 0;
+    // TODO(totoro): Gets total row group count from dictMeta.
+    param->totalRowGroupCount = 0;
+    param->dataKeyInfo = parsingDataKeyInfo((sds) c->argv[1]->ptr);
+    param->columnParam = parseColumnParameter((sds) c->argv[2]->ptr);
+    return param;
 }

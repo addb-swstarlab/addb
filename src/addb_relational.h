@@ -18,11 +18,27 @@
 //    int rowCnt;                     // used for tiering
 //} DataKeyInfo;
 
+typedef struct ColumnParameter {
+    sds original;
+    int columnCount;
+    int *columnIdList;
+    char **columnIdStrList;
+} ColumnParameter;
+
+typedef struct ScanParameter {
+    int startRowGroupId;
+    int totalRowGroupCount;
+    NewDataKeyInfo *dataKeyInfo;
+    ColumnParameter *columnParam;
+} ScanParameter;
 
 NewDataKeyInfo *parsingDataKeyInfo(sds dataKeyString);
 int changeDataKeyInfo(NewDataKeyInfo *dataKeyInfo, int number);
 
-
 /*addb Metadict*/
 int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *keyInfo);
 int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo);
+
+/*Scan*/
+ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
+ScanParameter *createScanParameter(const client *c);

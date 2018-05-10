@@ -12,6 +12,7 @@
 #define RELMODEL_BRACE_PREFIX "{"
 #define RELMODEL_BRACE_SUFFIX "}"
 #define RELMODEL_ROWGROUPNUMBER_PREFIX "G:"
+#define RELMODEL_COLUMN_DELIMITER ","
 
 
 #define DATA_KEY_MAX_SIZE 256
@@ -25,8 +26,8 @@ typedef union Partition {
 } Partition;
 
 typedef struct NewDataKeyInfo {
-	int table_number;
-	int rowGroup_number;
+	int tableId;
+	int rowGroupId;
 	int row_number;
 	uint32_t isPartitionString:1, partitionCnt:31;
 	Partition partitionInfo;
