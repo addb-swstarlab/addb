@@ -51,11 +51,11 @@ void fpWriteCommand(client *c){
     	return;
     }
     /*get rowgroup info from dictMeta*/
-    int rgNumber = getRowgroupInfo(c->db, dataKeyInfo);
+    int rowGroupId = getRowgroupInfo(c->db, dataKeyInfo);
 
     serverLog(LL_VERBOSE,"END PARSING STEP");
     serverLog(LL_VERBOSE,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
-              dataKeyInfo->table_number, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroup_number);
+              dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroupId);
 
 
     /*meta lookup*/
