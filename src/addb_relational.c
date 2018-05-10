@@ -58,7 +58,7 @@ NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
   ret->isPartitionString = true;
 
   //parsing rowgroup number
-  if (saveptr != NULL && (token = strtok_r(NULL, RELMODEL_ROWGROUPNUMBER_PREFIX, &saveptr)) != NULL)
+  if (saveptr != NULL && (token = strtok_r(NULL, RELMODEL_ROWGROUPID_PREFIX, &saveptr)) != NULL)
 	  ret->rowGroupId = atoi(token);
   else
 	  ret->rowGroupId = 0;
@@ -259,4 +259,29 @@ robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo){
 	}
 	serverLog(LL_VERBOSE, "RGKEY :  %s", (char *)rgKey);
 	return createStringObject(rgKey, strlen(rgKey));
+}
+
+
+robj * generateDataKey(NewDataKeyInfo *dataKeyInfo){
+
+	char dataKey[DATA_KEY_MAX_SIZE];
+	if(dataKeyInfo->isPartitionString){
+		sprintf(dataKey, "%s:{%d:%s}:%s%d",
+				RELMODEL_DATA_PREFIX, dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, RELMODEL_ROWGROUPID_PREFIX,
+				dataKeyInfo->rowGroupId);
+	}else{
+		char *p = (char *)dataKey;
+		sprintf(p, "%s:{%d", RELMODEL_DATA_PREFIX, dataKeyInfo->tableId);
+		p += strlen(RELMODEL_DATA_PREFIX);
+		p += 2; // for :{
+		p += digits10(dataKeyInfo->tableId);
+		for(int i=0;i<dataKeyInfo->partitionCnt;i++){
+			sprintf(p, ":%llu", dataKeyInfo->partitionInfo.partitionInt[i]);
+			p += digits10(dataKeyInfo->partitionInfo.partitionInt[i]);
+			p += 1; //for :
+		}
+		sprintf(p, "}:%s%d", RELMODEL_ROWGROUPID_PREFIX, dataKeyInfo->rowGroupId);
+	}
+	serverLog(LL_VERBOSE, "DATAKEY :  %s", (char *)dataKey);
+	return createStringObject(dataKey, strlen(dataKey));
 }

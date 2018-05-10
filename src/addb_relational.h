@@ -43,5 +43,7 @@ void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key);
 
 /*addb key generation func*/
 robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo);
+robj * generateDataKey(NewDataKeyInfo *dataKeyInfo);
+
 
 #endif
