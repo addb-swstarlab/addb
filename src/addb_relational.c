@@ -87,15 +87,13 @@ int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 }
 
 /* ADDB Create Scan parameter*/
-#define INIT_COLUMN_PARAMTER_LIST_SIZE 10
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
     ColumnParameter *param = (ColumnParameter *) zmalloc(
             sizeof(ColumnParameter));
     param->original = sdsdup(rawColumnIdsString);
 
-    size_t allocSize = INIT_COLUMN_PARAMTER_LIST_SIZE;
-    param->columnIdList = (int *) zmalloc(sizeof(int) * allocSize);
-    param->columnIdStrList = (char **) zmalloc(sizeof(char *) * allocSize);
+    vectorInit(&param->columnIdList);
+    vectorInit(&param->columnIdStrList);
 
     char *savePtr = NULL;
     sds copied_original = sdsdup(param->original);
@@ -107,25 +105,14 @@ ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
         serverPanic("column parameter is broken");
     }
 
-    size_t index = 0;
     while (token != NULL) {
-        if (index >= allocSize) {
-            // Reallocation
-            allocSize += INIT_COLUMN_PARAMTER_LIST_SIZE;
-            param->columnIdList = (int *) zrealloc(param->columnIdList,
-                                                   sizeof(int) * allocSize);
-            param->columnIdStrList = (char **) zrealloc(
-                    param->columnIdStrList,
-                    sizeof(char *) * allocSize);
-        }
+        vectorAdd(&param->columnIdStrList, token);
+        vectorAddInt(&param->columnIdList, atoi(token));
 
         // TODO(totoro): Checks that column ID is valid.
-        param->columnIdStrList[index] = token;
-        param->columnIdList[index] = atoi(token);
-        index++;
         token = strtok_r(NULL, RELMODEL_COLUMN_DELIMITER, &savePtr);
     }
-    param->columnCount = index;
+    param->columnCount = vectorCount(&param->columnIdList);
     sdsfree(copied_original);
     return param;
 }
@@ -139,3 +126,4 @@ ScanParameter *createScanParameter(const client *c) {
     param->columnParam = parseColumnParameter((sds) c->argv[2]->ptr);
     return param;
 }
+

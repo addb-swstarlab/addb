@@ -1,0 +1,98 @@
+#include "server.h"
+#include "zmalloc.h"
+#include "stl.h"
+
+void vectorInit(vector *v) {
+    v->data = NULL;
+    v->size = 0;
+    v->count = 0;
+}
+
+size_t vectorCount(vector *v) {
+    return v->count;
+}
+
+void vectorAdd(vector *v, void *datum) {
+    if (v->size == 0) {
+        vectorFreeDeep(v);
+        v->size = INIT_VECTOR_SIZE;
+        v->data = (void **) zmalloc(sizeof(void *) * v->size);
+        memset(v->data, '\0', sizeof(void *) * v->size);
+    }
+
+    if (v->size <= v->count) {
+        v->size += INIT_VECTOR_SIZE;
+        v->data = (void **) zrealloc(v->data, sizeof(void *) * v->size);
+    }
+
+    v->data[v->count] = datum;
+    v->count++;
+}
+
+void vectorAddInt(vector *v, int datum) {
+    int *datum_ptr = (int *) zmalloc(sizeof(int));
+    *datum_ptr = datum;
+    vectorAdd(v, (void *) datum_ptr);
+}
+
+int vectorSet(vector *v, size_t index, void *datum) {
+    if (index >= v->count)
+        return C_ERR;
+    
+    v->data[index] = datum;
+    return C_OK;
+}
+
+void *vectorGet(vector *v, size_t index) {
+    if (index >= v->count)
+        return NULL;
+
+    return v->data[index];
+}
+
+int vectorDelete(vector *v, size_t index) {
+    if (index >= v->count)
+        return C_ERR;
+
+    v->data[index] = NULL;
+    
+    void **new_array = (void **) zmalloc(sizeof(void *) * v->size);
+    for (size_t i = 0, j = 0; i < v->count; ++i) {
+        if (v->data[i] == NULL)
+            continue;
+        new_array[j] = v->data[i];
+        ++j;
+    }
+    zfree(v->data);
+    
+    v->data = new_array;
+    v->count--;
+    return C_OK;
+}
+
+int vectorFree(vector *v) {
+    if (v->data == NULL)
+        return C_ERR;
+
+    zfree(v->data);
+    v->data = NULL;
+    return C_OK;
+}
+
+int vectorFreeDeep(vector *v) {
+    if (v->data == NULL)
+        return C_ERR;
+
+    if (v->count == 0) {
+        zfree(v->data);
+        return C_OK;
+    }
+
+    for (size_t i = 0; i < v->count; ++i) {
+        void *datum = vectorGet(v, i);
+        zfree(datum);
+    }
+    vectorFree(v);
+    return C_OK;
+}
+

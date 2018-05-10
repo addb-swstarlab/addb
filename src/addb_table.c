@@ -121,8 +121,9 @@ void fpScanCommand(client *c) {
     for (int i = 0; i < scanParam->columnParam->columnCount; ++i) {
         serverLog(LL_DEBUG, "i: %d, columnId: %d, columnIdStr: %s",
                   i,
-                  scanParam->columnParam->columnIdList[i],
-                  scanParam->columnParam->columnIdStrList[i]);
+                  *(int *) vectorGet(&scanParam->columnParam->columnIdList, i),
+                  (char *) vectorGet(
+                      &scanParam->columnParam->columnIdStrList, i));
     }
 
     /*Populates row group information to scan parameters*/

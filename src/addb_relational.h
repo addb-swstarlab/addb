@@ -5,6 +5,7 @@
 
 #include "server.h"
 #include "global.h"
+#include "stl.h"
 
 #define MAX_TMPBUF_SIZE 128
 #define SDS_DATA_KEY_MAX (sizeof(struct sdshdr) + DATA_KEY_MAX_SIZE)
@@ -21,8 +22,8 @@
 typedef struct ColumnParameter {
     sds original;
     int columnCount;
-    int *columnIdList;
-    char **columnIdStrList;
+    vector columnIdList;        // int* vector
+    vector columnIdStrList;     // string vector
 } ColumnParameter;
 
 typedef struct ScanParameter {
