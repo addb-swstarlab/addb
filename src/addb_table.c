@@ -130,6 +130,7 @@ void fpScanCommand(client *c) {
     /*Load data from Redis or RocksDB*/
     /*Scan data to client*/
 
+    clearScanParameter(scanParam);
     addReply(c, shared.ok);
 }
 

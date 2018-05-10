@@ -90,30 +90,27 @@ int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
     ColumnParameter *param = (ColumnParameter *) zmalloc(
             sizeof(ColumnParameter));
-    param->original = sdsdup(rawColumnIdsString);
+    param->original = sdsnew(rawColumnIdsString);
 
-    vectorInit(&param->columnIdList);
-    vectorInit(&param->columnIdStrList);
+    vectorTypeInit(&param->columnIdStrList, VECTOR_TYPE_SDS);
+    vectorTypeInit(&param->columnIdList, VECTOR_TYPE_INT);
 
-    char *savePtr = NULL;
-    sds copied_original = sdsdup(param->original);
-    char *token = strtok_r(copied_original, RELMODEL_COLUMN_DELIMITER,
-                           &savePtr);
+    int tokenCounts;
+    sds *tokens = sdssplit(param->original, RELMODEL_COLUMN_DELIMITER,
+                           &tokenCounts);
 
-    if (token == NULL) {
+    if (tokens == NULL || tokenCounts == 0) {
         serverLog(LL_WARNING, "Fatal: column parameter is broken: no data");
         serverPanic("column parameter is broken");
     }
 
-    while (token != NULL) {
-        vectorAdd(&param->columnIdStrList, token);
-        vectorAddInt(&param->columnIdList, atoi(token));
-
+    for (int i = 0; i < tokenCounts; ++i) {
         // TODO(totoro): Checks that column ID is valid.
-        token = strtok_r(NULL, RELMODEL_COLUMN_DELIMITER, &savePtr);
+        vectorAddSds(&param->columnIdStrList, tokens[i]);
+        vectorAddInt(&param->columnIdList, atoi(tokens[i]));
     }
+
     param->columnCount = vectorCount(&param->columnIdList);
-    sdsfree(copied_original);
     return param;
 }
 
@@ -127,3 +124,15 @@ ScanParameter *createScanParameter(const client *c) {
     return param;
 }
 
+void clearColumnParameter(ColumnParameter *param) {
+    sdsfree(param->original);
+    vectorFreeDeep(&param->columnIdList);
+    vectorFreeDeep(&param->columnIdStrList);
+}
+
+void clearScanParameter(ScanParameter *param) {
+    zfree(param->dataKeyInfo);
+    clearColumnParameter(param->columnParam);
+    zfree(param->columnParam);
+    zfree(param);
+}

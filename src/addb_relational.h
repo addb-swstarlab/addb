@@ -43,3 +43,5 @@ int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo);
 /*Scan*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
 ScanParameter *createScanParameter(const client *c);
+void clearColumnParameter(ColumnParameter *param);
+void clearScanParameter(ScanParameter *param);

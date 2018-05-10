@@ -844,6 +844,11 @@ cleanup:
     }
 }
 
+/* ADDB sds tokenizer */
+sds *sdssplit(const sds s, const char *sep, int *count) {
+    return sdssplitlen(s, sdslen(s), sep, strlen(sep), count);
+}
+
 /* Free the result returned by sdssplitlen(), or do nothing if 'tokens' is NULL. */
 void sdsfreesplitres(sds *tokens, int count) {
     if (!tokens) return;

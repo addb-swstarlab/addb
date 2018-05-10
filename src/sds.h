@@ -249,6 +249,8 @@ void sdsupdatelen(sds s);
 void sdsclear(sds s);
 int sdscmp(const sds s1, const sds s2);
 sds *sdssplitlen(const char *s, int len, const char *sep, int seplen, int *count);
+/* ADDB sds tokenizer */
+sds *sdssplit(const sds s, const char *sep, int *count);
 void sdsfreesplitres(sds *tokens, int count);
 void sdstolower(sds s);
 void sdstoupper(sds s);

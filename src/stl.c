@@ -1,18 +1,25 @@
 #include "server.h"
 #include "zmalloc.h"
 #include "stl.h"
+#include "sds.h"
 
 void vectorInit(vector *v) {
+    v->type = VECTOR_TYPE_DEFAULT;
     v->data = NULL;
     v->size = 0;
     v->count = 0;
+}
+
+void vectorTypeInit(vector *v, int type) {
+    vectorInit(v);
+    v->type = type;
 }
 
 size_t vectorCount(vector *v) {
     return v->count;
 }
 
-void vectorAdd(vector *v, void *datum) {
+int vectorAdd(vector *v, void *datum) {
     if (v->size == 0) {
         vectorFreeDeep(v);
         v->size = INIT_VECTOR_SIZE;
@@ -27,12 +34,33 @@ void vectorAdd(vector *v, void *datum) {
 
     v->data[v->count] = datum;
     v->count++;
+    return C_OK;
 }
 
-void vectorAddInt(vector *v, int datum) {
+int vectorAddInt(vector *v, int datum) {
+    if (v->type != VECTOR_TYPE_INT) {
+        serverLog(LL_DEBUG,
+                  "FATAL ERROR: Try to add wrong element type to vector");
+        serverPanic("Try to add wrong type element to vector");
+        return C_ERR;
+    }
+
     int *datum_ptr = (int *) zmalloc(sizeof(int));
     *datum_ptr = datum;
     vectorAdd(v, (void *) datum_ptr);
+    return C_OK;
+}
+
+int vectorAddSds(vector *v, sds datum) {
+    if (v->type != VECTOR_TYPE_SDS) {
+        serverLog(LL_DEBUG,
+                  "FATAL ERROR: Try to add wrong element type to vector");
+        serverPanic("Try to add wrong type element to vector");
+        return C_ERR;
+    }
+
+    vectorAdd(v, datum);
+    return C_OK;
 }
 
 int vectorSet(vector *v, size_t index, void *datum) {
@@ -90,7 +118,10 @@ int vectorFreeDeep(vector *v) {
 
     for (size_t i = 0; i < v->count; ++i) {
         void *datum = vectorGet(v, i);
-        zfree(datum);
+        if (v->type == VECTOR_TYPE_SDS)
+            sdsfree(datum);
+        else
+            zfree(datum);
     }
     vectorFree(v);
     return C_OK;
