@@ -88,7 +88,7 @@ robj *lookupKey(redisDb *db, robj *key, int flags) {
 
 /*addb lookup Metadict key. ref lookupKey func*/
 
-robj *lookupKeyFordictMeta(redisDb *db, robj *key){
+robj *lookupKeyForMetadict(redisDb *db, robj *key, int flags){
     dictEntry *de = dictFind(db->Metadict,key->ptr);
     robj *val = NULL;
 
@@ -182,7 +182,7 @@ robj *lookupAllKeyRead(redisDb *db, robj *key) {
 
 /*addb lookup dictMeta*/
 
-robj *lookupKeyForMeta(redisDb *db, robj *key){
+robj *lookupSDSKeyForMetadict(redisDb *db, sds key){
 
     dictEntry *de = dictFind(db->Metadict,key);
     if (de) {
@@ -203,7 +203,7 @@ robj *lookupKeyForMeta(redisDb *db, robj *key){
 
 robj *lookupKeyWriteForMetadict(redisDb *db, robj *key) {
     expireIfNeededForMetadict(db,key);
-    return lookupKeyFordictMeta(db,key);
+    return lookupKeyForMetadict(db,key, LOOKUP_NONE);
 }
 
 /* Lookup a key for write operations, and as a side effect, if needed, expires
@@ -329,6 +329,7 @@ void persistKey(redisDb *db, robj *keyobj, robj *targetVal) {
     targetVal->location = LOCATION_PERSISTED;
 }
 
+//TODO hs implement later
 int isEvictedPartitionInfo(redisDb *db, robj *metaObj){
 
 	return 1;
