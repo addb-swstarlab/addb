@@ -44,13 +44,6 @@ int changeDataKeyInfo(NewDataKeyInfo *dataKeyInfo, int number);
 int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *keyInfo);
 int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo);
 
-/*Scan*/
-ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
-ScanParameter *createScanParameter(const client *c);
-void clearColumnParameter(ColumnParameter *param);
-void clearScanParameter(ScanParameter *param);
-int populateRowGroupDataToScanParameter(ScanParameter *scanParam);
-
 /*lookup Metadict function*/
 int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField);
 
@@ -65,5 +58,11 @@ void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key);
 robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo);
 robj * generateDataKey(NewDataKeyInfo *dataKeyInfo);
 
+/*Scan*/
+ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
+ScanParameter *createScanParameter(const client *c);
+void clearColumnParameter(ColumnParameter *param);
+void clearScanParameter(ScanParameter *param);
+int populateRowGroupDataToScanParameter(ScanParameter *scanParam);
 
 #endif

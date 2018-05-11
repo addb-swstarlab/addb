@@ -317,9 +317,9 @@ ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
 ScanParameter *createScanParameter(const client *c) {
     ScanParameter *param = (ScanParameter *) zmalloc(sizeof(ScanParameter));
     param->startRowGroupId = 0;
-    // TODO(totoro): Gets total row group count from dictMeta.
-    param->totalRowGroupCount = 0;
     param->dataKeyInfo = parsingDataKeyInfo((sds) c->argv[1]->ptr);
+    param->totalRowGroupCount = getRowGroupInfoAndSetRowGroupInfo(
+            c->db, param->dataKeyInfo);
     param->columnParam = parseColumnParameter((sds) c->argv[2]->ptr);
     return param;
 }
