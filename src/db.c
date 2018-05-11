@@ -86,6 +86,30 @@ robj *lookupKey(redisDb *db, robj *key, int flags) {
     return val;
 }
 
+/*addb lookup Metadict key. ref lookupKey func*/
+
+robj *lookupKeyFordictMeta(redisDb *db, robj *key){
+    dictEntry *de = dictFind(db->Metadict,key->ptr);
+    robj *val = NULL;
+
+    if(de != NULL){
+    	val = dictGetVal(de);
+
+    	/* TODO LRU update for persistent values that are generated temporarily */
+      /* Update the access time for the ageing algorithm.
+       * Don't do it if we have a saving child, as this will trigger
+       * a copy on write madness. */
+        if (server.rdb_child_pid == -1 &&
+            server.aof_child_pid == -1)
+            	val->lru = LRU_CLOCK();
+
+      return val;
+    }
+    else {
+    	return NULL;
+    }
+}
+
 /* Lookup a key for read operations, or return NULL if the key is not found
  * in the specified DB.
  *
@@ -153,6 +177,33 @@ robj *lookupKeyRead(redisDb *db, robj *key) {
 /* ADDB */
 robj *lookupAllKeyRead(redisDb *db, robj *key) {
     return lookupKeyReadWithFlags(db,key,LOOKUP_ALL);
+}
+
+
+/*addb lookup dictMeta*/
+
+robj *lookupKeyForMeta(redisDb *db, robj *key){
+
+    dictEntry *de = dictFind(db->Metadict,key);
+    if (de) {
+        robj *val = dictGetVal(de);
+
+        /* Update the access time for the ageing algorithm.
+         * Don't do it if we have a saving child, as this will trigger
+         * a copy on write madness. */
+        if (server.rdb_child_pid == -1 && server.aof_child_pid == -1)
+            val->lru = LRU_CLOCK();
+        return val;
+    } else {
+        return NULL;
+    }
+}
+
+/*addb ref lookupKeyWrite func*/
+
+robj *lookupKeyWriteForMetadict(redisDb *db, robj *key) {
+    expireIfNeededForMetadict(db,key);
+    return lookupKeyFordictMeta(db,key);
 }
 
 /* Lookup a key for write operations, and as a side effect, if needed, expires
@@ -277,6 +328,12 @@ void persistKey(redisDb *db, robj *keyobj, robj *targetVal) {
     setPersistentKey(db->persistent_store,persistKeyStr,persistKeyStrLen,persistValStr,persistValStrLen);
     targetVal->location = LOCATION_PERSISTED;
 }
+
+int isEvictedPartitionInfo(redisDb *db, robj *metaObj){
+
+	return 1;
+}
+
 
 /* Delete a key, value, and associated expiration entry if any, from the DB */
 int dbSyncDelete(redisDb *db, robj *key) {
@@ -1191,6 +1248,41 @@ int expireIfNeeded(redisDb *db, robj *key) {
         "expired",key,db->id);
     return server.lazyfree_lazy_expire ? dbAsyncDelete(db,key) :
                                          dbSyncDelete(db,key);
+}
+
+/*addb ref expireIfNeeded func*/
+
+int expireIfNeededForMetadict(redisDb *db, robj *metaKey) {
+    mstime_t when = getExpire(db,metaKey);
+    mstime_t now;
+
+    if (when < 0) return 0; /* No expire for this key */
+
+    /* Don't expire anything while loading. It will be done later. */
+    if (server.loading) return 0;
+
+    /* If we are in the context of a Lua script, we claim that time is
+     * blocked to when the Lua script started. This way a key can expire
+     * only the first time it is accessed and not in the middle of the
+     * script execution, making propagation to slaves / AOF consistent.
+     * See issue #1525 on Github for more information. */
+    now = server.lua_caller ? server.lua_time_start : mstime();
+
+    /* If we are running in the context of a slave, return ASAP:
+     * the slave key expiration is controlled by the master that will
+     * send us synthesized DEL operations for expired keys.
+     *
+     * Still we try to return the right information to the caller,
+     * that is, 0 if we think the key should be still valid, 1 if
+     * we think the key is expired at this time. */
+    if (server.masterhost != NULL) return now > when;
+
+    /* Return when this key has not expired */
+    if (now <= when) return 0;
+
+    /* Delete the key */
+
+    return isEvictedPartitionInfo(db, metaKey);
 }
 
 /* -----------------------------------------------------------------------------

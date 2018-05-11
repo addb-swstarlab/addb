@@ -2,6 +2,10 @@
  * 2018.3.23
  * Doyoung Kim
  */
+#ifndef __ADDB_GLOBAL
+#define __ADDB_GLOBAL
+
+
 
 #include <stdint.h>
 
@@ -11,18 +15,18 @@
 #define RELMODEL_INDEX_PREFIX "I"
 #define RELMODEL_BRACE_PREFIX "{"
 #define RELMODEL_BRACE_SUFFIX "}"
-#define RELMODEL_ROWGROUPNUMBER_PREFIX "G:"
+#define RELMODEL_ROWGROUPID_PREFIX "G:"
 #define RELMODEL_COLUMN_DELIMITER ","
 
 
 #define DATA_KEY_MAX_SIZE 256
-#define PARTITION_KEY_SIZE_MAX 256
-#define PARTITION_KEY_CNT_MAX (PARTITION_KEY_SIZE_MAX/sizeof(unsigned long long))	//32
+#define PARTITION_KEY_MAX_SIZE 256
+#define PARTITION_KEY_MAX_CNT (PARTITION_KEY_MAX_SIZE/sizeof(unsigned long long))	//32
 
 
 typedef union Partition {
-		char partitionString[PARTITION_KEY_SIZE_MAX];
-		unsigned long long partitionInt[PARTITION_KEY_CNT_MAX];
+		char partitionString[PARTITION_KEY_MAX_SIZE];
+		unsigned long long partitionInt[PARTITION_KEY_MAX_CNT];
 } Partition;
 
 typedef struct NewDataKeyInfo {
@@ -34,3 +38,4 @@ typedef struct NewDataKeyInfo {
 	uint32_t timeStamp;
 } NewDataKeyInfo;
 
+#endif

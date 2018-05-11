@@ -323,6 +323,9 @@ typedef long long mstime_t; /* millisecond time type. */
 #define LL_VERBOSE 1
 #define LL_NOTICE 2
 #define LL_WARNING 3
+/*addb*/
+#define LL_ERROR 4
+
 #define LL_RAW (1<<10) /* Modifier to log without timestamp */
 #define CONFIG_DEFAULT_VERBOSITY LL_NOTICE
 
@@ -1728,8 +1731,15 @@ robj *lookupKeyRead(redisDb *db, robj *key);
 robj *lookupAllKeyRead(redisDb *db, robj *key);
 robj *lookupKeyWrite(redisDb *db, robj *key);
 
+/*ADDB*/
+robj *lookupKeyWriteForMetadict(redisDb *db, robj *key);
+int expireIfNeededForMetadict(redisDb *db, robj *key);
+int isEvictedPartitionInfo(redisDb *db, robj *metaObj);
+
 /* ADDB */
 robj *lookupPkey(redisDb *db, robj *key, int flags);
+robj *lookupKeyForMeta(redisDb *db, robj *key);
+
 
 robj *lookupKeyReadOrReply(client *c, robj *key, robj *reply);
 robj *lookupAllKeyReadOrReply(client *c, robj *key, robj *reply);
@@ -1754,6 +1764,8 @@ int dbDelete(redisDb *db, robj *key);
 robj *dbUnshareStringValue(redisDb *db, robj *key, robj *o);
 /* ADDB */
 void persistKey(redisDb *db, robj *keyobj, robj *targetVal);
+
+
 
 #define EMPTYDB_NO_FLAGS 0      /* No flags. */
 #define EMPTYDB_ASYNC (1<<0)    /* Reclaim memory in another thread. */

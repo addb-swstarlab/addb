@@ -51,7 +51,7 @@ void fpWriteCommand(client *c){
     	return;
     }
     /*get rowgroup info from dictMeta*/
-    int rgNumber = getRowgroupInfo(c->db, dataKeyInfo);
+    int rowGroupId = getRowgroupInfo(c->db, dataKeyInfo);
 
     serverLog(LL_VERBOSE,"END PARSING STEP");
     serverLog(LL_VERBOSE,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",

@@ -3,6 +3,9 @@
  * doyoung kim
  */
 
+#ifndef __ADDB_RELATIONAL
+#define __ADDB_RELATIONAL
+
 #include "server.h"
 #include "global.h"
 #include "stl.h"
@@ -37,6 +40,7 @@ NewDataKeyInfo *parsingDataKeyInfo(sds dataKeyString);
 int changeDataKeyInfo(NewDataKeyInfo *dataKeyInfo, int number);
 
 /*addb Metadict*/
+/*get information function*/
 int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *keyInfo);
 int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo);
 
@@ -45,3 +49,20 @@ ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
 ScanParameter *createScanParameter(const client *c);
 void clearColumnParameter(ColumnParameter *param);
 void clearScanParameter(ScanParameter *param);
+
+/*lookup Metadict function*/
+int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField);
+
+/*Inc, Dec Function*/
+int IncRowgroupIdAndModifyInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo, int param);
+int incRowgroupId(redisDb *db, NewDataKeyInfo *dataKeyInfo, int inc_number);
+
+
+void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key);
+
+/*addb key generation func*/
+robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo);
+robj * generateDataKey(NewDataKeyInfo *dataKeyInfo);
+
+
+#endif
