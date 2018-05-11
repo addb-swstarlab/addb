@@ -103,56 +103,19 @@ int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 
 
 int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
+    if (metaHashdictObj == NULL)
+        return 0;
 
-	int ret;
-	int retVal;
-	if(metaHashdictObj == NULL){
-		retVal = 0;
-	}
-	else{
-		if (metaHashdictObj->encoding == OBJ_ENCODING_ZIPLIST) {
-
-			unsigned char *vstr = NULL;
-			unsigned int vlen = UINT_MAX;
-			long long vll = LLONG_MAX;
-
-			ret = hashTypeGetFromZiplist(metaHashdictObj, metaField, &vstr, &vlen, &vll);
-
-			if (ret < 0) {
-				retVal = 0;
-			}
-			else {
-				if (vstr) {
-					serverLog(LL_ERROR, "RowGroup must be integer");
-					assert(0);
-				}
-				else {
-					retVal = vll;
-				}
-			}
-		} else if (metaHashdictObj->encoding == OBJ_ENCODING_HT) {
-			robj *valueObj;
-
-			ret = hashTypeGetFromHashTable(metaHashdictObj, metaField, &valueObj);
-			if (ret < 0) {
-				retVal = 0;
-			}
-			else {
-				if (!sdsEncodedObject(valueObj)) {
-					retVal = (int) (long) valueObj->ptr;
-				}
-				else {
-					retVal= atoi((char * ) valueObj->ptr);
-				}
-			}
-		} else {
-			serverPanic("Unknown HT encoding");
-		}
-	}
-	return retVal;
-
+    sds field = sdsnew((char *) metaField->ptr);
+    int retVal = 0;
+    robj *ret = hashTypeGetValueObject(metaHashdictObj, field);
+    if (!sdsEncodedObject(ret)) {
+        retVal = (int) (long) ret->ptr;
+    } else {
+        retVal = atoi((char *) ret->ptr);
+    }
+    return retVal;
 }
-
 
 void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key){
 
