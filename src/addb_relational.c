@@ -336,3 +336,17 @@ void clearScanParameter(ScanParameter *param) {
     zfree(param->columnParam);
     zfree(param);
 }
+
+/*
+ * populateScanParameter
+ * - Description
+ *      Populates row group data to scan parameter by looking up MetaDict
+ * - Return
+ *      Returns total data count scaned by scan parameter.
+ */
+int populateScanParameter(ScanParameter *scanParam) {
+    int totalDataCount = 0;
+    // TODO(totoro): Implements critical logics for populateScanParameter.
+    return totalDataCount;
+}
+

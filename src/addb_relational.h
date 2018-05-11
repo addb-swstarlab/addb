@@ -49,6 +49,7 @@ ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
 ScanParameter *createScanParameter(const client *c);
 void clearColumnParameter(ColumnParameter *param);
 void clearScanParameter(ScanParameter *param);
+int populateRowGroupDataToScanParameter(ScanParameter *scanParam);
 
 /*lookup Metadict function*/
 int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField);

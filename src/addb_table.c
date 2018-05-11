@@ -85,8 +85,9 @@ void fpReadCommand(client *c) {
  *
  * --- Usage Examples ---
  *  Parameters:
- *      tableId: "3"
- *      partitionInfoId: "1:2"
+ *      key: "D:{3:1:2}"
+ *          tableId: "3"
+ *          partitionInfoId: "1:2"
  *      columnIds: ["2", "3", "4"]
  *  Command:
  *      redis-cli> FPSCAN D:{3:2:1} 2,3,4
