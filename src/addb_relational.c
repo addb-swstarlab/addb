@@ -78,7 +78,7 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	sds metaKey = sdsnewlen("", SDS_DATA_KEY_MAX);// sdsnewlen(tmp, sizeof(tmp) //sdsnew(tmp) //sdsIntialize(tmp, sizeof(tmp));
 	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
 
-	robj *metaHashdictObj = lookupKeyForMeta(db, metaKey);
+	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
 	robj *metaField = shared.integers[0];
 	rowgroup = lookupCompInfoForMeta(metaHashdictObj, metaField);
 	dataKeyInfo->rowGroupId = rowgroup;

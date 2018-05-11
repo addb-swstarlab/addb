@@ -1738,7 +1738,8 @@ int isEvictedPartitionInfo(redisDb *db, robj *metaObj);
 
 /* ADDB */
 robj *lookupPkey(redisDb *db, robj *key, int flags);
-robj *lookupKeyForMeta(redisDb *db, robj *key);
+robj *lookupSDSKeyForMetadict(redisDb *db, sds key);
+robj *lookupKeyForMetadict(redisDb *db, robj *key, int flags);
 
 
 robj *lookupKeyReadOrReply(client *c, robj *key, robj *reply);
