@@ -16,7 +16,7 @@
 void testDbAddForMeta(redisDb *db, robj *key, robj *val) {
     sds copy = sdsdup(key->ptr);
     int retval = dictAdd(db->Metadict, copy, val);
-    
+
     serverAssertWithInfo(NULL,key,retval == DICT_OK);
     if (server.cluster_enabled) slotToKeyAdd(key);
 }
@@ -37,7 +37,7 @@ void testDbAddForMeta(redisDb *db, robj *key, robj *val) {
  *      MetaField Key: CURRENT_RGID(= 0)
  *      Value: 4
  *  Command:
- *      redis-cli> TESTSETMETA M:{3:1:2} 0 4 
+ *      redis-cli> TESTSETMETA M:{3:1:2} 0 4
  *  Results:
  *      redis-cli> OK
  */
