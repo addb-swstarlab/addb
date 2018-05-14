@@ -22,17 +22,23 @@
 //    int rowCnt;                     // used for tiering
 //} DataKeyInfo;
 
+typedef struct RowGroupInfo {
+    robj *dictObj;      // RowGroup dict table object
+    uint64_t isInRocksDb:1, rowCount:63;
+} RowGroupInfo;
+
 typedef struct ColumnParameter {
     sds original;
     int columnCount;
-    vector columnIdList;        // int* vector
-    vector columnIdStrList;     // string vector
+    Vector columnIdList;        // int* vector
+    Vector columnIdStrList;     // string vector
 } ColumnParameter;
 
 typedef struct ScanParameter {
     int startRowGroupId;
     int totalRowGroupCount;
     NewDataKeyInfo *dataKeyInfo;
+    RowGroupInfo *rowGroupInfoList;
     ColumnParameter *columnParam;
 } ScanParameter;
 
@@ -61,8 +67,8 @@ robj * generateDataKey(NewDataKeyInfo *dataKeyInfo);
 /*Scan*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
 ScanParameter *createScanParameter(const client *c);
-void clearColumnParameter(ColumnParameter *param);
-void clearScanParameter(ScanParameter *param);
+void freeColumnParameter(ColumnParameter *param);
+void freeScanParameter(ScanParameter *param);
 int populateRowGroupDataToScanParameter(ScanParameter *scanParam);
 
 #endif

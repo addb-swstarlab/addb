@@ -9,38 +9,33 @@
 
 #define VECTOR_TYPE_DEFAULT 0
 #define VECTOR_TYPE_SDS 1
-#define VECTOR_TYPE_INT 2
+#define VECTOR_TYPE_LONG 2
 
 #include <stddef.h>
 #include "sds.h"
 
-typedef struct vector_ {
+typedef struct Vector_ {
     /*
      * Vector type
      *  - DEFAULT: Allows all pointer types(Polymorphism)
      *  - SDS: sds
-     *  - INT: integer
+     *  - LONG: long type
      */
     unsigned type:2;
     void **data;
     size_t size;
     size_t count;
-} vector;
+} Vector;
 
-void vectorInit(vector *v);
-void vectorTypeInit(vector *v, int type);
-size_t vectorCount(vector *v);
-int vectorAdd(vector *v, void *datum);
-int vectorAddInt(vector *v, int datum);
-int vectorAddSds(vector *v, sds datum);
-int vectorSet(vector *v, size_t index, void *datum);
-int vectorSetInt(vector *v, size_t index, int datum);
-int vectorSetSds(vector *v, size_t index, sds datum);
-void *vectorGet(vector *v, size_t index);
-int vectorGetInt(vector *v, size_t index);
-sds vectorGetSds(vector *v, size_t index);
-int vectorDelete(vector *v, size_t index);
-int vectorFree(vector *v);
-int vectorFreeDeep(vector *v);
+void vectorInit(Vector *v);
+void vectorTypeInit(Vector *v, int type);
+size_t vectorCount(Vector *v);
+int vectorAdd(Vector *v, void *datum);
+int vectorSet(Vector *v, size_t index, void *datum);
+void *vectorGet(Vector *v, size_t index);
+int vectorDelete(Vector *v, size_t index);
+int vectorFreeDatum(Vector *v, void *datum);
+int vectorFree(Vector *v);
+int vectorFreeDeep(Vector *v);
 
 #endif

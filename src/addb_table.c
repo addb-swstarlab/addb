@@ -120,10 +120,10 @@ void fpScanCommand(client *c) {
               scanParam->columnParam->original,
               scanParam->columnParam->columnCount);
     for (int i = 0; i < scanParam->columnParam->columnCount; ++i) {
-        serverLog(LL_DEBUG, "i: %d, columnId: %d, columnIdStr: %s",
+        serverLog(LL_DEBUG, "i: %d, columnId: %ld, columnIdStr: %s",
                   i,
-                  vectorGetInt(&scanParam->columnParam->columnIdList, i),
-                  vectorGetSds(
+                  (long) vectorGet(&scanParam->columnParam->columnIdList, i),
+                  (sds) vectorGet(
                       &scanParam->columnParam->columnIdStrList, i));
     }
 
@@ -131,7 +131,7 @@ void fpScanCommand(client *c) {
     /*Load data from Redis or RocksDB*/
     /*Scan data to client*/
 
-    clearScanParameter(scanParam);
+    freeScanParameter(scanParam);
     addReply(c, shared.ok);
 }
 

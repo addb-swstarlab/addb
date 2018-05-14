@@ -85,6 +85,7 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 
 	serverLog(LL_VERBOSE, "FIND METAKEY :  %s", metaKey);
 	serverLog(LL_VERBOSE, "FIND ROWGROUP :  %d", dataKeyInfo->rowGroupId);
+    sdsfree(metaKey);
 	return rowgroup;
 }
 
@@ -257,7 +258,7 @@ ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
     param->original = sdsnew(rawColumnIdsString);
 
     vectorTypeInit(&param->columnIdStrList, VECTOR_TYPE_SDS);
-    vectorTypeInit(&param->columnIdList, VECTOR_TYPE_INT);
+    vectorTypeInit(&param->columnIdList, VECTOR_TYPE_LONG);
 
     int tokenCounts;
     sds *tokens = sdssplit(param->original, RELMODEL_COLUMN_DELIMITER,
@@ -270,11 +271,12 @@ ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
 
     for (int i = 0; i < tokenCounts; ++i) {
         // TODO(totoro): Checks that column ID is valid.
-        vectorAddSds(&param->columnIdStrList, tokens[i]);
-        vectorAddInt(&param->columnIdList, atoi(tokens[i]));
+        vectorAdd(&param->columnIdStrList, sdsdup(tokens[i]));
+        vectorAdd(&param->columnIdList, (void *) (long) atoi(tokens[i]));
     }
 
     param->columnCount = vectorCount(&param->columnIdList);
+    sdsfreesplitres(tokens, tokenCounts);
     return param;
 }
 
@@ -288,16 +290,16 @@ ScanParameter *createScanParameter(const client *c) {
     return param;
 }
 
-void clearColumnParameter(ColumnParameter *param) {
+void freeColumnParameter(ColumnParameter *param) {
     sdsfree(param->original);
     vectorFreeDeep(&param->columnIdList);
     vectorFreeDeep(&param->columnIdStrList);
+    zfree(param);
 }
 
-void clearScanParameter(ScanParameter *param) {
+void freeScanParameter(ScanParameter *param) {
     zfree(param->dataKeyInfo);
-    clearColumnParameter(param->columnParam);
-    zfree(param->columnParam);
+    freeColumnParameter(param->columnParam);
     zfree(param);
 }
 
