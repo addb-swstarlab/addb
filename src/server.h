@@ -2058,6 +2058,7 @@ int getGenericCommand(client *c);
  */
 void testSetMetaCommand(client *c);
 void testGetMetaCommand(client *c);
+void testVectorInterfaceCommand(client *c);
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

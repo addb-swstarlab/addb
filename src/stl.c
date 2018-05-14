@@ -71,7 +71,7 @@ int vectorSet(Vector *v, size_t index, void *datum) {
         dataLong[index] = (long) datum;
     } else if (v->type == VECTOR_TYPE_SDS) {
         sds *dataSds = (sds *) v->data;
-        dataSds[index] = (sds) datum;
+        dataSds[index] = (sds) sdsdup(datum);
     } else {
         serverLog(LL_DEBUG, "FATAL ERROR: Wrong vector type [%d]", v->type);
         return C_ERR;
@@ -127,6 +127,8 @@ int vectorFree(Vector *v) {
 
     zfree(v->data);
     v->data = NULL;
+    v->count = 0;
+    v->size = 0;
     return C_OK;
 }
 

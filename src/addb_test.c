@@ -1,7 +1,7 @@
 /*
  * 2018.5.11
  * (totoro) kem2182@yonsei.ac.kr
- * Commands for testing
+ * ADDB Test Commands for relational models
  */
 
 #include "server.h"
@@ -11,7 +11,6 @@
  * Uses these commands for testing only...
  */
 
-/*addb*/
 /* Add the key to the MetaDict. */
 void testDbAddForMeta(redisDb *db, robj *key, robj *val) {
     sds copy = sdsdup(key->ptr);
