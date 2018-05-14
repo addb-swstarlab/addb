@@ -84,6 +84,41 @@ int hashTypeGetFromZiplist(robj *o, sds field,
     return -1;
 }
 
+/*addb hashTypeGetFromZiplist with robj field*/
+int hashTypeGetFromZiplistWithrobj(robj *o, robj *field,
+                           unsigned char **vstr,
+                           unsigned int *vlen,
+                           long long *vll)
+{
+    unsigned char *zl, *fptr = NULL, *vptr = NULL;
+    int ret;
+
+    serverAssert(o->encoding == OBJ_ENCODING_ZIPLIST);
+
+    field = getDecodedObject(field);
+
+    zl = o->ptr;
+    fptr = ziplistIndex(zl, ZIPLIST_HEAD);
+    if (fptr != NULL) {
+        fptr = ziplistFind(fptr, (unsigned char*)field->ptr, sdslen(field->ptr), 1);
+        if (fptr != NULL) {
+            /* Grab pointer to the value (fptr points to the field) */
+            vptr = ziplistNext(zl, fptr);
+            serverAssert(vptr != NULL);
+        }
+    }
+    decrRefCount(field);
+
+    if (vptr != NULL) {
+        ret = ziplistGet(vptr, vstr, vlen, vll);
+        serverAssert(ret);
+        return 0;
+    }
+
+    return -1;
+}
+
+
 /* Get the value from a hash table encoded hash, identified by field.
  * Returns NULL when the field cannot be found, otherwise the SDS value
  * is returned. */
@@ -160,6 +195,46 @@ size_t hashTypeGetValueLength(robj *o, sds field) {
     }
     return len;
 }
+
+/*addb hashTypeGetObject with robj*/
+
+robj* hashTypeGetValueRObject(robj *o, robj *field) {
+    robj *valueObj = NULL;
+
+    if (o->encoding == OBJ_ENCODING_ZIPLIST) {
+        unsigned char *vstr = NULL;
+        unsigned int vlen = UINT_MAX;
+        long long vll = LLONG_MAX;
+
+        if (hashTypeGetFromZiplistWithrobj(o, field, &vstr, &vlen, &vll) == 0)
+            if(vstr){
+            	valueObj = createStringObject((char*)vstr, vlen);
+            }
+            else {
+            	valueObj = createStringObjectFromLongLong(vll);
+            }
+    } else if (o->encoding == OBJ_ENCODING_HT) {
+        robj *aux =  hashTypeGetFromHashTable(o, field->ptr);
+
+        if (aux  == 0){
+        	incrRefCount(aux);
+        	valueObj = aux;
+        }
+
+    } else {
+        serverPanic("Unknown hash encoding");
+    }
+    return valueObj;
+}
+
+/* addb Encode given objects */
+void hashTypeTryObjectEncoding(robj *subject, robj **o1, robj **o2) {
+    if (subject->encoding == OBJ_ENCODING_HT) {
+        if (o1) *o1 = tryObjectEncoding(*o1);
+        if (o2) *o2 = tryObjectEncoding(*o2);
+    }
+}
+
 
 /* Test if the specified field exists in the given hash. Returns 1 if the field
  * exists, and 0 when it doesn't. */
@@ -273,6 +348,66 @@ int hashTypeSet(robj *o, sds field, sds value, int flags) {
     if (flags & HASH_SET_TAKE_VALUE && value) sdsfree(value);
     return update;
 }
+
+
+int hashTypeSetWithNoFlags(robj *o, robj *field, robj *value){
+
+    int update = 0;
+
+	if (o->encoding == OBJ_ENCODING_ZIPLIST) {
+		unsigned char *zl, *fptr, *vptr;
+
+		field = getDecodedObject(field);
+		value = getDecodedObject(value);
+
+		zl = o->ptr;
+		fptr = ziplistIndex(zl, ZIPLIST_HEAD);
+		if (fptr != NULL) {
+			fptr = ziplistFind(fptr, field->ptr, sdslen(field->ptr), 1);
+			if (fptr != NULL) {
+				/* Grab pointer to the value (fptr points to the field) */
+				vptr = ziplistNext(zl, fptr);
+				serverAssert(vptr != NULL);
+				update = 1;
+
+				/* Delete value */
+				zl = ziplistDelete(zl, &vptr);
+
+				/* Insert new value */
+				zl = ziplistInsert(zl, vptr, value->ptr,
+						sdslen(value->ptr));
+			}
+		}
+
+		if (!update) {
+			/* Push new field/value pair onto the tail of the ziplist */
+			zl = ziplistPush(zl, field->ptr, sdslen(field->ptr),
+					ZIPLIST_TAIL);
+			zl = ziplistPush(zl, value->ptr, sdslen(value->ptr),
+					ZIPLIST_TAIL);
+		}
+		o->ptr = zl;
+		decrRefCount(field);
+		decrRefCount(value);
+
+		/* Check if the ziplist needs to be converted to a hash table */
+		if (hashTypeLength(o) > server.hash_max_ziplist_entries)
+			hashTypeConvert(o, OBJ_ENCODING_HT);
+	} else if (o->encoding == OBJ_ENCODING_HT) {
+		if (dictReplace(o->ptr, field, value)) { /* Insert */
+			incrRefCount(field);
+		} else { /* Update */
+			update = 1;
+		}
+		incrRefCount(value);
+	} else {
+		serverPanic("Unknown hash encoding");
+	}
+
+    return update;
+}
+
+
 
 /* Delete an element from a hash.
  * Return 1 on deleted and 0 on not found. */

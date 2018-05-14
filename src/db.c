@@ -202,7 +202,7 @@ robj *lookupSDSKeyForMetadict(redisDb *db, sds key){
 /*addb ref lookupKeyWrite func*/
 
 robj *lookupKeyWriteForMetadict(redisDb *db, robj *key) {
-    expireIfNeededForMetadict(db,key);
+    //expireIfNeededForMetadict(db,key);
     return lookupKeyForMetadict(db,key, LOOKUP_NONE);
 }
 
@@ -233,6 +233,24 @@ robj *lookupKeyWriteOrReply(client *c, robj *key, robj *reply) {
     robj *o = lookupKeyWrite(c->db, key);
     if (!o) addReply(c,reply);
     return o;
+}
+
+/*addb dbadd function for metadict*/
+
+void dbAddForMetadict(redisDb *db, robj *key, robj *val){
+    sds copy = sdsdup(key->ptr);
+    int retval = dictAdd(db->Metadict, copy, val);
+
+    if(retval == 0){
+    	serverLog(LL_DEBUG, "dictAdd METADICT SUCCESS");
+    }else {
+    	serverLog(LL_DEBUG, "dictAdd METADICT FAIL");
+    }
+
+    serverAssertWithInfo(NULL,key,retval == DICT_OK);
+    if (val->type == OBJ_LIST) signalListAsReady(db, key);
+    if (server.cluster_enabled) slotToKeyAdd(key);
+
 }
 
 /* Add the key to the DB. It's up to the caller to increment the reference

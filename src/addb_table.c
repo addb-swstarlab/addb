@@ -25,7 +25,7 @@
 
 void fpWriteCommand(client *c){
 
-    serverLog(LL_VERBOSE,"FPWRITE COMMAND START");
+    serverLog(LL_DEBUG,"FPWRITE COMMAND START");
 
     int fpWrite_result = C_OK;
     int i;
@@ -33,7 +33,7 @@ void fpWriteCommand(client *c){
 
     struct redisClient *fakeClient = NULL;
 
-    serverLog(LL_VERBOSE, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
+    serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
             (char *) c->argv[1]->ptr,(char *) c->argv[2]->ptr, (char *) c->argv[3]->ptr , (char *) c->argv[4]->ptr);
 
     /*parsing dataInfo*/
@@ -41,7 +41,7 @@ void fpWriteCommand(client *c){
 
     /*get column number*/
     int column_number = atoi((char *) c->argv[3]->ptr);
-    serverLog(LL_VERBOSE, "fpWrite Column Number : %d", column_number);
+    serverLog(LL_DEBUG, "fpWrite Column Number : %d", column_number);
 
     /*compare with column number and arguments*/
 
@@ -50,15 +50,15 @@ void fpWriteCommand(client *c){
     	addReplyError(c, "column_number Error");
     	return;
     }
+
+    serverLog(LL_DEBUG,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
+              dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroupId);
+
     /*get rowgroup info from dictMeta*/
     int rowGroupId = getRowgroupInfo(c->db, dataKeyInfo);
 
-    serverLog(LL_VERBOSE,"END PARSING STEP");
-    serverLog(LL_VERBOSE,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
-              dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroupId);
+    serverLog(LL_DEBUG, "rowGroupId = %d", rowGroupId);
 
-
-    /*meta lookup*/
     /*pk*/
     /*dict- hashdict */
     /*insert*/
@@ -66,7 +66,7 @@ void fpWriteCommand(client *c){
     /*free*/
     /*eviction insert*/
 
-    serverLog(LL_VERBOSE,"FPWRITE COMMAND END");
+    serverLog(LL_DEBUG,"FPWRITE COMMAND END");
     addReply(c, shared.ok);
 }
 
@@ -135,3 +135,32 @@ void fpScanCommand(client *c) {
     addReply(c, shared.ok);
 }
 
+
+void metakeysCommand(client *c){
+
+    dictIterator *di;
+    dictEntry *de;
+    sds pattern = c->argv[1]->ptr;
+    int plen = sdslen(pattern), allkeys;
+    unsigned long numkeys = 0;
+    void *replylen = addDeferredMultiBulkLength(c);
+
+    di = dictGetSafeIterator(c->db->Metadict);
+    allkeys = (pattern[0] == '*' && pattern[1] == '\0');
+    while((de = dictNext(di)) != NULL) {
+        sds key = dictGetKey(de);
+        robj *keyobj;
+
+        if (allkeys || stringmatchlen(pattern,plen,key,sdslen(key),0)) {
+            keyobj = createStringObject(key,sdslen(key));
+            if (expireIfNeeded(c->db,keyobj) == 0) {
+                addReplyBulk(c,keyobj);
+                numkeys++;
+            }
+            decrRefCount(keyobj);
+        }
+    }
+    dictReleaseIterator(di);
+    setDeferredMultiBulkLength(c,replylen,numkeys);
+
+}

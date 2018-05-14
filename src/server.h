@@ -1699,6 +1699,15 @@ robj *hashTypeLookupWriteOrCreate(client *c, robj *key);
 robj *hashTypeGetValueObject(robj *o, sds field);
 int hashTypeSet(robj *o, sds field, sds value, int flags);
 
+/*addb getobject func*/
+robj* hashTypeGetValueRObject(robj *o, robj *field);
+int hashTypeGetFromZiplistWithrobj(robj *o, robj *field,
+                           unsigned char **vstr,
+                           unsigned int *vlen,
+                           long long *vll);
+
+int hashTypeSetWithNoFlags(robj *o, robj *field, robj *value);
+
 /* Pub / Sub */
 int pubsubUnsubscribeAllChannels(client *c, int notify);
 int pubsubUnsubscribeAllPatterns(client *c, int notify);
@@ -1753,6 +1762,9 @@ robj *objectCommandLookupOrReply(client *c, robj *key, robj *reply);
 #define LOOKUP_NOTOUCH (1<<0)
 /* ADDB */
 #define LOOKUP_ALL (1<<1)
+/*addb dbadd function for metadict*/
+void dbAddForMetadict(redisDb *db, robj *key, robj *val);
+
 void dbAdd(redisDb *db, robj *key, robj *val);
 void dbOverwrite(redisDb *db, robj *key, robj *val);
 void setKey(redisDb *db, robj *key, robj *val);
@@ -2049,7 +2061,7 @@ void fpReadCommand(client *c);
 void fpScanCommand(client *c);
 void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire, int unit, robj *ok_reply, robj *abort_reply);
 int getGenericCommand(client *c);
-
+void metakeysCommand(client *c);
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

@@ -79,44 +79,52 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
 
 	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
+	if(metaHashdictObj == NULL){
+		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
+	}
+	else{
+		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
+	}
+
 	robj *metaField = shared.integers[0];
+
 	rowgroup = lookupCompInfoForMeta(metaHashdictObj, metaField);
 	dataKeyInfo->rowGroupId = rowgroup;
 
-	serverLog(LL_VERBOSE, "FIND METAKEY :  %s", metaKey);
-	serverLog(LL_VERBOSE, "FIND ROWGROUP :  %d", dataKeyInfo->rowGroupId);
 	return rowgroup;
 }
 
 
 int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
-    serverLog(LL_VERBOSE,"GET ROWGROUP INFO START");
+
     int rowgroup = getRowGroupInfoAndSetRowGroupInfo(db,dataKeyInfo);
 
-	serverLog(LL_VERBOSE, "FIND ROWGROUP :  %d", dataKeyInfo->rowGroupId);
     if(rowgroup == 0){
+    	 serverLog(LL_DEBUG, "ROWGROUP 0 CASE OCCUR");
     	rowgroup = IncRowgroupIdAndModifyInfo(db, dataKeyInfo, 1);
+
     }
     return rowgroup;
-
 }
 
 
 int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
-    if (metaHashdictObj == NULL)
+    if (metaHashdictObj == NULL){
         return 0;
-
-    sds field = sdsnew((char *) metaField->ptr);
+    }
+    robj *decodedField = getDecodedObject(metaField);
     int retVal = 0;
-    robj *ret = hashTypeGetValueObject(metaHashdictObj, field);
+    robj *ret = hashTypeGetValueObject(metaHashdictObj, (sds) decodedField->ptr);
+
     if (!sdsEncodedObject(ret)) {
         retVal = (int) (long) ret->ptr;
     } else {
         retVal = atoi((char *) ret->ptr);
     }
-    sdsfree(field);
+    decrRefCount(decodedField);
     return retVal;
 }
+
 
 void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key){
 
@@ -149,56 +157,69 @@ void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key){
 
 int IncRowgroupIdAndModifyInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo, int cnt){
 	int result = incRowgroupId(db, dataKeyInfo, cnt);
+	dataKeyInfo->rowGroupId = result;
+	return result;
 
 }
 
 int incRowgroupId(redisDb *db, NewDataKeyInfo *dataKeyInfo, int inc_number){
 	robj *rowgroupKey= generateRgIdKeyForRowgroup(dataKeyInfo);
-	serverLog(LL_VERBOSE, "RowgroupKEY :  %s", (char *)rowgroupKey->ptr);
 	robj *metaRgField = shared.integers[0];
 
-
-	return 1;
+	int ret = IncDecCount(db, rowgroupKey, metaRgField, (long long) inc_number);
+	decrRefCount(rowgroupKey);
+	return ret;
 }
 
 //TO-DO MODIFY LATER -HS
-//int IncDecCount(redisDb *db, robj *key, robj *){
-//
-//    long long value, oldvalue;
-//    robj *o, *new;
-//
-//    o = lookupKeyWriteForMetadict(db,key);
-//    if (o != NULL && checkType(c,o,OBJ_STRING)) return;
-//    if (getLongLongFromObjectOrReply(c,o,&value,NULL) != C_OK) return;
-//
-//    oldvalue = value;
-//    if ((incr < 0 && oldvalue < 0 && incr < (LLONG_MIN-oldvalue)) ||
-//        (incr > 0 && oldvalue > 0 && incr > (LLONG_MAX-oldvalue))) {
-//        addReplyError(c,"increment or decrement would overflow");
-//        return;
-//    }
-//    value += incr;
-//
-//    if (o && o->refcount == 1 && o->encoding == OBJ_ENCODING_INT &&
-//        (value < 0 || value >= OBJ_SHARED_INTEGERS) &&
-//        value >= LONG_MIN && value <= LONG_MAX)
-//    {
-//        new = o;
-//        o->ptr = (void*)((long)value);
-//    } else {
-//        new = createStringObjectFromLongLong(value);
-//        if (o) {
-//            dbOverwrite(c->db,c->argv[1],new);
-//        } else {
-//            dbAdd(c->db,c->argv[1],new);
-//        }
-//    }
-//    signalModifiedKey(c->db,c->argv[1]);
-//    notifyKeyspaceEvent(NOTIFY_STRING,"incrby",c->argv[1],c->db->id);
-//    server.dirty++;
-//
-//
-//}
+int IncDecCount(redisDb *db, robj *key, robj *field, long long cnt){  // int flags ??
+
+    long long value, oldvalue;
+    robj *o, *new, *cur_obj;
+
+    o = lookupKeyWriteForMetadict(db,key);
+    if(o == NULL){
+
+    	o = createHashObject();  //ziplist object
+    	dbAddForMetadict(db, key, o);
+    }
+    else{
+
+    	if(o->type != OBJ_HASH){
+    		serverLog(LL_ERROR, "The value of the Metadict, hashdictobj's type, must be hash ");
+    		assert(0);
+    	}
+    }
+
+    if((cur_obj = hashTypeGetValueRObject(o, field)) != NULL){
+    	if (getLongLongFromObject(cur_obj, &value) != C_OK) {
+    		serverLog(LL_ERROR, "the value of meta must be INTEGER");
+    		assert(0);
+		}
+		decrRefCount(cur_obj);
+	}
+    else{
+    	value = 0;
+    }
+    oldvalue = value;
+    if ((cnt < 0 && oldvalue < 0 && cnt < (LLONG_MIN-oldvalue)) ||
+        (cnt > 0 && oldvalue > 0 && cnt > (LLONG_MAX-oldvalue))) {
+    	serverLog(LL_ERROR,"increment or decrement would overflow");
+    	assert(0);
+    }
+    value += cnt;
+
+    new = createStringObjectFromLongLong(value);
+    hashTypeTryObjectEncoding(o,&field,NULL);
+    hashTypeSetWithNoFlags(o, field, new);
+    decrRefCount(new);
+
+    signalModifiedKey(db,key);
+    notifyKeyspaceEvent(NOTIFY_HASH,"Hash incrby",key,db->id);
+    server.dirty++;
+
+    return value;
+}
 
 
 /*addb key generation func*/
@@ -221,7 +242,7 @@ robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo){
 		}
 		sprintf(p, "}");
 	}
-	serverLog(LL_VERBOSE, "RGKEY :  %s", (char *)rgKey);
+	serverLog(LL_DEBUG, "RowGroup KEY :  %s", (char *)rgKey);
 	return createStringObject(rgKey, strlen(rgKey));
 }
 
