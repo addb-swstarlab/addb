@@ -114,6 +114,7 @@ int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
     } else {
         retVal = atoi((char *) ret->ptr);
     }
+    sdsfree(field);
     return retVal;
 }
 
