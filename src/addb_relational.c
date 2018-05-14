@@ -106,15 +106,15 @@ int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
     if (metaHashdictObj == NULL)
         return 0;
 
-    sds field = sdsnew((char *) metaField->ptr);
+    robj *decodedField = getDecodedObject(metaField);
     int retVal = 0;
-    robj *ret = hashTypeGetValueObject(metaHashdictObj, field);
+    robj *ret = hashTypeGetValueObject(metaHashdictObj, (sds) decodedField->ptr);
     if (!sdsEncodedObject(ret)) {
         retVal = (int) (long) ret->ptr;
     } else {
         retVal = atoi((char *) ret->ptr);
     }
-    sdsfree(field);
+    decrRefCount(decodedField);
     return retVal;
 }
 
