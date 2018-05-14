@@ -1754,6 +1754,7 @@ robj *objectCommandLookupOrReply(client *c, robj *key, robj *reply);
 /* ADDB */
 #define LOOKUP_ALL (1<<1)
 void dbAdd(redisDb *db, robj *key, robj *val);
+void dbAddForMeta(redisDb *db, robj *key, robj *val);
 void dbOverwrite(redisDb *db, robj *key, robj *val);
 void setKey(redisDb *db, robj *key, robj *val);
 int dbExists(redisDb *db, robj *key);
@@ -2050,6 +2051,13 @@ void fpScanCommand(client *c);
 void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire, int unit, robj *ok_reply, robj *abort_reply);
 int getGenericCommand(client *c);
 
+/*
+ * 2018. 5. 11
+ * kem2182@yonsei.ac.kr
+ * ADDB test commands
+ */
+void testSetMetaCommand(client *c);
+void testGetMetaCommand(client *c);
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));
