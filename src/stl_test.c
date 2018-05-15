@@ -43,6 +43,7 @@ void testVectorInterfaceCommand(client *c) {
             "TEST_VECTOR_ANY_VALUE_1", "TEST_VECTOR_ANY_VALUE_2",
             "TEST_VECTOR_ANY_VALUE_3",
         };
+
         vectorAdd(&v, (void *) values[0]);
         vectorAdd(&v, (void *) values[1]);
         vectorAdd(&v, (void *) values[2]);
@@ -50,12 +51,13 @@ void testVectorInterfaceCommand(client *c) {
         for (size_t i = 0; i < vectorCount(&v); ++i) {
             assert(strcmp(values[i], vectorGet(&v, i)) == 0);
         }
-        vectorDelete(&v, 0);
-        assert(v.count == 2);
-        vectorDelete(&v, 0);
-        assert(v.count == 1);
-        vectorDelete(&v, 0);
-        assert(v.count == 0);
+        void *unlinkedDatum;
+        unlinkedDatum = vectorUnlink(&v, 0);
+        assert(v.count == 2 && (strcmp(unlinkedDatum, values[0]) == 0));
+        unlinkedDatum = vectorUnlink(&v, 0);
+        assert(v.count == 1 && (strcmp(unlinkedDatum, values[1]) == 0));
+        unlinkedDatum = vectorUnlink(&v, 0);
+        assert(v.count == 0 && (strcmp(unlinkedDatum, values[2]) == 0));
         vectorFreeDeep(&v);
     }
     {
@@ -107,9 +109,6 @@ void testVectorInterfaceCommand(client *c) {
         vectorDelete(&v, 0);
         assert(v.count == 0);
         vectorFreeDeep(&v);
-        for (size_t i = 0; i < 3; ++i) {
-            sdsfree(values[i]);
-        }
     }
 
     addReply(c, shared.ok);

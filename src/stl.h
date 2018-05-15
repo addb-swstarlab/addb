@@ -34,6 +34,7 @@ int vectorAdd(Vector *v, void *datum);
 int vectorSet(Vector *v, size_t index, void *datum);
 void *vectorGet(Vector *v, size_t index);
 int vectorDelete(Vector *v, size_t index);
+void *vectorUnlink(Vector *v, size_t index);
 int vectorFreeDatum(Vector *v, void *datum);
 int vectorFree(Vector *v);
 int vectorFreeDeep(Vector *v);

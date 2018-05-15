@@ -71,7 +71,7 @@ int vectorSet(Vector *v, size_t index, void *datum) {
         dataLong[index] = (long) datum;
     } else if (v->type == VECTOR_TYPE_SDS) {
         sds *dataSds = (sds *) v->data;
-        dataSds[index] = (sds) sdsdup(datum);
+        dataSds[index] = (sds) datum;
     } else {
         serverLog(LL_DEBUG, "FATAL ERROR: Wrong vector type [%d]", v->type);
         return C_ERR;
@@ -110,6 +110,29 @@ int vectorDelete(Vector *v, size_t index) {
     v->data = newArray;
     v->count--;
     return C_OK;
+}
+
+void *vectorUnlink(Vector *v, size_t index) {
+    if (index >= v->count) {
+        serverLog(LL_DEBUG,
+                  "ERROR: Try to get element that index overflows vector");
+        return NULL;
+    }
+
+    void **newArray = (void **) zmalloc(_vectorGetDatumSize(v) * v->size);
+    void *target;
+    for (size_t i = 0, j = 0; i < v->count; ++i) {
+        if (i == index) {
+            target = v->data[i];
+            continue;
+        }
+        newArray[j] = v->data[i];
+        ++j;
+    }
+    zfree(v->data);
+    v->data = newArray;
+    v->count--;
+    return target;
 }
 
 int vectorFreeDatum(Vector *v, void *datum) {
