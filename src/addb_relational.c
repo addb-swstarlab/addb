@@ -286,6 +286,8 @@ ScanParameter *createScanParameter(const client *c) {
     param->dataKeyInfo = parsingDataKeyInfo((sds) c->argv[1]->ptr);
     param->totalRowGroupCount = getRowGroupInfoAndSetRowGroupInfo(
             c->db, param->dataKeyInfo);
+    param->rowGroupParams = (RowGroupParameter *) zmalloc(
+            sizeof(RowGroupParameter) * param->totalRowGroupCount);
     param->columnParam = parseColumnParameter((sds) c->argv[2]->ptr);
     return param;
 }
@@ -310,9 +312,32 @@ void freeScanParameter(ScanParameter *param) {
  * - Return
  *      Returns total data count scaned by scan parameter.
  */
-int populateScanParameter(ScanParameter *scanParam) {
+int populateScanParameter(redisDb *db, ScanParameter *scanParam) {
     int totalDataCount = 0;
-    // TODO(totoro): Implements critical logics for populateScanParameter.
+
+    for (size_t i = 0; i < scanParam->totalRowGroupCount; ++i) {
+        int rowGroupId = i + 1;
+        scanParam->dataKeyInfo->rowGroupId = rowGroupId;
+        robj *dataKey = generateDataKey(scanParam->dataKeyInfo);
+        scanParam->rowGroupParams[i] = createRowGroupParameter(db, dataKey);
+
+        // TODO(totoro): Uses getRowCountFromRowGroup function to set row count.
+        int rowCount = 0;
+        scanParam->rowGroupParams[i].rowCount = rowCount;
+        totalDataCount += scanParam->columnParam->columnCount * rowCount;
+        decrRefCount(dataKey);
+    }
     return totalDataCount;
+}
+
+RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey) {
+    RowGroupParameter param;
+    expireIfNeeded(db, dataKey);
+    param.dictObj = lookupKey(db, dataKey, LOOKUP_NONE);
+
+    if (param.dictObj == NULL)
+        param.isInRocksDb = true;
+
+    return param;
 }
 

@@ -128,6 +128,8 @@ void fpScanCommand(client *c) {
     }
 
     /*Populates row group information to scan parameters*/
+    int totalDataCount = populateScanParameter(c->db, scanParam);
+    serverLog(LL_DEBUG, "total data count: %d", totalDataCount);
     /*Load data from Redis or RocksDB*/
     /*Scan data to client*/
 
