@@ -70,6 +70,28 @@ NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
 
   return ret;
 }
+/*addb get RowNumberInfo from Metadict*/
+int getRowNumberInfoAndSetRowNumberInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
+	char tmp[SDS_DATA_KEY_MAX];
+	int rowNumber= 0;
+	sds metaKey = sdsnewlen("", SDS_DATA_KEY_MAX);// sdsnewlen(tmp, sizeof(tmp) //sdsnew(tmp) //sdsIntialize(tmp, sizeof(tmp));
+	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
+
+	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
+	if(metaHashdictObj == NULL){
+		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
+	}
+	else{
+		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
+	}
+
+	robj *metaField  = createStringObjectFromLongLong((long long) dataKeyInfo->rowGroupId);
+	rowNumber = lookupCompInfoForRowNumberInMeta(metaHashdictObj, metaField);
+  dataKeyInfo->row_number = rowNumber;
+	decrRefCount(metaField);
+	return rowNumber;
+}
+
 
 /*addb get RowgroupInfo from Metadict*/
 int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
@@ -87,10 +109,8 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	}
 
 	robj *metaField = shared.integers[0];
-
 	rowgroup = lookupCompInfoForMeta(metaHashdictObj, metaField);
 	dataKeyInfo->rowGroupId = rowgroup;
-
 	return rowgroup;
 }
 
@@ -98,7 +118,6 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 
     int rowgroup = getRowGroupInfoAndSetRowGroupInfo(db,dataKeyInfo);
-
     if(rowgroup == 0){
     	 serverLog(LL_DEBUG, "ROWGROUP 0 CASE OCCUR");
     	rowgroup = IncRowgroupIdAndModifyInfo(db, dataKeyInfo, 1);
@@ -108,7 +127,32 @@ int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 }
 
 
+int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
+
+    if (metaHashdictObj == NULL){
+   	 serverLog(LL_VERBOSE, "METAHASHDICT NULL");
+        return 0;
+    }
+    robj *decodedField = getDecodedObject(metaField);
+    int retVal = 0;
+    robj *ret = hashTypeGetValueObject(metaHashdictObj, (sds) decodedField->ptr);
+   // serverLog(LL_VERBOSE, "ENCODING : %d, RAW: %d, EMBSTR : %d", ret->encoding,OBJ_ENCODING_RAW,  OBJ_ENCODING_EMBSTR);
+
+    if(ret == NULL){
+        decrRefCount(decodedField);
+        return 0;
+    }
+    if (!sdsEncodedObject(ret)) {
+        retVal = (int) (long) ret->ptr;
+    } else {
+        retVal = atoi((char *) ret->ptr);
+    }
+    decrRefCount(decodedField);
+    return retVal;
+}
+
 int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
+
     if (metaHashdictObj == NULL){
         return 0;
     }
@@ -170,6 +214,19 @@ int incRowgroupId(redisDb *db, NewDataKeyInfo *dataKeyInfo, int inc_number){
 	decrRefCount(rowgroupKey);
 	return ret;
 }
+
+int incRowNumber(redisDb *db, NewDataKeyInfo *dataKeyInfo, int inc_number){
+	/*check rowgroup info*/
+	if(dataKeyInfo->rowGroupId == 0)
+		assert(0);
+	robj *rowgroupKey = generateRgIdKeyForRowgroup(dataKeyInfo);
+	robj *metaRgField = createStringObjectFromLongLong((long long) dataKeyInfo->rowGroupId);
+	int ret = IncDecCount(db, rowgroupKey, metaRgField, (long long) inc_number);
+	decrRefCount(rowgroupKey);
+	decrRefCount(metaRgField);
+	return ret;
+}
+
 
 //TO-DO MODIFY LATER -HS
 int IncDecCount(redisDb *db, robj *key, robj *field, long long cnt){  // int flags ??

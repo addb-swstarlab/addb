@@ -29,7 +29,6 @@ void fpWriteCommand(client *c){
 
     int fpWrite_result = C_OK;
     int i;
-    int row_number = 0;
 
     struct redisClient *fakeClient = NULL;
 
@@ -54,10 +53,19 @@ void fpWriteCommand(client *c){
     serverLog(LL_DEBUG,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
               dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroupId);
 
-    /*get rowgroup info from dictMeta*/
+    /*get rowgroup info from Metadict*/
     int rowGroupId = getRowgroupInfo(c->db, dataKeyInfo);
-
     serverLog(LL_DEBUG, "rowGroupId = %d", rowGroupId);
+
+    /*get rownumber info from Metadict*/
+    int row_number = getRowNumberInfoAndSetRowNumberInfo(c->db, dataKeyInfo);
+    serverLog(LL_DEBUG, "rowNumber = %d", row_number);
+
+    /*set rowNumber Info to Metadict*/
+    if(row_number == 0 ){
+    	incRowNumber(c->db, dataKeyInfo, 0);
+    }
+
 
     /*pk*/
     /*dict- hashdict */
