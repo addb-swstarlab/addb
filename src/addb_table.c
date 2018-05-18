@@ -42,9 +42,13 @@ void fpWriteCommand(client *c){
     int column_number = atoi((char *) c->argv[3]->ptr);
     serverLog(LL_DEBUG, "fpWrite Column Number : %d", column_number);
 
+    /*get value number*/
+    int value_num = c->argc - 5;
+    serverLog(LL_DEBUG ,"VALUE NUM : %d", value_num);
+
     /*compare with column number and arguments*/
 
-    if(((c->argc-5)%column_number) != 0 ){
+    if((value_num % column_number) != 0 ){
     	serverLog(LL_WARNING,"column number and args number do not match");
     	addReplyError(c, "column_number Error");
     	return;
@@ -66,8 +70,25 @@ void fpWriteCommand(client *c){
     	incRowNumber(c->db, dataKeyInfo, 0);
     }
 
+    /*TODO- check Rowgroup Max size*/
 
-    /*pk*/
+
+    robj * dataKeyString = generateDataKey(dataKeyInfo);
+    serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKeyString->ptr);
+
+    int idx =0;
+    for(i = 5; i < c->argc; i++){
+
+    	   /*TODO - pk column check*/
+
+    	robj *valueObj = c->argv[i];
+
+    	//Create dataField Info
+    	int row_idx = row_number + (idx / column_number) + 1;
+    	int column_idx = (idx % column_number) + 1;
+    }
+
+
     /*dict- hashdict */
     /*insert*/
     /*filter*/

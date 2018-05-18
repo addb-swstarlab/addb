@@ -324,7 +324,7 @@ robj * generateDataKey(NewDataKeyInfo *dataKeyInfo){
 		}
 		sprintf(p, "}:%s%d", RELMODEL_ROWGROUPID_PREFIX, dataKeyInfo->rowGroupId);
 	}
-	serverLog(LL_VERBOSE, "DATAKEY :  %s", (char *)dataKey);
+	serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKey);
 	return createStringObject(dataKey, strlen(dataKey));
 }
 
