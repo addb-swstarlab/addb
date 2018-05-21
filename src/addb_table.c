@@ -79,13 +79,20 @@ void fpWriteCommand(client *c){
     int idx =0;
     for(i = 5; i < c->argc; i++){
 
-    	   /*TODO - pk column check*/
+    	   /*TODO - pk column check & ROW MAX LIMIT, COLUMN MAX LIMIT, */
 
     	robj *valueObj = c->argv[i];
 
     	//Create dataField Info
     	int row_idx = row_number + (idx / column_number) + 1;
     	int column_idx = (idx % column_number) + 1;
+
+    	robj *dataField = getDataField(row_idx, column_idx);
+        serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
+
+        idx++;
+    	/*create Field String*/
+    	/*Data insertion*/
     }
 
 

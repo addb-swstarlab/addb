@@ -61,6 +61,11 @@ void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key);
 robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo);
 robj * generateDataKey(NewDataKeyInfo *dataKeyInfo);
 
+
+/*addb data field function*/
+robj *getDataField(int row, int column);
+
+
 /*Scan*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
 ScanParameter *createScanParameter(const client *c);

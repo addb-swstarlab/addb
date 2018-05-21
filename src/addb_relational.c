@@ -328,6 +328,18 @@ robj * generateDataKey(NewDataKeyInfo *dataKeyInfo){
 	return createStringObject(dataKey, strlen(dataKey));
 }
 
+/*addb generate datafield string*/
+
+robj *getDataField(int row, int column){
+
+	char dataField[DATA_KEY_MAX_SIZE];
+	sprintf(dataField, "%d:%d", row, column);
+	serverLog(LL_DEBUG, "DATAFIELD :  %s", (char *)dataField);
+	return createStringObject(dataField, strlen(dataField));
+
+}
+
+
 /* ADDB Create Scan parameter*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
     ColumnParameter *param = (ColumnParameter *) zmalloc(
