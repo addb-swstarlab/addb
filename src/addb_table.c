@@ -48,7 +48,6 @@ void fpWriteCommand(client *c){
     serverLog(LL_DEBUG ,"VALUE NUM : %d", value_num);
 
     /*compare with column number and arguments*/
-
     if((value_num % column_number) != 0 ){
     	serverLog(LL_WARNING,"column number and args number do not match");
     	addReplyError(c, "column_number Error");
@@ -108,8 +107,6 @@ void fpWriteCommand(client *c){
         insertedRow++;
         decrRefCount(dataField);
         decrRefCount(valueObj);
-    	/*create Field String*/
-    	/*Data insertion*/
     }
     decrRefCount(dataKeyString);
 
@@ -118,9 +115,8 @@ void fpWriteCommand(client *c){
     incRowNumber(c->db, dataKeyInfo, insertedRow);
 
 
-    /*filter*/
-    /*free*/
-    /*eviction insert*/
+    /*TODO - filter*/
+    /*TODO - eviction insert*/
 
     serverLog(LL_DEBUG,"FPWRITE COMMAND END");
     addReply(c, shared.ok);
