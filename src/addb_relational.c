@@ -70,6 +70,28 @@ NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
 
   return ret;
 }
+/*addb get RowNumberInfo from Metadict*/
+int getRowNumberInfoAndSetRowNumberInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
+	char tmp[SDS_DATA_KEY_MAX];
+	int rowNumber= 0;
+	sds metaKey = sdsnewlen("", SDS_DATA_KEY_MAX);// sdsnewlen(tmp, sizeof(tmp) //sdsnew(tmp) //sdsIntialize(tmp, sizeof(tmp));
+	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
+
+	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
+	if(metaHashdictObj == NULL){
+		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
+	}
+	else{
+		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
+	}
+
+	robj *metaField  = createStringObjectFromLongLong((long long) dataKeyInfo->rowGroupId);
+	rowNumber = lookupCompInfoForRowNumberInMeta(metaHashdictObj, metaField);
+  dataKeyInfo->row_number = rowNumber;
+	decrRefCount(metaField);
+	return rowNumber;
+}
+
 
 /*addb get RowgroupInfo from Metadict*/
 int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
@@ -79,37 +101,48 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
 
 	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
+	if(metaHashdictObj == NULL){
+		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
+	}
+	else{
+		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
+	}
+
 	robj *metaField = shared.integers[0];
 	rowgroup = lookupCompInfoForMeta(metaHashdictObj, metaField);
 	dataKeyInfo->rowGroupId = rowgroup;
-
-	serverLog(LL_VERBOSE, "FIND METAKEY :  %s", metaKey);
-	serverLog(LL_VERBOSE, "FIND ROWGROUP :  %d", dataKeyInfo->rowGroupId);
     sdsfree(metaKey);
 	return rowgroup;
 }
 
 
 int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
-    serverLog(LL_VERBOSE,"GET ROWGROUP INFO START");
-    int rowgroup = getRowGroupInfoAndSetRowGroupInfo(db,dataKeyInfo);
 
-	serverLog(LL_VERBOSE, "FIND ROWGROUP :  %d", dataKeyInfo->rowGroupId);
+    int rowgroup = getRowGroupInfoAndSetRowGroupInfo(db,dataKeyInfo);
     if(rowgroup == 0){
+    	 serverLog(LL_DEBUG, "ROWGROUP 0 CASE OCCUR");
     	rowgroup = IncRowgroupIdAndModifyInfo(db, dataKeyInfo, 1);
+
     }
     return rowgroup;
-
 }
 
 
-int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
-    if (metaHashdictObj == NULL)
-        return 0;
+int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
 
+    if (metaHashdictObj == NULL){
+   	 serverLog(LL_VERBOSE, "METAHASHDICT NULL");
+        return 0;
+    }
     robj *decodedField = getDecodedObject(metaField);
     int retVal = 0;
     robj *ret = hashTypeGetValueObject(metaHashdictObj, (sds) decodedField->ptr);
+   // serverLog(LL_VERBOSE, "ENCODING : %d, RAW: %d, EMBSTR : %d", ret->encoding,OBJ_ENCODING_RAW,  OBJ_ENCODING_EMBSTR);
+
+    if(ret == NULL){
+        decrRefCount(decodedField);
+        return 0;
+    }
     if (!sdsEncodedObject(ret)) {
         retVal = (int) (long) ret->ptr;
     } else {
@@ -118,6 +151,25 @@ int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
     decrRefCount(decodedField);
     return retVal;
 }
+
+int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
+
+    if (metaHashdictObj == NULL){
+        return 0;
+    }
+    robj *decodedField = getDecodedObject(metaField);
+    int retVal = 0;
+    robj *ret = hashTypeGetValueObject(metaHashdictObj, (sds) decodedField->ptr);
+
+    if (!sdsEncodedObject(ret)) {
+        retVal = (int) (long) ret->ptr;
+    } else {
+        retVal = atoi((char *) ret->ptr);
+    }
+    decrRefCount(decodedField);
+    return retVal;
+}
+
 
 void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key){
 
@@ -150,56 +202,82 @@ void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key){
 
 int IncRowgroupIdAndModifyInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo, int cnt){
 	int result = incRowgroupId(db, dataKeyInfo, cnt);
+	dataKeyInfo->rowGroupId = result;
+	return result;
 
 }
 
 int incRowgroupId(redisDb *db, NewDataKeyInfo *dataKeyInfo, int inc_number){
 	robj *rowgroupKey= generateRgIdKeyForRowgroup(dataKeyInfo);
-	serverLog(LL_VERBOSE, "RowgroupKEY :  %s", (char *)rowgroupKey->ptr);
 	robj *metaRgField = shared.integers[0];
 
-
-	return 1;
+	int ret = IncDecCount(db, rowgroupKey, metaRgField, (long long) inc_number);
+	decrRefCount(rowgroupKey);
+	return ret;
 }
 
+int incRowNumber(redisDb *db, NewDataKeyInfo *dataKeyInfo, int inc_number){
+	/*check rowgroup info*/
+	if(dataKeyInfo->rowGroupId == 0)
+		assert(0);
+	robj *rowgroupKey = generateRgIdKeyForRowgroup(dataKeyInfo);
+	robj *metaRgField = createStringObjectFromLongLong((long long) dataKeyInfo->rowGroupId);
+	int ret = IncDecCount(db, rowgroupKey, metaRgField, (long long) inc_number);
+	decrRefCount(rowgroupKey);
+	decrRefCount(metaRgField);
+	return ret;
+}
+
+
 //TO-DO MODIFY LATER -HS
-//int IncDecCount(redisDb *db, robj *key, robj *){
-//
-//    long long value, oldvalue;
-//    robj *o, *new;
-//
-//    o = lookupKeyWriteForMetadict(db,key);
-//    if (o != NULL && checkType(c,o,OBJ_STRING)) return;
-//    if (getLongLongFromObjectOrReply(c,o,&value,NULL) != C_OK) return;
-//
-//    oldvalue = value;
-//    if ((incr < 0 && oldvalue < 0 && incr < (LLONG_MIN-oldvalue)) ||
-//        (incr > 0 && oldvalue > 0 && incr > (LLONG_MAX-oldvalue))) {
-//        addReplyError(c,"increment or decrement would overflow");
-//        return;
-//    }
-//    value += incr;
-//
-//    if (o && o->refcount == 1 && o->encoding == OBJ_ENCODING_INT &&
-//        (value < 0 || value >= OBJ_SHARED_INTEGERS) &&
-//        value >= LONG_MIN && value <= LONG_MAX)
-//    {
-//        new = o;
-//        o->ptr = (void*)((long)value);
-//    } else {
-//        new = createStringObjectFromLongLong(value);
-//        if (o) {
-//            dbOverwrite(c->db,c->argv[1],new);
-//        } else {
-//            dbAdd(c->db,c->argv[1],new);
-//        }
-//    }
-//    signalModifiedKey(c->db,c->argv[1]);
-//    notifyKeyspaceEvent(NOTIFY_STRING,"incrby",c->argv[1],c->db->id);
-//    server.dirty++;
-//
-//
-//}
+int IncDecCount(redisDb *db, robj *key, robj *field, long long cnt){  // int flags ??
+
+    long long value, oldvalue;
+    robj *o, *new, *cur_obj;
+
+    o = lookupKeyWriteForMetadict(db,key);
+    if(o == NULL){
+
+    	o = createHashObject();  //ziplist object
+    	dbAddForMetadict(db, key, o);
+    }
+    else{
+
+    	if(o->type != OBJ_HASH){
+    		serverLog(LL_ERROR, "The value of the Metadict, hashdictobj's type, must be hash ");
+    		assert(0);
+    	}
+    }
+
+    if((cur_obj = hashTypeGetValueRObject(o, field)) != NULL){
+    	if (getLongLongFromObject(cur_obj, &value) != C_OK) {
+    		serverLog(LL_ERROR, "the value of meta must be INTEGER");
+    		assert(0);
+		}
+		decrRefCount(cur_obj);
+	}
+    else{
+    	value = 0;
+    }
+    oldvalue = value;
+    if ((cnt < 0 && oldvalue < 0 && cnt < (LLONG_MIN-oldvalue)) ||
+        (cnt > 0 && oldvalue > 0 && cnt > (LLONG_MAX-oldvalue))) {
+    	serverLog(LL_ERROR,"increment or decrement would overflow");
+    	assert(0);
+    }
+    value += cnt;
+
+    new = createStringObjectFromLongLong(value);
+    hashTypeTryObjectEncoding(o,&field,NULL);
+    hashTypeSetWithNoFlags(o, field, new);
+    decrRefCount(new);
+
+    signalModifiedKey(db,key);
+    notifyKeyspaceEvent(NOTIFY_HASH,"Hash incrby",key,db->id);
+    server.dirty++;
+
+    return value;
+}
 
 
 /*addb key generation func*/
@@ -222,7 +300,7 @@ robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo){
 		}
 		sprintf(p, "}");
 	}
-	serverLog(LL_VERBOSE, "RGKEY :  %s", (char *)rgKey);
+	serverLog(LL_DEBUG, "RowGroup KEY :  %s", (char *)rgKey);
 	return createStringObject(rgKey, strlen(rgKey));
 }
 
@@ -247,9 +325,21 @@ robj * generateDataKey(NewDataKeyInfo *dataKeyInfo){
 		}
 		sprintf(p, "}:%s%d", RELMODEL_ROWGROUPID_PREFIX, dataKeyInfo->rowGroupId);
 	}
-	serverLog(LL_VERBOSE, "DATAKEY :  %s", (char *)dataKey);
+	serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKey);
 	return createStringObject(dataKey, strlen(dataKey));
 }
+
+/*addb generate datafield string*/
+
+robj *getDataField(int row, int column){
+
+	char dataField[DATA_KEY_MAX_SIZE];
+	sprintf(dataField, "%d:%d", row, column);
+	serverLog(LL_DEBUG, "DATAFIELD :  %s", (char *)dataField);
+	return createStringObject(dataField, strlen(dataField));
+
+}
+
 
 /* ADDB Create Scan parameter*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {

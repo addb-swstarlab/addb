@@ -25,15 +25,14 @@
 
 void fpWriteCommand(client *c){
 
-    serverLog(LL_VERBOSE,"FPWRITE COMMAND START");
+    serverLog(LL_DEBUG,"FPWRITE COMMAND START");
 
     int fpWrite_result = C_OK;
     int i;
-    int row_number = 0;
 
     struct redisClient *fakeClient = NULL;
 
-    serverLog(LL_VERBOSE, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
+    serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
             (char *) c->argv[1]->ptr,(char *) c->argv[2]->ptr, (char *) c->argv[3]->ptr , (char *) c->argv[4]->ptr);
 
     /*parsing dataInfo*/
@@ -41,32 +40,69 @@ void fpWriteCommand(client *c){
 
     /*get column number*/
     int column_number = atoi((char *) c->argv[3]->ptr);
-    serverLog(LL_VERBOSE, "fpWrite Column Number : %d", column_number);
+    serverLog(LL_DEBUG, "fpWrite Column Number : %d", column_number);
+
+    /*get value number*/
+    int value_num = c->argc - 5;
+    serverLog(LL_DEBUG ,"VALUE NUM : %d", value_num);
 
     /*compare with column number and arguments*/
 
-    if(((c->argc-5)%column_number) != 0 ){
+    if((value_num % column_number) != 0 ){
     	serverLog(LL_WARNING,"column number and args number do not match");
     	addReplyError(c, "column_number Error");
     	return;
     }
-    /*get rowgroup info from dictMeta*/
-    int rowGroupId = getRowgroupInfo(c->db, dataKeyInfo);
 
-    serverLog(LL_VERBOSE,"END PARSING STEP");
-    serverLog(LL_VERBOSE,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
+    serverLog(LL_DEBUG,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
               dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroupId);
 
+    /*get rowgroup info from Metadict*/
+    int rowGroupId = getRowgroupInfo(c->db, dataKeyInfo);
+    serverLog(LL_DEBUG, "rowGroupId = %d", rowGroupId);
 
-    /*meta lookup*/
-    /*pk*/
+    /*get rownumber info from Metadict*/
+    int row_number = getRowNumberInfoAndSetRowNumberInfo(c->db, dataKeyInfo);
+    serverLog(LL_DEBUG, "rowNumber = %d", row_number);
+
+    /*set rowNumber Info to Metadict*/
+    if(row_number == 0 ){
+    	incRowNumber(c->db, dataKeyInfo, 0);
+    }
+
+    /*TODO- check Rowgroup Max size*/
+
+
+    robj * dataKeyString = generateDataKey(dataKeyInfo);
+    serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKeyString->ptr);
+
+    int idx =0;
+    for(i = 5; i < c->argc; i++){
+
+    	   /*TODO - pk column check & ROW MAX LIMIT, COLUMN MAX LIMIT, */
+
+    	robj *valueObj = c->argv[i];
+
+    	//Create dataField Info
+    	int row_idx = row_number + (idx / column_number) + 1;
+    	int column_idx = (idx % column_number) + 1;
+
+    	robj *dataField = getDataField(row_idx, column_idx);
+        serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
+
+        idx++;
+    	/*create Field String*/
+    	/*Data insertion*/
+    }
+
+
     /*dict- hashdict */
     /*insert*/
     /*filter*/
     /*free*/
     /*eviction insert*/
 
-    serverLog(LL_VERBOSE,"FPWRITE COMMAND END");
+    serverLog(LL_DEBUG,"FPWRITE COMMAND END");
     addReply(c, shared.ok);
 }
 
@@ -137,3 +173,32 @@ void fpScanCommand(client *c) {
     addReply(c, shared.ok);
 }
 
+
+void metakeysCommand(client *c){
+
+    dictIterator *di;
+    dictEntry *de;
+    sds pattern = c->argv[1]->ptr;
+    int plen = sdslen(pattern), allkeys;
+    unsigned long numkeys = 0;
+    void *replylen = addDeferredMultiBulkLength(c);
+
+    di = dictGetSafeIterator(c->db->Metadict);
+    allkeys = (pattern[0] == '*' && pattern[1] == '\0');
+    while((de = dictNext(di)) != NULL) {
+        sds key = dictGetKey(de);
+        robj *keyobj;
+
+        if (allkeys || stringmatchlen(pattern,plen,key,sdslen(key),0)) {
+            keyobj = createStringObject(key,sdslen(key));
+            if (expireIfNeeded(c->db,keyobj) == 0) {
+                addReplyBulk(c,keyobj);
+                numkeys++;
+            }
+            decrRefCount(keyobj);
+        }
+    }
+    dictReleaseIterator(di);
+    setDeferredMultiBulkLength(c,replylen,numkeys);
+
+}
