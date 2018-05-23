@@ -328,8 +328,9 @@ robj * generateDataKey(NewDataKeyInfo *dataKeyInfo){
 	return createStringObject(dataKey, strlen(dataKey));
 }
 
-/*addb generate datafield string*/
-
+/*addb generate datafield string
+ * dataField ==> row:column format
+ */
 robj *getDataField(int row, int column){
 
 	char dataField[DATA_KEY_MAX_SIZE];
@@ -373,7 +374,7 @@ void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, r
 	}
 	else {
 		/*replace logic*/
-		//leak check later
+		//TODO leak check later
 		dictFreeVal(hashDict, de);
 		dictSetVal(hashDict, de, sdsdup(valueObj->ptr)); //valueObj->ptr);
 		serverLog(LL_DEBUG, "DATA REPLACE SUCCESS. dataKey : %s, dataField : %s, value :%s"

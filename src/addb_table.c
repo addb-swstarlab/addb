@@ -30,7 +30,7 @@ void fpWriteCommand(client *c){
 
     int fpWrite_result = C_OK;
     int i;
-
+    long long insertedRow=0;
     struct redisClient *fakeClient = NULL;
 
     serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
@@ -100,19 +100,24 @@ void fpWriteCommand(client *c){
 
         serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
         		(char *)dataKeyString->ptr, (char *)dataField->ptr, (char *)valueObj->ptr);
+
+        /*insert data into dict with Relational model*/
         insertKVpairToRelational(c, dataKeyString, dataField, valueObj);
 
         idx++;
-        decrRefCount(dataKeyString);
+        insertedRow++;
         decrRefCount(dataField);
         decrRefCount(valueObj);
     	/*create Field String*/
     	/*Data insertion*/
     }
+    decrRefCount(dataKeyString);
+
+    /*addb update row number info*/
+    insertedRow /= column_number;
+    incRowNumber(c->db, dataKeyInfo, insertedRow);
 
 
-    /*dict- hashdict */
-    /*insert*/
     /*filter*/
     /*free*/
     /*eviction insert*/
