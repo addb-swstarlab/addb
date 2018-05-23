@@ -5,6 +5,7 @@
  */
 
 #include "server.h"
+#include "assert.h"
 #include "addb_relational.h"
 
 
@@ -81,7 +82,7 @@ void fpWriteCommand(client *c){
 
     	   /*TODO - pk column check & ROW MAX LIMIT, COLUMN MAX LIMIT, */
 
-    	robj *valueObj = c->argv[i];
+    	robj *valueObj = getDecodedObject(c->argv[i]);
 
     	//Create dataField Info
     	int row_idx = row_number + (idx / column_number) + 1;
@@ -90,7 +91,21 @@ void fpWriteCommand(client *c){
     	robj *dataField = getDataField(row_idx, column_idx);
         serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
 
+        assert(dataField != NULL);
+
+
+       /*check Value Type*/
+        if(!(strcmp((char *)valueObj->ptr, NULLVALUE)))
+        	valueObj = shared.nullValue;
+
+        serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
+        		(char *)dataKeyString->ptr, (char *)dataField->ptr, (char *)valueObj->ptr);
+        insertKVpairToRelational(c, dataKeyString, dataField, valueObj);
+
         idx++;
+        decrRefCount(dataKeyString);
+        decrRefCount(dataField);
+        decrRefCount(valueObj);
     	/*create Field String*/
     	/*Data insertion*/
     }
@@ -171,7 +186,7 @@ void fpScanCommand(client *c) {
     addReply(c, shared.ok);
 }
 
-
+/*Lookup key in metadict */
 void metakeysCommand(client *c){
 
     dictIterator *di;
@@ -199,4 +214,40 @@ void metakeysCommand(client *c){
     dictReleaseIterator(di);
     setDeferredMultiBulkLength(c,replylen,numkeys);
 
+}
+
+/*Lookup the value list of field and field in dict*/
+void fieldsAndValueCommand(client *c){
+
+    dictIterator *di;
+    dictEntry *de;
+    char str_buf[1024];
+    unsigned long numkeys = 0;
+    void *replylen = addDeferredMultiBulkLength(c);
+
+    sds pattern = sdsnew(c->argv[1]->ptr);
+
+    robj *hashdict = lookupSDSKeyFordict(c->db, pattern);
+
+    if(hashdict == NULL){
+        addReplyErrorFormat(c, "key [%s] doesn't exist in dict",
+        		pattern);
+        sdsfree(pattern);
+        return;
+    }
+    	dict *hashdictObj = (dict *) hashdict->ptr;
+    	di = dictGetSafeIterator(hashdictObj);
+    	while((de = dictNext(di)) != NULL){
+
+    		sds key = dictGetKey(de);
+    		sds val = dictGetVal(de);
+    		sprintf(str_buf, "field : %s, value : %s", key, val);
+    		addReplyBulkCString(c, str_buf);
+    		numkeys++;
+
+    		serverLog(LL_VERBOSE ,"key : %s , val : %s" , key,  val);
+
+    }
+    	dictReleaseIterator(di);
+    	setDeferredMultiBulkLength(c, replylen, numkeys);
 }

@@ -199,6 +199,25 @@ robj *lookupSDSKeyForMetadict(redisDb *db, sds key){
     }
 }
 
+robj *lookupSDSKeyFordict(redisDb *db, sds key){
+
+    dictEntry *de = dictFind(db->dict,key);
+    if (de) {
+        robj *val = dictGetVal(de);
+
+        /* Update the access time for the ageing algorithm.
+         * Don't do it if we have a saving child, as this will trigger
+         * a copy on write madness. */
+        if (server.rdb_child_pid == -1 && server.aof_child_pid == -1)
+            val->lru = LRU_CLOCK();
+        return val;
+    } else {
+        return NULL;
+    }
+}
+
+
+
 /*addb ref lookupKeyWrite func*/
 
 robj *lookupKeyWriteForMetadict(redisDb *db, robj *key) {

@@ -582,6 +582,8 @@ typedef struct RedisModuleDigest {
 #define OBJ_ENCODING_EMBSTR 8  /* Embedded sds string encoding */
 #define OBJ_ENCODING_QUICKLIST 9 /* Encoded as linked list of ziplists */
 
+#define OBJ_ENCODING_REL 10 /*Encode as Relational Model */
+
 #define LRU_BITS 24
 #define LRU_CLOCK_MAX ((1<<LRU_BITS)-1) /* Max value of obj->lru */
 #define LRU_CLOCK_RESOLUTION 1000 /* LRU clock resolution in ms */
@@ -766,6 +768,8 @@ struct sharedObjectsStruct {
     *busykeyerr, *oomerr, *plus, *messagebulk, *pmessagebulk, *subscribebulk,
     *unsubscribebulk, *psubscribebulk, *punsubscribebulk, *del, *unlink,
     *rpop, *lpop, *lpush, *emptyscan,
+	  *nullValue, /*addb*/
+
     *select[PROTO_SHARED_SELECT_CMDS],
     *integers[OBJ_SHARED_INTEGERS],
     *mbulkhdr[OBJ_SHARED_BULKHDR_LEN], /* "*<value>\r\n" */
@@ -1472,6 +1476,7 @@ robj *createZiplistObject(void);
 robj *createSetObject(void);
 robj *createIntsetObject(void);
 robj *createHashObject(void);
+robj *createDataHashdcitFordict(void); /*addb*/
 robj *createZsetObject(void);
 robj *createZsetZiplistObject(void);
 robj *createModuleObject(moduleType *mt, void *value);
@@ -1749,7 +1754,9 @@ int isEvictedPartitionInfo(redisDb *db, robj *metaObj);
 robj *lookupPkey(redisDb *db, robj *key, int flags);
 robj *lookupSDSKeyForMetadict(redisDb *db, sds key);
 robj *lookupKeyForMetadict(redisDb *db, robj *key, int flags);
+robj *lookupSDSKeyFordict(redisDb *db, sds key);
 
+robj *lookupDictAndGetHashdictObj(client *c, robj *dataKey);
 
 robj *lookupKeyReadOrReply(client *c, robj *key, robj *reply);
 robj *lookupAllKeyReadOrReply(client *c, robj *key, robj *reply);
@@ -2062,6 +2069,8 @@ void fpScanCommand(client *c);
 void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire, int unit, robj *ok_reply, robj *abort_reply);
 int getGenericCommand(client *c);
 void metakeysCommand(client *c);
+void fieldsAndValueCommand(client *c);
+
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

@@ -340,6 +340,52 @@ robj *getDataField(int row, int column){
 }
 
 
+/*addb Data Insertion func*/
+
+void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj){
+
+	assert(dataKeyString != NULL);
+	assert(dataField != NULL);
+
+	robj *dataHashdictObj = NULL;
+
+	if( (dataHashdictObj = lookupDictAndGetHashdictObj(c,dataKeyString)) == NULL ){
+
+		serverLog(LL_WARNING, "Can't Find dataHashdict in dict, Because of Creation Error");
+		serverPanic("insertKVpairToRelational ERROR");
+	}
+
+	dict *hashDict = (dict *)dataHashdictObj->ptr;
+	dictEntry *de = NULL;
+
+	if((de = dictFind(hashDict, dataField->ptr)) == NULL){
+
+		int ret = dictAdd(hashDict, sdsdup(dataField->ptr), sdsdup(valueObj->ptr));
+
+		if(!ret){
+			serverLog(LL_DEBUG, "DATA INSERTION SUCCESS. dataKey : %s, dataField : %s, value :%s"
+					, (char *)dataKeyString->ptr, (char*)dataField->ptr, (char *)valueObj->ptr);
+		}
+		else {
+			serverLog(LL_WARNING, "DATA INSERTION FAIL");
+			serverPanic("DATA INSERTION ERROR in insertKVpairToRelational");
+		}
+	}
+	else {
+		/*replace logic*/
+		//leak check later
+		dictFreeVal(hashDict, de);
+		dictSetVal(hashDict, de, sdsdup(valueObj->ptr)); //valueObj->ptr);
+		serverLog(LL_DEBUG, "DATA REPLACE SUCCESS. dataKey : %s, dataField : %s, value :%s"
+				, (char *)dataKeyString->ptr, (char*)dataField->ptr, (char *)valueObj->ptr);
+
+	}
+	notifyKeyspaceEvent(NOTIFY_HASH,"hset", dataKeyString,c->db->id);
+	server.dirty++;
+
+}
+
+
 /* ADDB Create Scan parameter*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
     ColumnParameter *param = (ColumnParameter *) zmalloc(

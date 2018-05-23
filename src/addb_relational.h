@@ -66,6 +66,9 @@ robj * generateDataKey(NewDataKeyInfo *dataKeyInfo);
 robj *getDataField(int row, int column);
 
 
+/*Insert function*/
+void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj);
+
 /*Scan*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
 ScanParameter *createScanParameter(const client *c);
