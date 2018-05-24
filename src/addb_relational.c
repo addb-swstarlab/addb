@@ -366,15 +366,6 @@ void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, r
 			serverPanic("DATA INSERTION ERROR in insertKVpairToRelational");
 		}
 	}
-	else {
-		/*replace logic*/
-		//TODO leak check later
-		dictFreeVal(hashDict, de);
-		dictSetVal(hashDict, de, sdsdup(valueObj->ptr)); //valueObj->ptr);
-		serverLog(LL_DEBUG, "DATA REPLACE SUCCESS. dataKey : %s, dataField : %s, value :%s"
-				, (char *)dataKeyString->ptr, (char*)dataField->ptr, (char *)valueObj->ptr);
-
-	}
 	notifyKeyspaceEvent(NOTIFY_HASH,"hset", dataKeyString,c->db->id);
 	server.dirty++;
 
