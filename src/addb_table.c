@@ -223,33 +223,38 @@ void fieldsAndValueCommand(client *c){
 
     dictIterator *di;
     dictEntry *de;
-    char str_buf[1024];
-    unsigned long numkeys = 0;
-    void *replylen = addDeferredMultiBulkLength(c);
-
     sds pattern = sdsnew(c->argv[1]->ptr);
 
     robj *hashdict = lookupSDSKeyFordict(c->db, pattern);
 
     if(hashdict == NULL){
-        addReplyErrorFormat(c, "key [%s] doesn't exist in dict",
-        		pattern);
-        sdsfree(pattern);
-        return;
+    	serverLog(LL_VERBOSE, "FIELD EMPTY");
+    	 addReply(c, shared.nullbulk);
     }
-    	dict *hashdictObj = (dict *) hashdict->ptr;
-    	di = dictGetSafeIterator(hashdictObj);
-    	while((de = dictNext(di)) != NULL){
+    else {
 
-    		sds key = dictGetKey(de);
-    		sds val = dictGetVal(de);
-    		sprintf(str_buf, "field : %s, value : %s", key, val);
-    		addReplyBulkCString(c, str_buf);
-    		numkeys++;
+     	char str_buf[1024];
+     	unsigned long numkeys = 0;
+     	void *replylen = addDeferredMultiBulkLength(c);
 
-    		serverLog(LL_VERBOSE ,"key : %s , val : %s" , key,  val);
+     	dict *hashdictObj = (dict *) hashdict->ptr;
+     	di = dictGetSafeIterator(hashdictObj);
+     	while((de = dictNext(di)) != NULL){
 
+     		sds key = dictGetKey(de);
+     		sds val = dictGetVal(de);
+     		sprintf(str_buf, "field : %s, value : %s", key, val);
+     		addReplyBulkCString(c, str_buf);
+     		numkeys++;
+
+     		serverLog(LL_VERBOSE ,"key : %s , val : %s" , key,  val);
+
+     }
+     	sdsfree(pattern);
+     	dictReleaseIterator(di);
+     	setDeferredMultiBulkLength(c, replylen, numkeys);
     }
-    	dictReleaseIterator(di);
-    	setDeferredMultiBulkLength(c, replylen, numkeys);
+
 }
+
+
