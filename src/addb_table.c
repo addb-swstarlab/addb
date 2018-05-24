@@ -31,7 +31,7 @@ void fpWriteCommand(client *c){
     int fpWrite_result = C_OK;
     int i;
     long long insertedRow=0;
-    struct redisClient *fakeClient = NULL;
+    //struct redisClient *fakeClient = NULL;
 
     serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
             (char *) c->argv[1]->ptr,(char *) c->argv[2]->ptr, (char *) c->argv[3]->ptr , (char *) c->argv[4]->ptr);
@@ -109,6 +109,7 @@ void fpWriteCommand(client *c){
         decrRefCount(valueObj);
     }
     decrRefCount(dataKeyString);
+    zfree(dataKeyInfo);
 
     /*addb update row number info*/
     insertedRow /= column_number;
