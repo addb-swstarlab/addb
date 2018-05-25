@@ -457,11 +457,13 @@ long long emptyDb(int dbnum, int flags, void(callback)(void*)) {
     for (j = 0; j < server.dbnum; j++) {
         if (dbnum != -1 && dbnum != j) continue;
         removed += dictSize(server.db[j].dict);
+        removed += dictSize(server.db[j].Metadict);
         if (async) {
             emptyDbAsync(&server.db[j]);
         } else {
             dictEmpty(server.db[j].dict,callback);
             dictEmpty(server.db[j].expires,callback);
+            dictEmpty(server.db[j].Metadict, callback);
         }
     }
     if (server.cluster_enabled) {
