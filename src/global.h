@@ -17,6 +17,10 @@
 #define RELMODEL_BRACE_SUFFIX "}"
 #define RELMODEL_ROWGROUPID_PREFIX "G:"
 #define RELMODEL_COLUMN_DELIMITER ","
+#define REL_MODEL_FIELD_PREDIX "F:"
+
+
+#define MAX_COLUMN_NUMBER 100  /*Modify later*/
 
 #define NULLVALUE "null"
 

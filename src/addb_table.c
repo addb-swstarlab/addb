@@ -41,6 +41,7 @@ void fpWriteCommand(client *c){
 
     /*get column number*/
     int column_number = atoi((char *) c->argv[3]->ptr);
+    assert(column_number <= MAX_COLUMN_NUMBER);
     serverLog(LL_DEBUG, "fpWrite Column Number : %d", column_number);
 
     /*get value number*/
@@ -69,9 +70,11 @@ void fpWriteCommand(client *c){
     if(row_number == 0 ){
     	incRowNumber(c->db, dataKeyInfo, 0);
     }
-
-    /*TODO- check Rowgroup Max size*/
-
+    /*check rowgroup size*/
+    if(row_number >= server.rowgroup_size){
+    	rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
+    	row_number = 0;
+    }
 
     robj * dataKeyString = generateDataKey(dataKeyInfo);
     serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKeyString->ptr);
@@ -86,6 +89,8 @@ void fpWriteCommand(client *c){
     	//Create dataField Info
     	int row_idx = row_number + (idx / column_number) + 1;
     	int column_idx = (idx % column_number) + 1;
+
+        assert(column_idx <= MAX_COLUMN_NUMBER);
 
     	robj *dataField = getDataField(row_idx, column_idx);
         serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
@@ -228,7 +233,6 @@ void fieldsAndValueCommand(client *c){
     robj *hashdict = lookupSDSKeyFordict(c->db, pattern);
 
     if(hashdict == NULL){
-    	serverLog(LL_VERBOSE, "FIELD EMPTY");
     	 addReply(c, shared.nullbulk);
     }
     else {
