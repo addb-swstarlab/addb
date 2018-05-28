@@ -328,6 +328,15 @@ void loadServerConfigFromString(char *config) {
                 err = "maxmemory-samples must be 1 or greater";
                 goto loaderr;
             }
+        } else if (!strcasecmp(argv[0], "rowgroup_size") &&argc == 2) {
+        	   server.rowgroup_size = atoi(argv[1]);
+        	   if(server.rowgroup_size <0){
+        		   err = "Invalid rowgroup_size";
+        		   goto loaderr;
+        	   }
+        	   if(server.rowgroup_size == 0){
+        		   server.rowgroup_size = 100;  //default size
+        	   }
         } else if (!strcasecmp(argv[0],"lfu-log-factor") && argc == 2) {
             server.lfu_log_factor = atoi(argv[1]);
             if (server.maxmemory_samples < 0) {
