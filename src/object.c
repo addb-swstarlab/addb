@@ -29,6 +29,7 @@
  */
 
 #include "server.h"
+#include "assert.h"
 #include <math.h>
 #include <ctype.h>
 
@@ -181,6 +182,18 @@ robj *dupStringObject(const robj *o) {
     }
 }
 
+/*addb Create HashdictObject For dict*/
+robj *createDataHashdcitFordict(void){
+	  dict *dict = NULL;
+	  dict = dictCreate(&hashDictType, NULL);
+	  assert(dict != NULL);
+	  robj *o = createObject(OBJ_HASH, dict);
+	  o->encoding = OBJ_ENCODING_REL;
+	  //o->encoding = OBJ_ENCODING_HT;
+    return o;
+
+}
+
 robj *createQuicklistObject(void) {
     quicklist *l = quicklistCreate();
     robj *o = createObject(OBJ_LIST,l);
@@ -293,6 +306,10 @@ void freeHashObject(robj *o) {
     case OBJ_ENCODING_ZIPLIST:
         zfree(o->ptr);
         break;
+    /*addb*/
+    case OBJ_ENCODING_REL:
+    	dictRelease((dict *)o->ptr);
+    	  break;
     default:
         serverPanic("Unknown hash encoding type");
         break;

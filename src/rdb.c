@@ -620,6 +620,9 @@ int rdbSaveObjectType(rio *rdb, robj *o) {
             return rdbSaveType(rdb,RDB_TYPE_HASH_ZIPLIST);
         else if (o->encoding == OBJ_ENCODING_HT)
             return rdbSaveType(rdb,RDB_TYPE_HASH);
+        /*addb*/
+        else if (o->encoding == OBJ_ENCODING_REL)
+        	return rdbSaveType(rdb, RDB_TYPE_HASH);
         else
             serverPanic("Unknown hash encoding");
     case OBJ_MODULE:
@@ -758,7 +761,29 @@ ssize_t rdbSaveObject(rio *rdb, robj *o) {
                 nwritten += n;
             }
             dictReleaseIterator(di);
-        } else {
+        } /*addb*/
+        else if (o->encoding == OBJ_ENCODING_REL) {
+            dictIterator *di = dictGetIterator(o->ptr);
+            dictEntry *de;
+
+            if ((n = rdbSaveLen(rdb,dictSize((dict*)o->ptr))) == -1) return -1;
+            nwritten += n;
+
+            while((de = dictNext(di)) != NULL) {
+                sds field = dictGetKey(de);
+                sds value = dictGetVal(de);
+
+                if ((n = rdbSaveRawString(rdb,(unsigned char*)field,
+                        sdslen(field))) == -1) return -1;
+                nwritten += n;
+                if ((n = rdbSaveRawString(rdb,(unsigned char*)value,
+                        sdslen(value))) == -1) return -1;
+                nwritten += n;
+            }
+            dictReleaseIterator(di);
+        }
+
+        else {
             serverPanic("Unknown hash encoding");
         }
 
@@ -1310,7 +1335,13 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
 
         /* All pairs should be read by now */
         serverAssert(len == 0);
-    } else if (rdbtype == RDB_TYPE_LIST_QUICKLIST) {
+    }
+    /*addb TODO implement later*/
+    else if (o->encoding == OBJ_ENCODING_REL && len > 0){
+
+
+    }
+    else if (rdbtype == RDB_TYPE_LIST_QUICKLIST) {
         if ((len = rdbLoadLen(rdb,NULL)) == RDB_LENERR) return NULL;
         o = createQuicklistObject();
         quicklistSetOptions(o->ptr, server.list_max_ziplist_size,

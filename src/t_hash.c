@@ -28,6 +28,7 @@
  */
 
 #include "server.h"
+#include "assert.h"
 #include <math.h>
 
 /*-----------------------------------------------------------------------------
@@ -119,13 +120,33 @@ int hashTypeGetFromZiplistWithrobj(robj *o, robj *field,
 }
 
 
+
+/*addb lookup dict And get Hashdict
+ * If Hashdict is NULL, then create and return*/
+robj *lookupDictAndGetHashdictObj(client *c, robj *dataKey){
+
+	robj *hashDict = lookupKeyWrite(c->db, dataKey);
+
+	if(hashDict == NULL){
+		hashDict = createDataHashdcitFordict();
+
+		dbAdd(c->db, dataKey, hashDict);
+	}
+	else {
+		assert(hashDict->type == OBJ_HASH);
+	}
+
+	return hashDict;
+}
+
+
 /* Get the value from a hash table encoded hash, identified by field.
  * Returns NULL when the field cannot be found, otherwise the SDS value
  * is returned. */
 sds hashTypeGetFromHashTable(robj *o, sds field) {
     dictEntry *de;
 
-    serverAssert(o->encoding == OBJ_ENCODING_HT);
+    serverAssert(o->encoding == OBJ_ENCODING_HT || o->encoding == OBJ_ENCODING_REL);
 
     de = dictFind(o->ptr, field);
     if (de == NULL) return NULL;
@@ -311,7 +332,7 @@ int hashTypeSet(robj *o, sds field, sds value, int flags) {
         /* Check if the ziplist needs to be converted to a hash table */
         if (hashTypeLength(o) > server.hash_max_ziplist_entries)
             hashTypeConvert(o, OBJ_ENCODING_HT);
-    } else if (o->encoding == OBJ_ENCODING_HT) {
+    } else if (o->encoding == OBJ_ENCODING_HT || o->encoding == OBJ_ENCODING_REL) {
         dictEntry *de = dictFind(o->ptr,field);
         if (de) {
             sdsfree(dictGetVal(de));
@@ -448,7 +469,7 @@ unsigned long hashTypeLength(const robj *o) {
 
     if (o->encoding == OBJ_ENCODING_ZIPLIST) {
         length = ziplistLen(o->ptr) / 2;
-    } else if (o->encoding == OBJ_ENCODING_HT) {
+    } else if (o->encoding == OBJ_ENCODING_HT || o->encoding == OBJ_ENCODING_REL) {
         length = dictSize((const dict*)o->ptr);
     } else {
         serverPanic("Unknown hash encoding");
@@ -464,7 +485,7 @@ hashTypeIterator *hashTypeInitIterator(robj *subject) {
     if (hi->encoding == OBJ_ENCODING_ZIPLIST) {
         hi->fptr = NULL;
         hi->vptr = NULL;
-    } else if (hi->encoding == OBJ_ENCODING_HT) {
+    } else if (hi->encoding == OBJ_ENCODING_HT || hi->encoding == OBJ_ENCODING_REL) {
         hi->di = dictGetIterator(subject->ptr);
     } else {
         serverPanic("Unknown hash encoding");
@@ -473,7 +494,7 @@ hashTypeIterator *hashTypeInitIterator(robj *subject) {
 }
 
 void hashTypeReleaseIterator(hashTypeIterator *hi) {
-    if (hi->encoding == OBJ_ENCODING_HT)
+    if (hi->encoding == OBJ_ENCODING_HT || hi->encoding == OBJ_ENCODING_REL)
         dictReleaseIterator(hi->di);
     zfree(hi);
 }
@@ -507,7 +528,7 @@ int hashTypeNext(hashTypeIterator *hi) {
         /* fptr, vptr now point to the first or next pair */
         hi->fptr = fptr;
         hi->vptr = vptr;
-    } else if (hi->encoding == OBJ_ENCODING_HT) {
+    } else if (hi->encoding == OBJ_ENCODING_HT || hi->encoding == OBJ_ENCODING_REL) {
         if ((hi->de = dictNext(hi->di)) == NULL) return C_ERR;
     } else {
         serverPanic("Unknown hash encoding");
@@ -539,7 +560,7 @@ void hashTypeCurrentFromZiplist(hashTypeIterator *hi, int what,
  * encoded as a hash table. Prototype is similar to
  * `hashTypeGetFromHashTable`. */
 sds hashTypeCurrentFromHashTable(hashTypeIterator *hi, int what) {
-    serverAssert(hi->encoding == OBJ_ENCODING_HT);
+    serverAssert(hi->encoding == OBJ_ENCODING_HT || hi->encoding == OBJ_ENCODING_REL);
 
     if (what & OBJ_HASH_KEY) {
         return dictGetKey(hi->de);
@@ -562,7 +583,7 @@ void hashTypeCurrentObject(hashTypeIterator *hi, int what, unsigned char **vstr,
     if (hi->encoding == OBJ_ENCODING_ZIPLIST) {
         *vstr = NULL;
         hashTypeCurrentFromZiplist(hi, what, vstr, vlen, vll);
-    } else if (hi->encoding == OBJ_ENCODING_HT) {
+    } else if (hi->encoding == OBJ_ENCODING_HT || hi->encoding == OBJ_ENCODING_REL) {
         sds ele = hashTypeCurrentFromHashTable(hi, what);
         *vstr = (unsigned char*) ele;
         *vlen = sdslen(ele);
@@ -635,7 +656,7 @@ void hashTypeConvertZiplist(robj *o, int enc) {
 void hashTypeConvert(robj *o, int enc) {
     if (o->encoding == OBJ_ENCODING_ZIPLIST) {
         hashTypeConvertZiplist(o, enc);
-    } else if (o->encoding == OBJ_ENCODING_HT) {
+    } else if (o->encoding == OBJ_ENCODING_HT || o->encoding == OBJ_ENCODING_REL) {
         serverPanic("Not implemented");
     } else {
         serverPanic("Unknown hash encoding");

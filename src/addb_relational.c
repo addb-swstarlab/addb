@@ -63,11 +63,8 @@ NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
   else
 	  ret->rowGroupId = 0;
 
-  serverLog(LL_DEBUG, "BEFORE RETURN TO ADDB_TABLE");
   serverLog(LL_DEBUG,"TOKEN : %s, SAVEPTR: %s, table_number : %d, partitionInfo : %s, rowgroup : %d",
               token, saveptr, ret->tableId,ret->partitionInfo.partitionString, ret->rowGroupId);
-  serverLog(LL_DEBUG,"Create DATAKEYINFO END");
-
   return ret;
 }
 /*addb get RowNumberInfo from Metadict*/
@@ -97,7 +94,7 @@ int getRowNumberInfoAndSetRowNumberInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo
 int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	char tmp[SDS_DATA_KEY_MAX];
 	int rowgroup = 0;
-	sds metaKey = sdsnewlen("", SDS_DATA_KEY_MAX);// sdsnewlen(tmp, sizeof(tmp) //sdsnew(tmp) //sdsIntialize(tmp, sizeof(tmp));
+	sds metaKey = sdsnewlen("", SDS_DATA_KEY_MAX);
 	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
 
 	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
@@ -131,14 +128,11 @@ int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
 
     if (metaHashdictObj == NULL){
-   	 serverLog(LL_VERBOSE, "METAHASHDICT NULL");
         return 0;
     }
     robj *decodedField = getDecodedObject(metaField);
     int retVal = 0;
     robj *ret = hashTypeGetValueObject(metaHashdictObj, (sds) decodedField->ptr);
-   // serverLog(LL_VERBOSE, "ENCODING : %d, RAW: %d, EMBSTR : %d", ret->encoding,OBJ_ENCODING_RAW,  OBJ_ENCODING_EMBSTR);
-
     if(ret == NULL){
         decrRefCount(decodedField);
         return 0;
@@ -329,14 +323,52 @@ robj * generateDataKey(NewDataKeyInfo *dataKeyInfo){
 	return createStringObject(dataKey, strlen(dataKey));
 }
 
-/*addb generate datafield string*/
-
+/*addb generate datafield string
+ * dataField ==> row:column format
+ */
 robj *getDataField(int row, int column){
 
 	char dataField[DATA_KEY_MAX_SIZE];
 	sprintf(dataField, "%d:%d", row, column);
 	serverLog(LL_DEBUG, "DATAFIELD :  %s", (char *)dataField);
 	return createStringObject(dataField, strlen(dataField));
+
+}
+
+
+/*addb Data Insertion func*/
+
+void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj){
+
+	assert(dataKeyString != NULL);
+	assert(dataField != NULL);
+
+	robj *dataHashdictObj = NULL;
+
+	if( (dataHashdictObj = lookupDictAndGetHashdictObj(c,dataKeyString)) == NULL ){
+
+		serverLog(LL_WARNING, "Can't Find dataHashdict in dict, Because of Creation Error");
+		serverPanic("insertKVpairToRelational ERROR");
+	}
+
+	dict *hashDict = (dict *)dataHashdictObj->ptr;
+	dictEntry *de = NULL;
+
+	if((de = dictFind(hashDict, dataField->ptr)) == NULL){
+
+		int ret = dictAdd(hashDict, sdsdup(dataField->ptr), sdsdup(valueObj->ptr));
+
+		if(!ret){
+			serverLog(LL_DEBUG, "DATA INSERTION SUCCESS. dataKey : %s, dataField : %s, value :%s"
+					, (char *)dataKeyString->ptr, (char*)dataField->ptr, (char *)valueObj->ptr);
+		}
+		else {
+			serverLog(LL_WARNING, "DATA INSERTION FAIL");
+			serverPanic("DATA INSERTION ERROR in insertKVpairToRelational");
+		}
+	}
+	notifyKeyspaceEvent(NOTIFY_HASH,"hset", dataKeyString,c->db->id);
+	server.dirty++;
 
 }
 

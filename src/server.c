@@ -321,10 +321,12 @@ struct redisCommand redisCommandTable[] = {
     /*
      * 2018. 5. 11
      * kem2182@yonsei.ac.kr
+     * test commands...
      */
     {"testsetmeta",testSetMetaCommand,4,"wm",0,NULL,1,1,1,0,0},
     {"testgetmeta",testGetMetaCommand,3,"rF",0,NULL,1,1,1,0,0},
-    {"testvectorinterface",testVectorInterfaceCommand,-1,"r",0,NULL,1,1,1,0,0}
+    {"testvectorinterface",testVectorInterfaceCommand,-1,"r",0,NULL,1,1,1,0,0},
+    {"fields", fieldsAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0}
 };
 
 /*============================ Utility functions ============================ */
