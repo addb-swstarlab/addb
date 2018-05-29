@@ -82,5 +82,5 @@ void freeColumnParameter(ColumnParameter *param);
 void freeScanParameter(ScanParameter *param);
 int populateScanParameter(redisDb *db, ScanParameter *scanParam);
 RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey);
-
+void loadDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
 #endif

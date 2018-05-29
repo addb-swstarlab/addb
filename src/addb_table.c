@@ -7,15 +7,7 @@
 #include "server.h"
 #include "assert.h"
 #include "addb_relational.h"
-
-
-//#define FPWRITE_NO_FLAGS 0
-//#define FPWRITE_NX (1<<0)     /* Set if key not exists. */
-//#define FPWRITE_XX (1<<1)     /* Set if key exists. */
-//#define FPWRITE_EX (1<<2)     /* Set if time in seconds is given */
-//#define FPWRITE_PX (1<<3)     /* Set if time in ms in given */
-
-
+#include "stl.h"
 
 /*ADDB*/
 /*fpWrite parameter list
@@ -188,10 +180,21 @@ void fpScanCommand(client *c) {
     /*Populates row group information to scan parameters*/
     int totalDataCount = populateScanParameter(c->db, scanParam);
     serverLog(LL_DEBUG, "total data count: %d", totalDataCount);
+
     /*Load data from Redis or RocksDB*/
+    Vector data;
+    vectorTypeInit(&data, VECTOR_TYPE_SDS);
+    loadDataFromADDB(c->db, scanParam, &data);
+    serverLog(LL_DEBUG, "Loaded data from ADDB...");
+    for (size_t i = 0; i < vectorCount(&data); ++i) {
+        serverLog(LL_DEBUG, "i: %zu, value: %s", i, (sds) vectorGet(&data, i));
+    }
+
     /*Scan data to client*/
+    // TODO(totorody): Implements that prints out values to client.
 
     freeScanParameter(scanParam);
+    vectorFree(&data);
     addReply(c, shared.ok);
 }
 

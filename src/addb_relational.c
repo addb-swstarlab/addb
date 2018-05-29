@@ -332,7 +332,12 @@ robj *getDataField(int row, int column){
 	sprintf(dataField, "%d:%d", row, column);
 	serverLog(LL_DEBUG, "DATAFIELD :  %s", (char *)dataField);
 	return createStringObject(dataField, strlen(dataField));
+}
 
+sds getDataFieldSds(int rowId, int columnId) {
+    char dataField[DATA_KEY_MAX_SIZE];
+    sprintf(dataField, "%d:%d", rowId, columnId);
+    return sdsnew(dataField);
 }
 
 
@@ -443,8 +448,8 @@ int populateScanParameter(redisDb *db, ScanParameter *scanParam) {
         robj *dataKey = generateDataKey(scanParam->dataKeyInfo);
         scanParam->rowGroupParams[i] = createRowGroupParameter(db, dataKey);
 
-        // TODO(totoro): Uses getRowCountFromRowGroup function to set row count.
-        int rowCount = 0;
+        int rowCount = getRowNumberInfoAndSetRowNumberInfo(
+               db, scanParam->dataKeyInfo);
         scanParam->rowGroupParams[i].rowCount = rowCount;
         totalDataCount += scanParam->columnParam->columnCount * rowCount;
         decrRefCount(dataKey);
@@ -457,9 +462,47 @@ RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey) {
     expireIfNeeded(db, dataKey);
     param.dictObj = lookupKey(db, dataKey, LOOKUP_NONE);
 
-    if (param.dictObj == NULL)
+    if (param.dictObj == NULL) {
         param.isInRocksDb = true;
+    } else {
+        param.isInRocksDb = false;
+    }
 
     return param;
+}
+
+void loadDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
+    size_t startRowGroupIdx = scanParam->startRowGroupId;
+    RowGroupParameter *rowGroupParams = scanParam->rowGroupParams;
+    ColumnParameter *columnParam = scanParam->columnParam;
+
+    for (size_t i = startRowGroupIdx; i < scanParam->totalRowGroupCount; ++i) {
+        size_t rowGroupId = i + 1;
+        scanParam->dataKeyInfo->rowGroupId = rowGroupId;
+
+        // Scan on RocksDB.
+        if (rowGroupParams[i].isInRocksDb) {
+            // TODO(totorody): Implements scan for RocksDB.
+            continue;
+        }
+
+        // Scan on Redis.
+        robj *hashDictObj = rowGroupParams[i].dictObj;
+        dict *hashDict = (dict *) hashDictObj->ptr;
+        for (size_t j = 0; j < rowGroupParams[i].rowCount; ++j) {
+            size_t rowId = j + 1;
+            for(size_t k = 0; k < columnParam->columnCount; ++k) {
+                size_t columnId = (long) vectorGet(&columnParam->columnIdList,
+                                                   k);
+                // Data field key (Row & Column pair)
+                // Ex) "1:2"
+                sds dataFieldKey = getDataFieldSds(rowId, columnId);
+                dictEntry *entry = dictFind(hashDict, dataFieldKey);
+                sds value = dictGetVal(entry);
+                vectorAdd(data, (void *) value);
+                sdsfree(dataFieldKey);
+            }
+        }
+    }
 }
 
