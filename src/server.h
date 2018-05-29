@@ -2084,6 +2084,7 @@ void fieldsAndValueCommand(client *c);
  */
 void testSetMetaCommand(client *c);
 void testGetMetaCommand(client *c);
+void testSdsLocationCommand(client *c);
 void testVectorInterfaceCommand(client *c);
 
 #if defined(__GNUC__)

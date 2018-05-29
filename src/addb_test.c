@@ -7,6 +7,8 @@
 #include "server.h"
 #include "sds.h"
 
+#include <assert.h>
+
 /* --*-- Caution --*--
  * Uses these commands for testing only...
  */
@@ -111,4 +113,44 @@ void testGetMetaCommand(client *c) {
     sdsfree(tablePartitionKey);
     sdsfree(field);
     addReplyBulk(c, valueObj);
+}
+
+void testSdsLocationCommand(client *c) {
+    {
+        sds source = sdsnew("TEST_SDS_LOCATION_REDIS");
+        sds target = sdsnewloc("TEST_SDS_LOCATION_REDIS",
+                               SDS_ADDB_LOCATION_REDIS);
+        assert(sdscmp(source, target) == 0);
+        assert(sdsloc(target) == SDS_ADDB_LOCATION_REDIS);
+        sdsfree(source);
+        sdsfree(target);
+    }
+    {
+        sds source = sdsnew("TEST_SDS_LOCATION_FLUSHING");
+        sds target = sdsnewloc("TEST_SDS_LOCATION_FLUSHING",
+                               SDS_ADDB_LOCATION_FLUSHING);
+        assert(sdscmp(source, target) == 0);
+        assert(sdsloc(target) == SDS_ADDB_LOCATION_FLUSHING);
+        sdsfree(source);
+        sdsfree(target);
+    }
+    {
+        sds source = sdsnew("TEST_SDS_LOCATION_ROCKSDB");
+        sds target = sdsnewloc("TEST_SDS_LOCATION_ROCKSDB",
+                               SDS_ADDB_LOCATION_ROCKSDB);
+        assert(sdscmp(source, target) == 0);
+        assert(sdsloc(target) == SDS_ADDB_LOCATION_ROCKSDB);
+        sdsfree(source);
+        sdsfree(target);
+    }
+    {
+        sds source = sdsnewloc("TEST_SDS_LOCATION_REDIS",
+                               SDS_ADDB_LOCATION_REDIS);
+        sds target = sdsduploc(source);
+        assert(sdscmp(source, target) == 0);
+        assert(sdsloc(target) == SDS_ADDB_LOCATION_REDIS);
+        sdsfree(source);
+        sdsfree(target);
+    }
+    addReply(c, shared.ok);
 }
