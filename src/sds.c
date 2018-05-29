@@ -283,6 +283,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
     void *sh, *newsh;
     size_t avail = sdsavail(s);
     size_t len, newlen;
+    size_t loc;
     char type, oldtype = s[-1] & SDS_TYPE_MASK;
     int hdrlen;
 
@@ -290,6 +291,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
     if (avail >= addlen) return s;
 
     len = sdslen(s);
+    loc = sdsloc(s);
     sh = (char*)s-sdsHdrSize(oldtype);
     newlen = (len+addlen);
     if (newlen < SDS_MAX_PREALLOC)
@@ -319,6 +321,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
         s = (char*)newsh+hdrlen;
         s[-1] = type;
         sdssetlen(s, len);
+        sdssetloc(s, loc);
     }
     sdssetalloc(s, newlen);
     return s;
@@ -335,6 +338,7 @@ sds sdsRemoveFreeSpace(sds s) {
     char type, oldtype = s[-1] & SDS_TYPE_MASK;
     int hdrlen;
     size_t len = sdslen(s);
+    size_t loc = sdsloc(s);
     sh = (char*)s-sdsHdrSize(oldtype);
 
     type = sdsReqType(len);
@@ -351,6 +355,7 @@ sds sdsRemoveFreeSpace(sds s) {
         s = (char*)newsh+hdrlen;
         s[-1] = type;
         sdssetlen(s, len);
+        sdssetloc(s, loc);
     }
     sdssetalloc(s, len);
     return s;
