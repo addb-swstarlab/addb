@@ -110,6 +110,36 @@ void testVectorInterfaceCommand(client *c) {
         assert(v.count == 0);
         vectorFreeDeep(&v);
     }
+    {
+        // Vector Type [ROBJ]
+        Vector v;
+        vectorTypeInit(&v, VECTOR_TYPE_ROBJ);
+        serverLog(LL_DEBUG, "[ADDB_TEST][VECTOR][ROBJ] Test ROBJ type Vector");
+        assert(v.size == 0);
+        assert(v.count == 0);
+        const robj *values[] = {
+            createStringObject("TEST_VECTOR_ROBJ_VALUE_1",
+                               strlen("TEST_VECTOR_ROBJ_VALUE_1")),
+            createStringObject("TEST_VECTOR_ROBJ_VALUE_2",
+                               strlen("TEST_VECTOR_ROBJ_VALUE_2")),
+            createStringObject("TEST_VECTOR_ROBJ_VALUE_3",
+                               strlen("TEST_VECTOR_ROBJ_VALUE_3")),
+        };
+        vectorAdd(&v, (void *) values[0]);
+        vectorAdd(&v, (void *) values[1]);
+        vectorAdd(&v, (void *) values[2]);
+        assert(v.count == 3);
+        for (size_t i = 0; i < vectorCount(&v); ++i) {
+            assert(sdscmp(values[i]->ptr, ((robj *) vectorGet(&v, i))->ptr) == 0);
+        }
+        vectorDelete(&v, 0);
+        assert(v.count == 2);
+        vectorDelete(&v, 0);
+        assert(v.count == 1);
+        vectorDelete(&v, 0);
+        assert(v.count == 0);
+        vectorFreeDeep(&v);
+    }
 
     addReply(c, shared.ok);
 }

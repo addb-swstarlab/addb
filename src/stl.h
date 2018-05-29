@@ -10,6 +10,7 @@
 #define VECTOR_TYPE_DEFAULT 0
 #define VECTOR_TYPE_SDS 1
 #define VECTOR_TYPE_LONG 2
+#define VECTOR_TYPE_ROBJ 3
 
 #include <stddef.h>
 #include "sds.h"
@@ -19,7 +20,8 @@ typedef struct Vector_ {
      * Vector type
      *  - DEFAULT: Allows all pointer types(Polymorphism)
      *  - SDS: sds
-     *  - LONG: long type
+     *  - LONG: long
+     *  - ROBJ: robj
      */
     unsigned type:2;
     void **data;

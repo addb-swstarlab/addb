@@ -22,6 +22,8 @@ size_t _vectorGetDatumSize(Vector *v) {
         return sizeof(long);
     } else if (v->type == VECTOR_TYPE_SDS) {
         return sizeof(sds);
+    } else if (v->type == VECTOR_TYPE_ROBJ) {
+        return sizeof(robj *);
     } else {
         serverLog(LL_DEBUG, "FATAL ERROR: Wrong vector type [%d]", v->type);
         serverPanic("FATAL ERROR: Wrong vector type");
@@ -72,6 +74,9 @@ int vectorSet(Vector *v, size_t index, void *datum) {
     } else if (v->type == VECTOR_TYPE_SDS) {
         sds *dataSds = (sds *) v->data;
         dataSds[index] = (sds) datum;
+    } else if (v->type == VECTOR_TYPE_ROBJ) {
+        robj **dataRobj = (robj **) v->data;
+        dataRobj[index] = (robj *) datum;
     } else {
         serverLog(LL_DEBUG, "FATAL ERROR: Wrong vector type [%d]", v->type);
         return C_ERR;
@@ -139,7 +144,9 @@ int vectorFreeDatum(Vector *v, void *datum) {
     if (v->type == VECTOR_TYPE_DEFAULT) {
         zfree(datum);
     } else if (v->type == VECTOR_TYPE_SDS) {
-        sdsfree(datum);
+        sdsfree((sds) datum);
+    } else if (v->type == VECTOR_TYPE_ROBJ) {
+        decrRefCount((robj *) datum);
     }
     return C_OK;
 }
