@@ -185,17 +185,21 @@ void fpScanCommand(client *c) {
     Vector data;
     vectorTypeInit(&data, VECTOR_TYPE_SDS);
     loadDataFromADDB(c->db, scanParam, &data);
-    serverLog(LL_DEBUG, "Loaded data from ADDB...");
-    for (size_t i = 0; i < vectorCount(&data); ++i) {
-        serverLog(LL_DEBUG, "i: %zu, value: %s", i, (sds) vectorGet(&data, i));
-    }
 
     /*Scan data to client*/
-    // TODO(totorody): Implements that prints out values to client.
+    void *replylen = addDeferredMultiBulkLength(c);
+    size_t numreplies = 0;
+    serverLog(LL_DEBUG, "Loaded data from ADDB...");
+    for (size_t i = 0; i < vectorCount(&data); ++i) {
+        sds datum = sdsdup((sds) vectorGet(&data, i));
+        serverLog(LL_DEBUG, "i: %zu, value: %s", i, datum);
+        addReplyBulkSds(c, datum);
+        numreplies++;
+    }
 
     freeScanParameter(scanParam);
     vectorFree(&data);
-    addReply(c, shared.ok);
+    setDeferredMultiBulkLength(c, replylen, numreplies);
 }
 
 /*Lookup key in metadict */
