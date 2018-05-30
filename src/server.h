@@ -590,7 +590,8 @@ typedef struct RedisModuleDigest {
 
 /* ADDB */
 #define LOCATION_REDIS_ONLY 0
-#define LOCATION_PERSISTED  1
+#define LOCATION_FLUSH      1
+#define LOCATION_PERSISTED  2
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
 typedef struct redisObject {
@@ -1788,8 +1789,7 @@ int dbDelete(redisDb *db, robj *key);
 robj *dbUnshareStringValue(redisDb *db, robj *key, robj *o);
 /* ADDB */
 void persistKey(redisDb *db, robj *keyobj, robj *targetVal);
-
-
+void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal);
 
 #define EMPTYDB_NO_FLAGS 0      /* No flags. */
 #define EMPTYDB_ASYNC (1<<0)    /* Reclaim memory in another thread. */
@@ -2074,6 +2074,8 @@ void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire,
 int getGenericCommand(client *c);
 void metakeysCommand(client *c);
 void fieldsAndValueCommand(client *c);
+void rocksdbkeyCommand(client *c);
+void getRocksDBkeyAndValueCommand(client *c);
 
 
 #if defined(__GNUC__)

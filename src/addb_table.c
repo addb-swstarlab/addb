@@ -89,24 +89,23 @@ void fpWriteCommand(client *c){
     	//Create dataField Info
     	int row_idx = row_number + (idx / column_number) + 1;
     	int column_idx = (idx % column_number) + 1;
-
-        assert(column_idx <= MAX_COLUMN_NUMBER);
+     assert(column_idx <= MAX_COLUMN_NUMBER);
 
     	robj *dataField = getDataField(row_idx, column_idx);
-        serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
+     serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
+     assert(dataField != NULL);
 
-        assert(dataField != NULL);
 
-
-       /*check Value Type*/
-        if(!(strcmp((char *)valueObj->ptr, NULLVALUE)))
+     /*check Value Type*/
+     if(!(strcmp((char *)valueObj->ptr, NULLVALUE)))
         	valueObj = shared.nullValue;
 
-        serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
+
+     serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
         		(char *)dataKeyString->ptr, (char *)dataField->ptr, (char *)valueObj->ptr);
 
         /*insert data into dict with Relational model*/
-        insertKVpairToRelational(c, dataKeyString, dataField, valueObj);
+     insertKVpairToRelational(c, dataKeyString, dataField, valueObj);
 
         idx++;
         insertedRow++;
@@ -261,4 +260,68 @@ void fieldsAndValueCommand(client *c){
 
 }
 
+
+void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal){
+serverLog(LL_DEBUG ,"PREPARING WRITE FOR ROCKSDB");
+    dictIterator *di;
+    dictEntry *de;
+    char keystr[SDS_DATA_KEY_MAX];
+
+ 	dict *hashdictObj = (dict *) targetVal->ptr;
+ 	di = dictGetSafeIterator(hashdictObj);
+ 	while((de = dictNext(di)) != NULL){
+ 		sds field_key = dictGetKey(de);
+ 		sds val = dictGetVal(de);
+
+
+ 		sprintf(keystr, "%s:%s%s",keyobj->ptr,REL_MODEL_FIELD_PREFIX, field_key);
+ 		sds rocksKey = sdsnew(keystr);
+ 		robj *value = createStringObject(val, sdslen(val));
+
+
+ 		setPersistentKey(db->persistent_store, rocksKey, sdslen(rocksKey), value->ptr, sdslen(value->ptr));
+ 		targetVal->location = LOCATION_PERSISTED;
+ 	}
+ 	dictReleaseIterator(di);
+}
+
+
+
+void rocksdbkeyCommand(client *c){
+    sds pattern = sdsnew(c->argv[1]->ptr);
+    robj *key = createStringObject(pattern, sdslen(pattern));
+    robj *hashdict = lookupSDSKeyFordict(c->db, pattern);
+    prepareWriteToRocksDB(c->db, key,hashdict);
+    sdsfree(pattern);
+    decrRefCount(key);
+    addReply(c, shared.ok);
+}
+
+void getRocksDBkeyAndValueCommand(client *c){
+
+	sds pattern = sdsnew(c->argv[1]->ptr);
+
+	  char* err = NULL;
+	  size_t val_len;
+	  char* val;
+	  val = rocksdb_get_cf(c->db->persistent_store->ps, c->db->persistent_store->ps_options->roptions,
+			  c->db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW], pattern, sdslen(pattern), &val_len, &err);
+
+	  if(val == NULL){
+		  rocksdb_free(val);
+		  serverLog(LL_DEBUG, "ROCKSDB KEY : %s , VALUE NOT EXIST");
+			sdsfree(pattern);
+			addReply(c, shared.err);
+	  }
+	  else {
+		  robj *value = NULL;
+		  value = createStringObject(val, val_len);
+		  rocksdb_free(val);
+		  serverLog(LL_DEBUG, "ROCKSDB KEY : %s , VALUE : %s", pattern, (char *)value->ptr);
+			sdsfree(pattern);
+			addReply(c, shared.ok);
+
+	  }
+
+}
 

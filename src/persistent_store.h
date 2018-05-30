@@ -9,6 +9,7 @@
 #define SRC_PERSISTENT_STORE_H_
 
 #include "rocksdb/c.h"
+#include "sds.h"
 
 #define LOG_MAX_LEN    1024 /* Default maximum length of syslog messages */
 

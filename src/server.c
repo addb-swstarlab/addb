@@ -324,6 +324,9 @@ struct redisCommand redisCommandTable[] = {
     /*test command*/
 
     {"fields", fieldsAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
+	{"rockskey", rocksdbkeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
+	{"rockskv", getRocksDBkeyAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
+
 };
 
 /*============================ Utility functions ============================ */

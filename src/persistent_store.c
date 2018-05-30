@@ -109,10 +109,20 @@ persistent_store_t* createPersistentStore(int dbnum) {
 
 void setPersistentKey(persistent_store_t* ps, const void *key, const int keylen, const void *val, const int vallen) {
     char *err = NULL;
-    rocksdb_put_cf(ps->ps, ps->ps_options->woptions, ps->ps_cf_handles[PERSISTENT_STORE_CF_RW], (const char*)key, keylen, (const char*)val, vallen, &err);
+    serverLog(0, "BEFORE WRITE TO ROCKSDB KEY : %s, VAL : %s",(const char*)key, (const char*)val);
+    serverLog(0, "KEYlength : %d, VALlength : %d", keylen, vallen);
+    rocksdb_put_cf(ps->ps, ps->ps_options->woptions, ps->ps_cf_handles[PERSISTENT_STORE_CF_RW],
+    		(const char*)key, keylen, (const char*)val, vallen, &err);
     if(err) {
         panic("[PERSISTENT_STORE] putting a key failed due to %s", err);
     }
+}
+
+
+//TODO - Implement later
+void getPersistentKey(void){
+
+
 }
 
 void destroyPersistentStoreOptions(persistent_store_t* ps) {

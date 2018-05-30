@@ -355,7 +355,19 @@ robj *dbRandomKey(redisDb *db) {
 
 /* ADDB */
 /* In this method, value is only raw string type */
-/* TODO In the future, the type of value will be hash object */
+/* TODO create rocksDb Key
+ * Used Information
+ * 1. tableId
+ * 2. PartitionInfo
+ * 3. rowgroupId
+ * 4. row_number
+ * 5. column_number*/
+
+/* 1. get field key from hash dict
+ * 2. get value
+ * 3. create rocksdb key
+ * 4. put rocksdb
+ * */
 void persistKey(redisDb *db, robj *keyobj, robj *targetVal) {
     robj* targetKey = keyobj;
     sds persistKeyStr = targetKey->ptr;
