@@ -86,6 +86,7 @@ int getRowNumberInfoAndSetRowNumberInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo
 	rowNumber = lookupCompInfoForRowNumberInMeta(metaHashdictObj, metaField);
   dataKeyInfo->row_number = rowNumber;
 	decrRefCount(metaField);
+    sdsfree(metaKey);
 	return rowNumber;
 }
 
@@ -428,6 +429,7 @@ void freeColumnParameter(ColumnParameter *param) {
 
 void freeScanParameter(ScanParameter *param) {
     zfree(param->dataKeyInfo);
+    zfree(param->rowGroupParams);
     freeColumnParameter(param->columnParam);
     zfree(param);
 }
