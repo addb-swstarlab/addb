@@ -473,7 +473,7 @@ RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey) {
     return param;
 }
 
-void loadDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
+void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
     size_t startRowGroupIdx = scanParam->startRowGroupId;
     RowGroupParameter *rowGroupParams = scanParam->rowGroupParams;
     ColumnParameter *columnParam = scanParam->columnParam;
