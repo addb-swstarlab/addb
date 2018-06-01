@@ -83,14 +83,16 @@ int dbAsyncDelete(redisDb *db, robj *key) {
         return 0;
     }
 }
-
+//TODO - Modify later
 int dbPersistOrClear(redisDb *db, robj *key) {
     /* If the value is composed of a few allocations, to free in a lazy way
      * is actually just slower... So under a certain limit we just free
      * the object synchronously. */
+	serverLog(LL_VERBOSE, "dbPersistOrClear KEY : %s", (char *)key->ptr);
     dictEntry *de = dictFind(db->dict,key->ptr);
     if (de) {
         robj *val = dictGetVal(de);
+        //TODO - MODIFY LATER
         if(val->location == LOCATION_PERSISTED) {
             /* Deleting an entry from the expires dict will not free the sds of
              * the key, because it is shared with the main dictionary. */
@@ -103,7 +105,14 @@ int dbPersistOrClear(redisDb *db, robj *key) {
              * In this case, value is just a string.
              * However, the value will be a hash structure which is used for relation structure.
              */
-            bioCreateBackgroundJob(BIO_TIERING,db,key,getDecodedObject(dictGetVal(de)));
+        	if(val->encoding == OBJ_ENCODING_REL){
+        		serverLog(LL_VERBOSE, "REL BIOCREATEBACKGROUNDJOB, KEY : %s", (char *)key->ptr);
+            bioCreateBackgroundJob(BIO_TIERING,db,key,val);
+        	}
+        	else{
+        		//error case?
+        		bioCreateBackgroundJob(BIO_TIERING,db,key,getDecodedObject(dictGetVal(de)));
+        	}
         }
         return 1;
     } else {
@@ -114,11 +123,15 @@ int dbPersistOrClear(redisDb *db, robj *key) {
 /* Empty a Redis DB asynchronously. What the function does actually is to
  * create a new empty set of hash tables and scheduling the old ones for
  * lazy freeing. */
+
+//TODO - Modified asynchronously when when needed
 void emptyDbAsync(redisDb *db) {
-    dict *oldht1 = db->dict, *oldht2 = db->expires;
+    dict *oldht1 = db->dict, *oldht2 = db->expires;  //, *oldht3 = db->Metadict;
     db->dict = dictCreate(&dbDictType,NULL);
     db->expires = dictCreate(&keyptrDictType,NULL);
+    //db->Metadict = dictCreate(&dbDictType,NULL);
     atomicIncr(lazyfree_objects,dictSize(oldht1));
+    //atomicIncr(lazyfree_objects, dictSize(oldht3));
     bioCreateBackgroundJob(BIO_LAZY_FREE,NULL,oldht1,oldht2);
 }
 
