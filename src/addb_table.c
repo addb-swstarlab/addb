@@ -7,15 +7,7 @@
 #include "server.h"
 #include "assert.h"
 #include "addb_relational.h"
-
-
-//#define FPWRITE_NO_FLAGS 0
-//#define FPWRITE_NX (1<<0)     /* Set if key not exists. */
-//#define FPWRITE_XX (1<<1)     /* Set if key exists. */
-//#define FPWRITE_EX (1<<2)     /* Set if time in seconds is given */
-//#define FPWRITE_PX (1<<3)     /* Set if time in ms in given */
-
-
+#include "stl.h"
 
 /*ADDB*/
 /*fpWrite parameter list
@@ -177,19 +169,36 @@ void fpScanCommand(client *c) {
               scanParam->columnParam->original,
               scanParam->columnParam->columnCount);
     for (int i = 0; i < scanParam->columnParam->columnCount; ++i) {
-        serverLog(LL_DEBUG, "i: %d, columnId: %d, columnIdStr: %s",
+        serverLog(LL_DEBUG, "i: %d, columnId: %ld, columnIdStr: %s",
                   i,
-                  vectorGetInt(&scanParam->columnParam->columnIdList, i),
-                  vectorGetSds(
+                  (long) vectorGet(&scanParam->columnParam->columnIdList, i),
+                  (sds) vectorGet(
                       &scanParam->columnParam->columnIdStrList, i));
     }
 
     /*Populates row group information to scan parameters*/
-    /*Load data from Redis or RocksDB*/
-    /*Scan data to client*/
+    int totalDataCount = populateScanParameter(c->db, scanParam);
+    serverLog(LL_DEBUG, "total data count: %d", totalDataCount);
 
-    clearScanParameter(scanParam);
-    addReply(c, shared.ok);
+    /*Load data from Redis or RocksDB*/
+    Vector data;
+    vectorTypeInit(&data, VECTOR_TYPE_SDS);
+    scanDataFromADDB(c->db, scanParam, &data);
+
+    /*Scan data to client*/
+    void *replylen = addDeferredMultiBulkLength(c);
+    size_t numreplies = 0;
+    serverLog(LL_DEBUG, "Loaded data from ADDB...");
+    for (size_t i = 0; i < vectorCount(&data); ++i) {
+        sds datum = sdsdup((sds) vectorGet(&data, i));
+        serverLog(LL_DEBUG, "i: %zu, value: %s", i, datum);
+        addReplyBulkSds(c, datum);
+        numreplies++;
+    }
+
+    freeScanParameter(scanParam);
+    vectorFree(&data);
+    setDeferredMultiBulkLength(c, replylen, numreplies);
 }
 
 /*Lookup key in metadict */

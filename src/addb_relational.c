@@ -86,6 +86,7 @@ int getRowNumberInfoAndSetRowNumberInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo
 	rowNumber = lookupCompInfoForRowNumberInMeta(metaHashdictObj, metaField);
   dataKeyInfo->row_number = rowNumber;
 	decrRefCount(metaField);
+    sdsfree(metaKey);
 	return rowNumber;
 }
 
@@ -108,6 +109,7 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	robj *metaField = shared.integers[0];
 	rowgroup = lookupCompInfoForMeta(metaHashdictObj, metaField);
 	dataKeyInfo->rowGroupId = rowgroup;
+    sdsfree(metaKey);
 	return rowgroup;
 }
 
@@ -331,7 +333,12 @@ robj *getDataField(int row, int column){
 	sprintf(dataField, "%d:%d", row, column);
 	serverLog(LL_DEBUG, "DATAFIELD :  %s", (char *)dataField);
 	return createStringObject(dataField, strlen(dataField));
+}
 
+sds getDataFieldSds(int rowId, int columnId) {
+    char dataField[DATA_KEY_MAX_SIZE];
+    sprintf(dataField, "%d:%d", rowId, columnId);
+    return sdsnew(dataField);
 }
 
 
@@ -379,7 +386,7 @@ ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
     param->original = sdsnew(rawColumnIdsString);
 
     vectorTypeInit(&param->columnIdStrList, VECTOR_TYPE_SDS);
-    vectorTypeInit(&param->columnIdList, VECTOR_TYPE_INT);
+    vectorTypeInit(&param->columnIdList, VECTOR_TYPE_LONG);
 
     int tokenCounts;
     sds *tokens = sdssplit(param->original, RELMODEL_COLUMN_DELIMITER,
@@ -392,11 +399,12 @@ ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
 
     for (int i = 0; i < tokenCounts; ++i) {
         // TODO(totoro): Checks that column ID is valid.
-        vectorAddSds(&param->columnIdStrList, tokens[i]);
-        vectorAddInt(&param->columnIdList, atoi(tokens[i]));
+        vectorAdd(&param->columnIdStrList, sdsdup(tokens[i]));
+        vectorAdd(&param->columnIdList, (void *) (long) atoi(tokens[i]));
     }
 
     param->columnCount = vectorCount(&param->columnIdList);
+    sdsfreesplitres(tokens, tokenCounts);
     return param;
 }
 
@@ -406,20 +414,23 @@ ScanParameter *createScanParameter(const client *c) {
     param->dataKeyInfo = parsingDataKeyInfo((sds) c->argv[1]->ptr);
     param->totalRowGroupCount = getRowGroupInfoAndSetRowGroupInfo(
             c->db, param->dataKeyInfo);
+    param->rowGroupParams = (RowGroupParameter *) zmalloc(
+            sizeof(RowGroupParameter) * param->totalRowGroupCount);
     param->columnParam = parseColumnParameter((sds) c->argv[2]->ptr);
     return param;
 }
 
-void clearColumnParameter(ColumnParameter *param) {
+void freeColumnParameter(ColumnParameter *param) {
     sdsfree(param->original);
     vectorFreeDeep(&param->columnIdList);
     vectorFreeDeep(&param->columnIdStrList);
+    zfree(param);
 }
 
-void clearScanParameter(ScanParameter *param) {
+void freeScanParameter(ScanParameter *param) {
     zfree(param->dataKeyInfo);
-    clearColumnParameter(param->columnParam);
-    zfree(param->columnParam);
+    zfree(param->rowGroupParams);
+    freeColumnParameter(param->columnParam);
     zfree(param);
 }
 
@@ -430,9 +441,70 @@ void clearScanParameter(ScanParameter *param) {
  * - Return
  *      Returns total data count scaned by scan parameter.
  */
-int populateScanParameter(ScanParameter *scanParam) {
+int populateScanParameter(redisDb *db, ScanParameter *scanParam) {
     int totalDataCount = 0;
-    // TODO(totoro): Implements critical logics for populateScanParameter.
+
+    for (size_t i = 0; i < scanParam->totalRowGroupCount; ++i) {
+        int rowGroupId = i + 1;
+        scanParam->dataKeyInfo->rowGroupId = rowGroupId;
+        robj *dataKey = generateDataKey(scanParam->dataKeyInfo);
+        scanParam->rowGroupParams[i] = createRowGroupParameter(db, dataKey);
+
+        int rowCount = getRowNumberInfoAndSetRowNumberInfo(
+               db, scanParam->dataKeyInfo);
+        scanParam->rowGroupParams[i].rowCount = rowCount;
+        totalDataCount += scanParam->columnParam->columnCount * rowCount;
+        decrRefCount(dataKey);
+    }
     return totalDataCount;
+}
+
+RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey) {
+    RowGroupParameter param;
+    expireIfNeeded(db, dataKey);
+    param.dictObj = lookupKey(db, dataKey, LOOKUP_NONE);
+
+    if (param.dictObj == NULL) {
+        param.isInRocksDb = true;
+    } else {
+        param.isInRocksDb = false;
+    }
+
+    return param;
+}
+
+void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
+    size_t startRowGroupIdx = scanParam->startRowGroupId;
+    RowGroupParameter *rowGroupParams = scanParam->rowGroupParams;
+    ColumnParameter *columnParam = scanParam->columnParam;
+
+    for (size_t i = startRowGroupIdx; i < scanParam->totalRowGroupCount; ++i) {
+        size_t rowGroupId = i + 1;
+        scanParam->dataKeyInfo->rowGroupId = rowGroupId;
+
+        // Scan on RocksDB.
+        if (rowGroupParams[i].isInRocksDb) {
+            // TODO(totorody): Implements scan for RocksDB.
+            continue;
+        }
+
+        // Scan on Redis.
+        robj *hashDictObj = rowGroupParams[i].dictObj;
+        dict *hashDict = (dict *) hashDictObj->ptr;
+        for (size_t j = 0; j < rowGroupParams[i].rowCount; ++j) {
+            size_t rowId = j + 1;
+            for(size_t k = 0; k < columnParam->columnCount; ++k) {
+                size_t columnId = (long) vectorGet(&columnParam->columnIdList,
+                                                   k);
+                // Data field key (Row & Column pair)
+                // Ex) "1:2"
+                sds dataFieldKey = getDataFieldSds(rowId, columnId);
+                dictEntry *entry = dictFind(hashDict, dataFieldKey);
+                sds value = dictGetVal(entry);
+                vectorAdd(data, (void *) value);
+                sdsfree(dataFieldKey);
+            }
+        }
+    }
 }
 

@@ -1778,6 +1778,7 @@ robj *objectCommandLookupOrReply(client *c, robj *key, robj *reply);
 void dbAddForMetadict(redisDb *db, robj *key, robj *val);
 
 void dbAdd(redisDb *db, robj *key, robj *val);
+void dbAddForMeta(redisDb *db, robj *key, robj *val);
 void dbOverwrite(redisDb *db, robj *key, robj *val);
 void setKey(redisDb *db, robj *key, robj *val);
 int dbExists(redisDb *db, robj *key);
@@ -2077,6 +2078,16 @@ void fieldsAndValueCommand(client *c);
 void rocksdbkeyCommand(client *c);
 void getRocksDBkeyAndValueCommand(client *c);
 
+
+/*
+ * 2018. 5. 11
+ * kem2182@yonsei.ac.kr
+ * ADDB test commands
+ */
+void testSetMetaCommand(client *c);
+void testGetMetaCommand(client *c);
+void testSdsLocationCommand(client *c);
+void testVectorInterfaceCommand(client *c);
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

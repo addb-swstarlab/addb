@@ -1195,3 +1195,4 @@ void memoryCommand(client *c) {
         addReplyError(c,"Syntax error. Try MEMORY HELP");
     }
 }
+

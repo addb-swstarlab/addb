@@ -22,17 +22,23 @@
 //    int rowCnt;                     // used for tiering
 //} DataKeyInfo;
 
-typedef struct ColumnParameter {
+typedef struct _RowGroupParameter {
+    robj *dictObj;      // RowGroup dict table object
+    uint64_t isInRocksDb:1, rowCount:63;
+} RowGroupParameter;
+
+typedef struct _ColumnParameter {
     sds original;
     int columnCount;
-    vector columnIdList;        // int* vector
-    vector columnIdStrList;     // string vector
+    Vector columnIdList;        // int* vector
+    Vector columnIdStrList;     // string vector
 } ColumnParameter;
 
-typedef struct ScanParameter {
+typedef struct _ScanParameter {
     int startRowGroupId;
     int totalRowGroupCount;
     NewDataKeyInfo *dataKeyInfo;
+    RowGroupParameter *rowGroupParams;
     ColumnParameter *columnParam;
 } ScanParameter;
 
@@ -72,8 +78,9 @@ void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, r
 /*Scan*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
 ScanParameter *createScanParameter(const client *c);
-void clearColumnParameter(ColumnParameter *param);
-void clearScanParameter(ScanParameter *param);
-int populateRowGroupDataToScanParameter(ScanParameter *scanParam);
-
+void freeColumnParameter(ColumnParameter *param);
+void freeScanParameter(ScanParameter *param);
+int populateScanParameter(redisDb *db, ScanParameter *scanParam);
+RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey);
+void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
 #endif
