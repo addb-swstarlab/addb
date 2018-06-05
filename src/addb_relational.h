@@ -66,11 +66,15 @@ void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key);
 /*addb key generation func*/
 robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo);
 robj * generateDataKey(NewDataKeyInfo *dataKeyInfo);
-
+sds generateDataKeySds(NewDataKeyInfo *dataKeyInfo);
+robj *generateDataFieldKey(NewDataKeyInfo *dataKeyInfo, int rowId,
+                           int columnId);
+sds generateDataFieldKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
+                            int columnId);
 
 /*addb data field function*/
 robj *getDataField(int row, int column);
-
+sds getDataFieldSds(int rowId, int columnId);
 
 /*Insert function*/
 void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj);

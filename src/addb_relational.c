@@ -300,9 +300,15 @@ robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo){
 }
 
 
-robj * generateDataKey(NewDataKeyInfo *dataKeyInfo){
+robj *generateDataKey(NewDataKeyInfo *dataKeyInfo) {
+    sds dataKeySds = generateDataKeySds(dataKeyInfo);
+    robj *dataKeyObj = createStringObject(dataKeySds, sdslen(dataKeySds));
+    sdsfree(dataKeySds);
+    return dataKeyObj;
+}
 
-	char dataKey[DATA_KEY_MAX_SIZE];
+sds generateDataKeySds(NewDataKeyInfo *dataKeyInfo) {
+    char dataKey[DATA_KEY_MAX_SIZE];
 	if(dataKeyInfo->isPartitionString){
 		sprintf(dataKey, "%s:{%d:%s}:%s%d",
 				RELMODEL_DATA_PREFIX, dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, RELMODEL_ROWGROUPID_PREFIX,
@@ -321,7 +327,28 @@ robj * generateDataKey(NewDataKeyInfo *dataKeyInfo){
 		sprintf(p, "}:%s%d", RELMODEL_ROWGROUPID_PREFIX, dataKeyInfo->rowGroupId);
 	}
 	serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKey);
-	return createStringObject(dataKey, strlen(dataKey));
+    return sdsnew(dataKey);
+}
+
+robj *generateDataFieldKey(NewDataKeyInfo *dataKeyInfo, int rowId,
+                           int columnId) {
+    sds dataFieldKeySds = generateDataFieldKeySds(dataKeyInfo, rowId, columnId);
+    robj *dataFieldKeyObj = createStringObject(dataFieldKeySds,
+                                               sdslen(dataFieldKeySds));
+    sdsfree(dataFieldKeySds);
+    return dataFieldKeyObj;
+}
+
+sds generateDataFieldKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
+                            int columnId) {
+    sds dataKey = generateDataKeySds(dataKeyInfo);
+    sds fieldKey = getDataFieldSds(rowId, columnId);
+
+    char strBuf[DATA_KEY_MAX_SIZE];
+    sprintf(strBuf, "%s:%s%s", dataKey, REL_MODEL_FIELD_PREFIX, fieldKey);
+    sdsfree(dataKey);
+    sdsfree(fieldKey);
+    return sdsnew(strBuf);
 }
 
 /*addb generate datafield string
@@ -340,7 +367,6 @@ sds getDataFieldSds(int rowId, int columnId) {
     sprintf(dataField, "%d:%d", rowId, columnId);
     return sdsnew(dataField);
 }
-
 
 /*addb Data Insertion func*/
 
