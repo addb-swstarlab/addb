@@ -33,6 +33,7 @@
 #include "fmacros.h"
 #include "config.h"
 #include "solarisfixes.h"
+#include "circular_queue.h"
 #include "persistent_store.h"
 #include "rio.h"
 
@@ -590,7 +591,7 @@ typedef struct RedisModuleDigest {
 
 /* ADDB */
 #define LOCATION_REDIS_ONLY 0
-#define LOCATION_FLUSH      1
+//#define LOCATION_FLUSH      1  //NOT USED NOW
 #define LOCATION_PERSISTED  2
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
@@ -635,6 +636,7 @@ typedef struct redisDb {
     /*addb add Metadict*/
     dict *Metadict;            /*using for relational metadata */
 
+    Queue *EvictQueue;        /*used for best key management */
     persistent_store_t *persistent_store;
 } redisDb;
 
@@ -2077,7 +2079,7 @@ void metakeysCommand(client *c);
 void fieldsAndValueCommand(client *c);
 void rocksdbkeyCommand(client *c);
 void getRocksDBkeyAndValueCommand(client *c);
-
+void getQueueStatusCommand(client *c);
 
 /*
  * 2018. 5. 11
