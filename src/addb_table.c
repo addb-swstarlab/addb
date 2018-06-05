@@ -8,6 +8,7 @@
 #include "assert.h"
 #include "addb_relational.h"
 #include "stl.h"
+#include "circular_queue.h"
 
 /*ADDB*/
 /*fpWrite parameter list
@@ -22,7 +23,8 @@ void fpWriteCommand(client *c){
 
     int fpWrite_result = C_OK;
     int i;
-    long long insertedRow=0;
+    long long insertedRow = 0;
+    bool Enroll_queue = false;
     //struct redisClient *fakeClient = NULL;
 
     serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
@@ -66,7 +68,9 @@ void fpWriteCommand(client *c){
     if(row_number >= server.rowgroup_size){
     	rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
     	row_number = 0;
+    	Enroll_queue = true;
     }
+
 
     robj * dataKeyString = generateDataKey(dataKeyInfo);
     serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKeyString->ptr);
@@ -104,18 +108,40 @@ void fpWriteCommand(client *c){
         decrRefCount(dataField);
         decrRefCount(valueObj);
     }
-    decrRefCount(dataKeyString);
-    zfree(dataKeyInfo);
 
     /*addb update row number info*/
     insertedRow /= column_number;
     incRowNumber(c->db, dataKeyInfo, insertedRow);
 
-
     /*TODO - filter*/
     /*TODO - eviction insert*/
 
     serverLog(LL_DEBUG,"FPWRITE COMMAND END");
+
+    serverLog(LL_DEBUG,"DictEntry Registration in a circular queue START");
+    if(Enroll_queue == true){
+
+    	int result;
+
+    	//Enroll First rowgroup
+    	if(dataKeyInfo->rowGroupId == 2){
+            serverLog(LL_DEBUG,"Find First Rowgroup");
+            dictEntry *FirstRowgroupEntry = getCandidatedictFirstEntry(c, dataKeyInfo);
+            if((result = enqueue(c->db->EvictQueue, FirstRowgroupEntry)) ==  0){
+            	serverLog(LL_WARNING, "Enqueue Fail FirstRowgroup dictEntry");
+            	serverAssert(0);
+            }
+    	}
+    	//Enroll Another rowgroup
+    	serverLog(LL_DEBUG, "Enqueue another Rowgroup");
+    	dictEntry *CandidateRowgroupEntry = getCandidatedictEntry(c, dataKeyInfo);
+    	if((result = enqueue(c->db->EvictQueue, CandidateRowgroupEntry)) ==  0){
+    		serverLog(LL_WARNING, "Enqueue Fail CandidateRowgroup dictEntry");
+    		serverAssert(0);
+    	}
+    }
+    decrRefCount(dataKeyString);
+    zfree(dataKeyInfo);
     addReply(c, shared.ok);
 }
 
@@ -335,3 +361,49 @@ void getRocksDBkeyAndValueCommand(client *c){
 
 }
 
+
+void getQueueStatusCommand(client *c){
+ 	char str_buf[1024];
+	sds pattern = sdsnew(c->argv[1]->ptr);
+	if(c->db->EvictQueue->front == c->db->EvictQueue->rear){
+		serverLog(LL_DEBUG, "EMPTY QUEUE");
+     	unsigned long numkeys = 0;
+     	void *replylen = addDeferredMultiBulkLength(c);
+     	sprintf(str_buf, "Queue is empty, front : %d, rear : %d",c->db->EvictQueue->front ,c->db->EvictQueue->rear);
+     addReplyBulkCString(c, str_buf);
+     numkeys++;
+     setDeferredMultiBulkLength(c, replylen, numkeys);
+	}
+	else {
+
+     	unsigned long numkeys = 0;
+     	void *replylen = addDeferredMultiBulkLength(c);
+
+		int idx = c->db->EvictQueue->rear;
+		int end = c->db->EvictQueue->front;
+		while(idx != end){
+		    dictIterator *di;
+		    dictEntry *de = c->db->EvictQueue->buf[idx];
+
+		    sds key = dictGetKey(de);
+		    robj *value = dictGetVal(de);
+		    dict *hashdict = (dict *)value->ptr;
+
+		    di = dictGetSafeIterator(hashdict);
+		    dictEntry *de2;
+		    while((de2 = dictNext(di)) != NULL){
+		 		sds field_key = dictGetKey(de2);
+		 		sds val = dictGetVal(de2);
+		 		serverLog(LL_DEBUG, "GET QUEUE KEY : %s, VALUE : %s", field_key, val);
+	     		sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s, Value : %s ]", idx,key,field_key, val);
+	     		addReplyBulkCString(c, str_buf);
+	     		numkeys++;
+		    }
+		    idx++;
+		 	dictReleaseIterator(di);
+		}
+
+		sdsfree(pattern);
+     	setDeferredMultiBulkLength(c, replylen, numkeys);
+	}
+}
