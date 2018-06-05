@@ -83,4 +83,9 @@ void freeScanParameter(ScanParameter *param);
 int populateScanParameter(redisDb *db, ScanParameter *scanParam);
 RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey);
 void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
+void scanDataFromRocksDB(NewDataKeyInfo *dataKeyInfo,
+                         ColumnParameter *columnParam,
+                         RowGroupParameter rowGroupParam,
+                         Vector *data);
+
 #endif

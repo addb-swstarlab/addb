@@ -484,7 +484,8 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
 
         // Scan on RocksDB.
         if (rowGroupParams[i].isInRocksDb) {
-            // TODO(totorody): Implements scan for RocksDB.
+            scanDataFromRocksDB(scanParam->dataKeyInfo, columnParam,
+                                rowGroupParams[i], data);
             continue;
         }
 
@@ -493,7 +494,7 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
         dict *hashDict = (dict *) hashDictObj->ptr;
         for (size_t j = 0; j < rowGroupParams[i].rowCount; ++j) {
             size_t rowId = j + 1;
-            for(size_t k = 0; k < columnParam->columnCount; ++k) {
+            for (size_t k = 0; k < columnParam->columnCount; ++k) {
                 size_t columnId = (long) vectorGet(&columnParam->columnIdList,
                                                    k);
                 // Data field key (Row & Column pair)
@@ -508,3 +509,13 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
     }
 }
 
+void scanDataFromRocksDB(NewDataKeyInfo *dataKeyInfo,
+                         ColumnParameter *columnParam,
+                         RowGroupParameter rowGroupParam,
+                         Vector *data) {
+    /*for (size_t j = 0; j < rowGroupParam.rowCount; ++j) {*/
+        /*size_t rowId = j + 1;*/
+        /*for (size_t k = 0; k < columnParam->columnCount; ++k) {*/
+            /*size_t columnId = (long) vectorGet(&columnParam->columnIdList, k);*/
+    /*}*/
+}
