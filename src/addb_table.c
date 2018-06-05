@@ -289,8 +289,8 @@ serverLog(LL_DEBUG ,"PREPARING WRITE FOR ROCKSDB");
 
 
  		setPersistentKey(db->persistent_store, rocksKey, sdslen(rocksKey), value->ptr, sdslen(value->ptr));
- 		targetVal->location = LOCATION_PERSISTED;
  	}
+    targetVal->location = LOCATION_PERSISTED;
  	dictReleaseIterator(di);
 }
 

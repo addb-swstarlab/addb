@@ -490,7 +490,10 @@ RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey) {
     expireIfNeeded(db, dataKey);
     param.dictObj = lookupKey(db, dataKey, LOOKUP_NONE);
 
-    if (param.dictObj == NULL) {
+    if (
+            param.dictObj == NULL ||
+            param.dictObj->location == LOCATION_PERSISTED
+       ) {
         param.isInRocksDb = true;
     } else {
         param.isInRocksDb = false;
@@ -510,7 +513,8 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
 
         // Scan on RocksDB.
         if (rowGroupParams[i].isInRocksDb) {
-            scanDataFromRocksDB(scanParam->dataKeyInfo, columnParam,
+            serverLog(LL_VERBOSE, "[DEBUG][scanDataFromADDB] Scan on RocksDB");
+            scanDataFromRocksDB(db, scanParam->dataKeyInfo, columnParam,
                                 rowGroupParams[i], data);
             continue;
         }
@@ -535,13 +539,39 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
     }
 }
 
-void scanDataFromRocksDB(NewDataKeyInfo *dataKeyInfo,
+void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
                          ColumnParameter *columnParam,
-                         RowGroupParameter rowGroupParam,
-                         Vector *data) {
-    /*for (size_t j = 0; j < rowGroupParam.rowCount; ++j) {*/
-        /*size_t rowId = j + 1;*/
-        /*for (size_t k = 0; k < columnParam->columnCount; ++k) {*/
-            /*size_t columnId = (long) vectorGet(&columnParam->columnIdList, k);*/
-    /*}*/
+                         RowGroupParameter rowGroupParam, Vector *data) {
+    for (size_t j = 0; j < rowGroupParam.rowCount; ++j) {
+        size_t rowId = j + 1;
+        for (size_t k = 0; k < columnParam->columnCount; ++k) {
+            size_t columnId = (long) vectorGet(&columnParam->columnIdList, k);
+
+            // Data rocks DB key (DataKey + DataField)
+            // Ex) "D:{100:1:2}:G:1:F:1:2"
+            sds dataRocksKey = generateDataRocksKeySds(dataKeyInfo, rowId,
+                                                       columnId);
+            char *err;
+            size_t valueLen = 0;
+            char *value;
+            value = rocksdb_get_cf(
+                    db->persistent_store->ps,
+                    db->persistent_store->ps_options->roptions,
+                    db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW],
+                    dataRocksKey, sdslen(dataRocksKey), &valueLen, &err);
+
+            if (value == NULL) {
+                serverLog(
+                        LL_DEBUG,
+                        "[DEBUG][scanDataFromRocksDB] Key: %s, value is not exist.",
+                        dataRocksKey);
+                sdsfree(dataRocksKey);
+                continue;
+            }
+
+            vectorAdd(data, sdsnewlen(value, valueLen));
+            rocksdb_free(value);
+            sdsfree(dataRocksKey);
+        }
+    }
 }
