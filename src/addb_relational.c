@@ -342,7 +342,7 @@ robj *generateDataFieldKey(NewDataKeyInfo *dataKeyInfo, int rowId,
 sds generateDataFieldKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
                             int columnId) {
     sds dataKey = generateDataKeySds(dataKeyInfo);
-    sds fieldKey = getDataFieldSds(rowId, columnId);
+    sds fieldKey = getFieldSds(rowId, columnId);
 
     char strBuf[DATA_KEY_MAX_SIZE];
     sprintf(strBuf, "%s:%s%s", dataKey, REL_MODEL_FIELD_PREFIX, fieldKey);
@@ -354,7 +354,7 @@ sds generateDataFieldKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
 /*addb generate datafield string
  * dataField ==> row:column format
  */
-robj *getDataField(int row, int column){
+robj *getField(int row, int column){
 
 	char dataField[DATA_KEY_MAX_SIZE];
 	sprintf(dataField, "%d:%d", row, column);
@@ -362,7 +362,7 @@ robj *getDataField(int row, int column){
 	return createStringObject(dataField, strlen(dataField));
 }
 
-sds getDataFieldSds(int rowId, int columnId) {
+sds getFieldSds(int rowId, int columnId) {
     char dataField[DATA_KEY_MAX_SIZE];
     sprintf(dataField, "%d:%d", rowId, columnId);
     return sdsnew(dataField);
@@ -524,7 +524,7 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
                                                    k);
                 // Data field key (Row & Column pair)
                 // Ex) "1:2"
-                sds dataFieldKey = getDataFieldSds(rowId, columnId);
+                sds dataFieldKey = getFieldSds(rowId, columnId);
                 dictEntry *entry = dictFind(hashDict, dataFieldKey);
                 sds value = dictGetVal(entry);
                 vectorAdd(data, (void *) value);

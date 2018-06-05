@@ -73,8 +73,8 @@ sds generateDataFieldKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
                             int columnId);
 
 /*addb data field function*/
-robj *getDataField(int row, int column);
-sds getDataFieldSds(int rowId, int columnId);
+robj *getField(int row, int column);
+sds getFieldSds(int rowId, int columnId);
 
 /*Insert function*/
 void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj);

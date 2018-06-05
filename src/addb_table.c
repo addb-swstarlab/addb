@@ -78,14 +78,14 @@ void fpWriteCommand(client *c){
 
     	robj *valueObj = getDecodedObject(c->argv[i]);
 
-    	//Create dataField Info
+    	//Create field Info
     	int row_idx = row_number + (idx / column_number) + 1;
     	int column_idx = (idx % column_number) + 1;
      assert(column_idx <= MAX_COLUMN_NUMBER);
 
-    	robj *dataField = getDataField(row_idx, column_idx);
-     serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
-     assert(dataField != NULL);
+    	robj *field = getField(row_idx, column_idx);
+     serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)field->ptr);
+     assert(field != NULL);
 
 
      /*check Value Type*/
@@ -94,14 +94,14 @@ void fpWriteCommand(client *c){
 
 
      serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
-        		(char *)dataKeyString->ptr, (char *)dataField->ptr, (char *)valueObj->ptr);
+        		(char *)dataKeyString->ptr, (char *)field->ptr, (char *)valueObj->ptr);
 
         /*insert data into dict with Relational model*/
-     insertKVpairToRelational(c, dataKeyString, dataField, valueObj);
+     insertKVpairToRelational(c, dataKeyString, field, valueObj);
 
         idx++;
         insertedRow++;
-        decrRefCount(dataField);
+        decrRefCount(field);
         decrRefCount(valueObj);
     }
     decrRefCount(dataKeyString);
@@ -328,6 +328,7 @@ void getRocksDBkeyAndValueCommand(client *c){
 		  rocksdb_free(val);
 		  serverLog(LL_DEBUG, "ROCKSDB KEY : %s , VALUE : %s", pattern, (char *)value->ptr);
 			sdsfree(pattern);
+            decrRefCount(value);
 			addReply(c, shared.ok);
 
 	  }
