@@ -330,19 +330,19 @@ sds generateDataKeySds(NewDataKeyInfo *dataKeyInfo) {
     return sdsnew(dataKey);
 }
 
-robj *generateDataFieldKey(NewDataKeyInfo *dataKeyInfo, int rowId,
+robj *generateDataRocksKey(NewDataKeyInfo *dataKeyInfo, int rowId,
                            int columnId) {
-    sds dataFieldKeySds = generateDataFieldKeySds(dataKeyInfo, rowId, columnId);
+    sds dataFieldKeySds = generateDataRocksKeySds(dataKeyInfo, rowId, columnId);
     robj *dataFieldKeyObj = createStringObject(dataFieldKeySds,
                                                sdslen(dataFieldKeySds));
     sdsfree(dataFieldKeySds);
     return dataFieldKeyObj;
 }
 
-sds generateDataFieldKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
+sds generateDataRocksKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
                             int columnId) {
     sds dataKey = generateDataKeySds(dataKeyInfo);
-    sds fieldKey = getFieldSds(rowId, columnId);
+    sds fieldKey = getDataFieldSds(rowId, columnId);
 
     char strBuf[DATA_KEY_MAX_SIZE];
     sprintf(strBuf, "%s:%s%s", dataKey, REL_MODEL_FIELD_PREFIX, fieldKey);
@@ -354,7 +354,7 @@ sds generateDataFieldKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
 /*addb generate datafield string
  * dataField ==> row:column format
  */
-robj *getField(int row, int column){
+robj *getDataField(int row, int column){
 
 	char dataField[DATA_KEY_MAX_SIZE];
 	sprintf(dataField, "%d:%d", row, column);
@@ -362,7 +362,7 @@ robj *getField(int row, int column){
 	return createStringObject(dataField, strlen(dataField));
 }
 
-sds getFieldSds(int rowId, int columnId) {
+sds getDataFieldSds(int rowId, int columnId) {
     char dataField[DATA_KEY_MAX_SIZE];
     sprintf(dataField, "%d:%d", rowId, columnId);
     return sdsnew(dataField);
@@ -524,7 +524,7 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
                                                    k);
                 // Data field key (Row & Column pair)
                 // Ex) "1:2"
-                sds dataFieldKey = getFieldSds(rowId, columnId);
+                sds dataFieldKey = getDataFieldSds(rowId, columnId);
                 dictEntry *entry = dictFind(hashDict, dataFieldKey);
                 sds value = dictGetVal(entry);
                 vectorAdd(data, (void *) value);

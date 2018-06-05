@@ -67,14 +67,14 @@ void setMetaKeyForRowgroup(NewDataKeyInfo *dataKeyInfo, sds key);
 robj * generateRgIdKeyForRowgroup(NewDataKeyInfo *dataKeyInfo);
 robj * generateDataKey(NewDataKeyInfo *dataKeyInfo);
 sds generateDataKeySds(NewDataKeyInfo *dataKeyInfo);
-robj *generateDataFieldKey(NewDataKeyInfo *dataKeyInfo, int rowId,
+robj *generateDataRocksKey(NewDataKeyInfo *dataKeyInfo, int rowId,
                            int columnId);
-sds generateDataFieldKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
+sds generateDataRocksKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
                             int columnId);
 
 /*addb data field function*/
-robj *getField(int row, int column);
-sds getFieldSds(int rowId, int columnId);
+robj *getDataField(int row, int column);
+sds getDataFieldSds(int rowId, int columnId);
 
 /*Insert function*/
 void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj);

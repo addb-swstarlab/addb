@@ -83,9 +83,9 @@ void fpWriteCommand(client *c){
     	int column_idx = (idx % column_number) + 1;
      assert(column_idx <= MAX_COLUMN_NUMBER);
 
-    	robj *field = getField(row_idx, column_idx);
-     serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)field->ptr);
-     assert(field != NULL);
+    	robj *dataField = getDataField(row_idx, column_idx);
+     serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
+     assert(dataField != NULL);
 
 
      /*check Value Type*/
@@ -94,14 +94,14 @@ void fpWriteCommand(client *c){
 
 
      serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
-        		(char *)dataKeyString->ptr, (char *)field->ptr, (char *)valueObj->ptr);
+        		(char *)dataKeyString->ptr, (char *)dataField->ptr, (char *)valueObj->ptr);
 
         /*insert data into dict with Relational model*/
-     insertKVpairToRelational(c, dataKeyString, field, valueObj);
+     insertKVpairToRelational(c, dataKeyString, dataField, valueObj);
 
         idx++;
         insertedRow++;
-        decrRefCount(field);
+        decrRefCount(dataField);
         decrRefCount(valueObj);
     }
     decrRefCount(dataKeyString);
