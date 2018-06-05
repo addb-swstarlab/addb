@@ -78,7 +78,7 @@ void fpWriteCommand(client *c){
 
     	robj *valueObj = getDecodedObject(c->argv[i]);
 
-    	//Create dataField Info
+    	//Create field Info
     	int row_idx = row_number + (idx / column_number) + 1;
     	int column_idx = (idx % column_number) + 1;
      assert(column_idx <= MAX_COLUMN_NUMBER);
@@ -328,6 +328,7 @@ void getRocksDBkeyAndValueCommand(client *c){
 		  rocksdb_free(val);
 		  serverLog(LL_DEBUG, "ROCKSDB KEY : %s , VALUE : %s", pattern, (char *)value->ptr);
 			sdsfree(pattern);
+            decrRefCount(value);
 			addReply(c, shared.ok);
 
 	  }
