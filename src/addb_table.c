@@ -147,7 +147,7 @@ void fpWriteCommand(client *c){
 
 
 void fpReadCommand(client *c) {
-    serverLog(LL_VERBOSE,"FPREAD COMMAND START");
+    serverLog(LL_DEBUG,"FPREAD COMMAND START");
     getGenericCommand(c);
 }
 
@@ -392,10 +392,10 @@ void getQueueStatusCommand(client *c){
 		    di = dictGetSafeIterator(hashdict);
 		    dictEntry *de2;
 		    while((de2 = dictNext(di)) != NULL){
-		 		sds field_key = dictGetKey(de2);
-		 		sds val = dictGetVal(de2);
-		 		serverLog(LL_DEBUG, "GET QUEUE KEY : %s, VALUE : %s", field_key, val);
-	     		sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s, Value : %s ]", idx,key,field_key, val);
+		    	sds field_key = dictGetKey(de2);
+		    	sds val = dictGetVal(de2);
+		    	serverLog(LL_DEBUG, "GET QUEUE DataKey : %s Field : %s, Value : %s ", key ,field_key, val);
+		    	sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s, Value : %s ]", idx,key,field_key, val);
 	     		addReplyBulkCString(c, str_buf);
 	     		numkeys++;
 		    }
@@ -407,3 +407,98 @@ void getQueueStatusCommand(client *c){
      	setDeferredMultiBulkLength(c, replylen, numkeys);
 	}
 }
+
+void dequeueCommand(client *c){
+	dictEntry *de = dequeue(c->db->EvictQueue);
+	if(de == NULL){
+		addReply(c, shared.err);
+	}
+	else {
+		addReply(c, shared.ok);
+		}
+}
+
+void getRearQueueCommand(client *c){
+
+ 	char str_buf[1024];
+
+
+	dictEntry *de = c->db->EvictQueue->buf[c->db->EvictQueue->rear];
+	serverLog(LL_DEBUG, "FRONT : %d, REAR : %d", c->db->EvictQueue->front, c->db->EvictQueue->rear);
+
+	if(de == NULL){
+	 	unsigned long numkeys = 0;
+	 	void *replylen = addDeferredMultiBulkLength(c);
+     	sprintf(str_buf, "Front Entry is NULL");
+     addReplyBulkCString(c, str_buf);
+     numkeys++;
+     setDeferredMultiBulkLength(c, replylen, numkeys);
+	}
+	else {
+	 	unsigned long numkeys = 0;
+	 	void *replylen = addDeferredMultiBulkLength(c);
+
+		    dictIterator *di;
+		    sds key = dictGetKey(de);
+		    robj *value = dictGetVal(de);
+		    dict *hashdict = (dict *)value->ptr;
+		    di = dictGetSafeIterator(hashdict);
+		    dictEntry *de2;
+		    while((de2 = dictNext(di)) != NULL){
+		    	sds field_key = dictGetKey(de2);
+		    	sds val = dictGetVal(de2);
+		    	serverLog(LL_DEBUG, "GET QUEUE Front DataKey : %s Field : %s, Value : %s ", key ,field_key, val);
+		    	sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s, Value : %s ]",
+		    			c->db->EvictQueue->rear,key,field_key, val);
+		 		addReplyBulkCString(c, str_buf);
+		 		numkeys++;
+		    }
+		 	dictReleaseIterator(di);
+		 	setDeferredMultiBulkLength(c, replylen, numkeys);
+
+	}
+}
+
+
+
+void chooseBestKeyCommand(client *c){
+
+	char str_buf[1024];
+
+	if(c->db->EvictQueue->front == c->db->EvictQueue->rear){
+     	unsigned long numkeys = 0;
+     	void *replylen = addDeferredMultiBulkLength(c);
+     	sprintf(str_buf, "Queue is empty, front : %d, rear : %d",c->db->EvictQueue->front ,c->db->EvictQueue->rear);
+     addReplyBulkCString(c, str_buf);
+     numkeys++;
+     setDeferredMultiBulkLength(c, replylen, numkeys);
+
+	}
+	else {
+     	unsigned long numkeys = 0;
+     	void *replylen = addDeferredMultiBulkLength(c);
+
+     	dictEntry *de = chooseBestKeyFromQueue(c->db->EvictQueue);
+     	if(de != NULL){
+     		dictIterator *di;
+     		sds key = dictGetKey(de);
+     		robj *value = dictGetVal(de);
+     		dict *hashdict = (dict *)value->ptr;
+     		di = dictGetSafeIterator(hashdict);
+     		dictEntry *de2;
+
+		    while((de2 = dictNext(di)) != NULL){
+		    	sds field_key = dictGetKey(de2);
+		    	sds val = dictGetVal(de2);
+		    	serverLog(LL_DEBUG, "BestKey From Queue DataKey : %s Field : %s, Value : %s ", key ,field_key, val);
+		    	sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s, Value : %s ]",
+		    			c->db->EvictQueue->rear,key,field_key, val);
+		 		addReplyBulkCString(c, str_buf);
+		 		numkeys++;
+		    }
+		 	dictReleaseIterator(di);
+		 	setDeferredMultiBulkLength(c, replylen, numkeys);
+     	}
+	}
+}
+

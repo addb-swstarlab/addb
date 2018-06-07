@@ -73,6 +73,7 @@ void *dequeue(Queue *queue) {
     }
     robj *obj = dictGetVal(retVal);
     serverAssert(obj != NULL);
+    //TODO- MODIFY LATER
     if(obj->location != LOCATION_PERSISTED) {
         return NULL;
     }
@@ -89,4 +90,17 @@ int isEmpty(Queue *queue) {
 void initializeQueue(Queue *queue){
 	queue->rear = 0;
 	queue->front = 0;
+}
+
+void *chooseBestKeyFromQueue(Queue *queue){
+	dictEntry *bestEntry = NULL;
+
+	if(queue->front == queue->rear){
+		serverLog(LL_DEBUG, "ENQUEUE ENTRY IS NULL");
+		return NULL;
+	}
+	else{
+		bestEntry = queue->buf[queue->rear];
+		return bestEntry;
+	}
 }

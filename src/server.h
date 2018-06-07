@@ -2080,6 +2080,9 @@ void fieldsAndValueCommand(client *c);
 void rocksdbkeyCommand(client *c);
 void getRocksDBkeyAndValueCommand(client *c);
 void getQueueStatusCommand(client *c);
+void dequeueCommand(client *c);
+void getRearQueueCommand(client *c);
+void chooseBestKeyCommand(client *c);
 
 /*
  * 2018. 5. 11

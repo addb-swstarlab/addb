@@ -331,7 +331,13 @@ struct redisCommand redisCommandTable[] = {
     {"fields", fieldsAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
     {"rockskey", rocksdbkeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
     {"rockskv", getRocksDBkeyAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
-	{"queuestatus", getQueueStatusCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 }
+	{"queuestatus", getQueueStatusCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+	{"dequeueentry", dequeueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+	{"queuerear", getRearQueueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+	{"evictbestkey", chooseBestKeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+
+
+
 };
 
 /*============================ Utility functions ============================ */

@@ -24,6 +24,8 @@ Queue *createArrayQueue();
 //void enqueue(Queue *queue, dictEntry *entry);
 int enqueue(Queue *queue, dictEntry *entry);
 void *dequeue(Queue *queue);
+void *chooseBestKeyFromQueue(Queue *queue);
+
 
 //dictEntry *dequeue(Queue *queue);
 int isEmpty(Queue *queue);
