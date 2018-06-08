@@ -4,8 +4,10 @@
  *  Created on: 2017. 11. 15.
  *      Author: canpc815
  */
+
+#include "server.h"
+#include "dict.h"
 #include "circular_queue.h"
-#include <assert.h>
 
 #define QUEUE_MAX INT32_MAX-1
 Queue *createArrayQueue() {
@@ -17,38 +19,47 @@ Queue *createArrayQueue() {
     return queue;
 }
 
-void enqueue(Queue *queue, dictEntry *entry) {
-    if(entry == NULL) assert(0);
+int enqueue(Queue *queue, dictEntry *entry) {
+	int result = 0;
+	if(entry == NULL){
+		serverLog(LL_DEBUG, "ENQUEUE ENTRY IS NULL");
+		return result;
+	}
+	else {
+		serverLog(LL_DEBUG, "ENQUEUE ENTRY IS NOT NULL");
 
-    /* If it is full, extend queue size */
-    if(((queue->front+1)%queue->max) == queue->rear) {
-        serverLog(LL_DEBUG, "[EXTEND BEFORE] queue->rear : %d, queue->front : %d, queue->max : %d",
-                        queue->rear, queue->front, queue->max);
+		    /* If it is full, extend queue size */
+		    if(((queue->front+1)%queue->max) == queue->rear) {
+		        serverLog(LL_DEBUG, "[EXTEND BEFORE] queue->rear : %d, queue->front : %d, queue->max : %d",
+		                        queue->rear, queue->front, queue->max);
 
-        int32_t newCapacity = 0;
-        if(queue->max == QUEUE_MAX) {
-            serverLog(LL_NOTICE, "Could not more extend array.");
-            assert(0);
-        } else if((QUEUE_MAX - queue->max) < queue->max) {
-            newCapacity = QUEUE_MAX;
-        } else {
-            newCapacity = queue->max * 2;
-        }
-        queue->buf =
-                (dictEntry **)zrealloc(queue->buf, sizeof(dictEntry *) * newCapacity);
-        queue->rear = 0;
-        queue->front = queue->max - 1;
-        queue->max = newCapacity;
-        serverLog(LL_DEBUG, "[EXTEND AFTER] queue->rear : %d, queue->front : %d, queue->max : %d",
-                                queue->rear, queue->front, queue->max);
-    }
+		        int32_t newCapacity = 0;
+		        if(queue->max == QUEUE_MAX) {
+		            serverLog(LL_NOTICE, "Could not more extend array.");
+		            serverAssert(0);
+		        } else if((QUEUE_MAX - queue->max) < queue->max) {
+		            newCapacity = QUEUE_MAX;
+		        } else {
+		            newCapacity = queue->max * 2;
+		        }
+		        queue->buf =
+		                (dictEntry **)zrealloc(queue->buf, sizeof(dictEntry *) * newCapacity);
+		        queue->rear = 0;
+		        queue->front = queue->max - 1;
+		        queue->max = newCapacity;
+		        serverLog(LL_DEBUG, "[EXTEND AFTER] queue->rear : %d, queue->front : %d, queue->max : %d",
+		                                queue->rear, queue->front, queue->max);
+		    }
 
-    queue->buf[queue->front] = entry;
+		    queue->buf[queue->front] = entry;
 
-    queue->front = (queue->front + 1) % queue->max;
+		    queue->front = (queue->front + 1) % queue->max;
+		    result = 1;
+		    return result;
+	}
 }
 
-dictEntry *dequeue(Queue *queue) {
+void *dequeue(Queue *queue) {
     dictEntry *retVal = NULL;
     /* If it is empty, return null */
     if(queue->rear == queue->front) {
@@ -58,10 +69,11 @@ dictEntry *dequeue(Queue *queue) {
     if(retVal == NULL) {
         serverLog(LL_DEBUG, "queue->rear : %d, queue->front : %d, queue->max : %d",
                 queue->rear, queue->front, queue->max);
-        assert(0);
+        serverAssert(0);
     }
     robj *obj = dictGetVal(retVal);
-    assert(obj != NULL);
+    serverAssert(obj != NULL);
+    //TODO- MODIFY LATER
     if(obj->location != LOCATION_PERSISTED) {
         return NULL;
     }
@@ -74,3 +86,21 @@ int isEmpty(Queue *queue) {
     return queue->rear == queue->front;
 }
 
+//TODO - Implement later
+void initializeQueue(Queue *queue){
+	queue->rear = 0;
+	queue->front = 0;
+}
+
+void *chooseBestKeyFromQueue(Queue *queue){
+	dictEntry *bestEntry = NULL;
+
+	if(queue->front == queue->rear){
+		serverLog(LL_DEBUG, "ENQUEUE ENTRY IS NULL");
+		return NULL;
+	}
+	else{
+		bestEntry = queue->buf[queue->rear];
+		return bestEntry;
+	}
+}

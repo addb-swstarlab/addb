@@ -45,6 +45,11 @@ typedef struct _ScanParameter {
 NewDataKeyInfo *parsingDataKeyInfo(sds dataKeyString);
 int changeDataKeyInfo(NewDataKeyInfo *dataKeyInfo, int number);
 
+dictEntry *getCandidatedictFirstEntry(client *c, NewDataKeyInfo *dataKeyInfo);
+dictEntry *getCandidatedictEntry(client *c, NewDataKeyInfo *dataKeyInfo);
+dictEntry *getPrevCandidatedictEntry(client *c, NewDataKeyInfo *dataKeyInfo);
+
+
 /*addb Metadict*/
 /*get information function*/
 int getRowNumberInfoAndSetRowNumberInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo);
@@ -71,6 +76,9 @@ robj *generateDataRocksKey(NewDataKeyInfo *dataKeyInfo, int rowId,
                            int columnId);
 sds generateDataRocksKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
                             int columnId);
+
+robj * generateDataKeyForFirstEntry(NewDataKeyInfo *dataKeyInfo);
+robj * generatePrevDataKey(NewDataKeyInfo *dataKeyInfo);
 
 /*addb data field function*/
 robj *getDataField(int row, int column);

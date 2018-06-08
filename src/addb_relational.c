@@ -67,6 +67,54 @@ NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
               token, saveptr, ret->tableId,ret->partitionInfo.partitionString, ret->rowGroupId);
   return ret;
 }
+
+/*addb get dictEntry, a candidate for evict*/
+
+dictEntry *getCandidatedictFirstEntry(client *c, NewDataKeyInfo *dataKeyInfo){
+	dictEntry *candidateEntry = NULL;
+	robj *dataKey = generateDataKeyForFirstEntry(dataKeyInfo);
+	serverLog(LL_DEBUG, "getCandidatedictEntry Find DATAKEY : %s", (char *)dataKey->ptr);
+
+	candidateEntry = dictFind(c->db->dict, dataKey->ptr);
+	robj *hashDict = dictGetVal(candidateEntry);
+	if(hashDict->type != OBJ_HASH){
+		serverLog(LL_NOTICE, "CandidateEntry's value is not Hash");
+	}
+	decrRefCount(dataKey);
+	return candidateEntry;
+}
+
+dictEntry *getCandidatedictEntry(client *c, NewDataKeyInfo *dataKeyInfo){
+
+	dictEntry *candidateEntry = NULL;
+	robj *dataKey = generateDataKey(dataKeyInfo);
+	serverLog(LL_DEBUG, "getCandidatedictEntry Find DATAKEY : %s", (char *)dataKey->ptr);
+
+	candidateEntry = dictFind(c->db->dict, dataKey->ptr);
+	robj *hashDict = dictGetVal(candidateEntry);
+	if(hashDict->type != OBJ_HASH){
+		serverLog(LL_NOTICE, "CandidateEntry's value is not Hash");
+	}
+	decrRefCount(dataKey);
+	return candidateEntry;
+}
+
+dictEntry *getPrevCandidatedictEntry(client *c, NewDataKeyInfo *dataKeyInfo){
+
+	dictEntry *candidateEntry = NULL;
+	robj *dataKey = generatePrevDataKey(dataKeyInfo);
+	serverLog(LL_DEBUG, "getPrevCandidatedictEntry Find DATAKEY : %s", (char *)dataKey->ptr);
+
+	candidateEntry = dictFind(c->db->dict, dataKey->ptr);
+	robj *hashDict = dictGetVal(candidateEntry);
+	if(hashDict->type != OBJ_HASH){
+		serverLog(LL_NOTICE, "CandidateEntry's value is not Hash");
+	}
+	decrRefCount(dataKey);
+	return candidateEntry;
+}
+
+
 /*addb get RowNumberInfo from Metadict*/
 int getRowNumberInfoAndSetRowNumberInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	char tmp[SDS_DATA_KEY_MAX];
@@ -350,6 +398,57 @@ sds generateDataRocksKeySds(NewDataKeyInfo *dataKeyInfo, int rowId,
     sdsfree(fieldKey);
     return sdsnew(strBuf);
 }
+
+robj * generateDataKeyForFirstEntry(NewDataKeyInfo *dataKeyInfo){
+
+	char dataKey[DATA_KEY_MAX_SIZE];
+	int FirstRgid = 1;
+	if(dataKeyInfo->isPartitionString){
+		sprintf(dataKey, "%s:{%d:%s}:%s%d",
+				RELMODEL_DATA_PREFIX, dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, RELMODEL_ROWGROUPID_PREFIX,
+				FirstRgid);
+	}else{
+		char *p = (char *)dataKey;
+		sprintf(p, "%s:{%d", RELMODEL_DATA_PREFIX, dataKeyInfo->tableId);
+		p += strlen(RELMODEL_DATA_PREFIX);
+		p += 2; // for :{
+		p += digits10(dataKeyInfo->tableId);
+		for(int i=0;i<dataKeyInfo->partitionCnt;i++){
+			sprintf(p, ":%llu", dataKeyInfo->partitionInfo.partitionInt[i]);
+			p += digits10(dataKeyInfo->partitionInfo.partitionInt[i]);
+			p += 1; //for :
+		}
+		sprintf(p, "}:%s%d", RELMODEL_ROWGROUPID_PREFIX, FirstRgid);
+	}
+	serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKey);
+	return createStringObject(dataKey, strlen(dataKey));
+}
+
+robj * generatePrevDataKey(NewDataKeyInfo *dataKeyInfo){
+
+	char dataKey[DATA_KEY_MAX_SIZE];
+	int prevRgId = dataKeyInfo->rowGroupId-1;
+	if(dataKeyInfo->isPartitionString){
+		sprintf(dataKey, "%s:{%d:%s}:%s%d",
+				RELMODEL_DATA_PREFIX, dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, RELMODEL_ROWGROUPID_PREFIX,
+				prevRgId);
+	}else{
+		char *p = (char *)dataKey;
+		sprintf(p, "%s:{%d", RELMODEL_DATA_PREFIX, dataKeyInfo->tableId);
+		p += strlen(RELMODEL_DATA_PREFIX);
+		p += 2; // for :{
+		p += digits10(dataKeyInfo->tableId);
+		for(int i=0;i<dataKeyInfo->partitionCnt;i++){
+			sprintf(p, ":%llu", dataKeyInfo->partitionInfo.partitionInt[i]);
+			p += digits10(dataKeyInfo->partitionInfo.partitionInt[i]);
+			p += 1; //for :
+		}
+		sprintf(p, "}:%s%d", RELMODEL_ROWGROUPID_PREFIX, prevRgId);
+	}
+	serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKey);
+	return createStringObject(dataKey, strlen(dataKey));
+}
+
 
 /*addb generate datafield string
  * dataField ==> row:column format

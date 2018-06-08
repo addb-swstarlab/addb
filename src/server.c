@@ -330,7 +330,14 @@ struct redisCommand redisCommandTable[] = {
     {"testvectorinterface",testVectorInterfaceCommand,-1,"r",0,NULL,1,1,1,0,0},
     {"fields", fieldsAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
     {"rockskey", rocksdbkeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
-    {"rockskv", getRocksDBkeyAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0}
+    {"rockskv", getRocksDBkeyAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
+	{"queuestatus", getQueueStatusCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+	{"dequeueentry", dequeueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+	{"queuerear", getRearQueueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+	{"evictbestkey", chooseBestKeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+
+
+
 };
 
 /*============================ Utility functions ============================ */
@@ -1888,6 +1895,8 @@ void initServer(void) {
         server.db[j].expires = dictCreate(&keyptrDictType,NULL);
         /*addb create Metadict*/
         server.db[j].Metadict = dictCreate(&dbDictType, NULL);
+
+        server.db[j].EvictQueue = createArrayQueue();
 
         server.db[j].blocking_keys = dictCreate(&keylistDictType,NULL);
         server.db[j].ready_keys = dictCreate(&objectKeyPointerValueDictType,NULL);
