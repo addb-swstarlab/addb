@@ -270,7 +270,7 @@ void fieldsAndValueCommand(client *c){
     	 addReply(c, shared.nullbulk);
     }
     else {
-
+    
      	char str_buf[1024];
      	unsigned long numkeys = 0;
      	void *replylen = addDeferredMultiBulkLength(c);
@@ -344,7 +344,7 @@ void getRocksDBkeyAndValueCommand(client *c){
 
 	  if(val == NULL){
 		  rocksdb_free(val);
-		  serverLog(LL_DEBUG, "ROCKSDB KEY : %s , VALUE NOT EXIST");
+		  serverLog(LL_VERBOSE, "ROCKSDB KEY-VALUE NOT EXIST");
 			sdsfree(pattern);
 			addReply(c, shared.err);
 	  }
@@ -352,9 +352,9 @@ void getRocksDBkeyAndValueCommand(client *c){
 		  robj *value = NULL;
 		  value = createStringObject(val, val_len);
 		  rocksdb_free(val);
-		  serverLog(LL_DEBUG, "ROCKSDB KEY : %s , VALUE : %s", pattern, (char *)value->ptr);
+		  serverLog(LL_VERBOSE, "ROCKSDB KEY : %s , VALUE : %s", pattern, (char *)value->ptr);
 			sdsfree(pattern);
-            decrRefCount(value);
+			decrRefCount(value);
 			addReply(c, shared.ok);
 
 	  }
@@ -364,7 +364,6 @@ void getRocksDBkeyAndValueCommand(client *c){
 
 void getQueueStatusCommand(client *c){
  	char str_buf[1024];
-	sds pattern = sdsnew(c->argv[1]->ptr);
 	if(c->db->EvictQueue->front == c->db->EvictQueue->rear){
 		serverLog(LL_DEBUG, "EMPTY QUEUE");
      	unsigned long numkeys = 0;
@@ -385,6 +384,10 @@ void getQueueStatusCommand(client *c){
 		    dictIterator *di;
 		    dictEntry *de = c->db->EvictQueue->buf[idx];
 
+		    if(de == NULL){
+		    	serverLog(LL_VERBOSE, "QUEUESTATUS COMMAND ENTRY IS NULL(front : %d, rear : %d, idx : %d)"
+		    			,c->db->EvictQueue->front, c->db->EvictQueue->rear, idx);
+		    }
 		    sds key = dictGetKey(de);
 		    robj *value = dictGetVal(de);
 		    dict *hashdict = (dict *)value->ptr;
@@ -395,15 +398,14 @@ void getQueueStatusCommand(client *c){
 		    	sds field_key = dictGetKey(de2);
 		    	sds val = dictGetVal(de2);
 		    	serverLog(LL_DEBUG, "GET QUEUE DataKey : %s Field : %s, Value : %s ", key ,field_key, val);
-		    	sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s, Value : %s ]", idx,key,field_key, val);
+		    	sprintf(str_buf, "[Rear : %d, Front : %d, idx : %d]DataKey : %s Field : %s, Value : %s ]",
+		    			c->db->EvictQueue->rear, c->db->EvictQueue->front ,idx,key,field_key, val);
 	     		addReplyBulkCString(c, str_buf);
 	     		numkeys++;
 		    }
 		    idx++;
 		 	dictReleaseIterator(di);
 		}
-
-		sdsfree(pattern);
      	setDeferredMultiBulkLength(c, replylen, numkeys);
 	}
 }
@@ -429,7 +431,7 @@ void getRearQueueCommand(client *c){
 	if(de == NULL){
 	 	unsigned long numkeys = 0;
 	 	void *replylen = addDeferredMultiBulkLength(c);
-     	sprintf(str_buf, "Front Entry is NULL");
+     	sprintf(str_buf, "Rear Entry is NULL");
      addReplyBulkCString(c, str_buf);
      numkeys++;
      setDeferredMultiBulkLength(c, replylen, numkeys);
@@ -447,7 +449,7 @@ void getRearQueueCommand(client *c){
 		    while((de2 = dictNext(di)) != NULL){
 		    	sds field_key = dictGetKey(de2);
 		    	sds val = dictGetVal(de2);
-		    	serverLog(LL_DEBUG, "GET QUEUE Front DataKey : %s Field : %s, Value : %s ", key ,field_key, val);
+		    	serverLog(LL_DEBUG, "GET QUEUE Rear DataKey : %s Field : %s, Value : %s ", key ,field_key, val);
 		    	sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s, Value : %s ]",
 		    			c->db->EvictQueue->rear,key,field_key, val);
 		 		addReplyBulkCString(c, str_buf);

@@ -88,7 +88,6 @@ int dbPersistOrClear(redisDb *db, robj *key) {
     /* If the value is composed of a few allocations, to free in a lazy way
      * is actually just slower... So under a certain limit we just free
      * the object synchronously. */
-	serverLog(LL_VERBOSE, "dbPersistOrClear KEY : %s", (char *)key->ptr);
     dictEntry *de = dictFind(db->dict,key->ptr);
     if (de) {
         robj *val = dictGetVal(de);
@@ -97,6 +96,7 @@ int dbPersistOrClear(redisDb *db, robj *key) {
             /* Deleting an entry from the expires dict will not free the sds of
              * the key, because it is shared with the main dictionary. */
             if (dictSize(db->expires) > 0) dictDelete(db->expires,key->ptr);
+            serverLog(LL_DEBUG, "DELETE PERSISTED ENTRY KEY : %s", (char *)key->ptr);
             dictEntry *entry = dictUnlink(db->dict,key->ptr);
             bioCreateBackgroundJob(BIO_TIERED_FREE,entry,NULL,NULL);
         } else if(val->location == LOCATION_REDIS_ONLY){
@@ -106,13 +106,16 @@ int dbPersistOrClear(redisDb *db, robj *key) {
              * However, the value will be a hash structure which is used for relation structure.
              */
         	if(val->encoding == OBJ_ENCODING_REL){
-        		serverLog(LL_VERBOSE, "REL BIOCREATEBACKGROUNDJOB, KEY : %s", (char *)key->ptr);
             bioCreateBackgroundJob(BIO_TIERING,db,key,val);
         	}
-        	else{
-        		//error case?
-        		bioCreateBackgroundJob(BIO_TIERING,db,key,getDecodedObject(dictGetVal(de)));
+        	else {
+        		serverLog(LL_WARNING, "Unknown Object Encoding[dbPersistOrClear]");
+        		serverAssert(0);
         	}
+//        	else{
+//        		serverLog(LL_VERBOSE, "EVICT NOT RELMODEL");
+//        		bioCreateBackgroundJob(BIO_TIERING,db,key,getDecodedObject(dictGetVal(de)));
+//        	}
         }
         return 1;
     } else {

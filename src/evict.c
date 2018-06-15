@@ -33,6 +33,7 @@
 #include "server.h"
 #include "bio.h"
 #include "atomicvar.h"
+#include "circular_queue.h"
 
 /* ----------------------------------------------------------------------------
  * Data structures
@@ -408,6 +409,7 @@ int freeMemoryIfNeeded(void) {
 
     latencyStartMonitor(latency);
     while (mem_freed < mem_tofree) {
+    	serverLog(LL_DEBUG, "[FREEMEMORYIFNEEDED CALLED]");
         int j, k, i, keys_freed = 0;
         static int next_db = 0;
         sds bestkey = NULL;
@@ -416,152 +418,134 @@ int freeMemoryIfNeeded(void) {
         dict *dict;
         dictEntry *de;
         int isPersisted = 0;
+        int isFlushed = 0;
 
-        if (server.maxmemory_policy & (MAXMEMORY_FLAG_LRU|MAXMEMORY_FLAG_LFU) ||
-            server.maxmemory_policy == MAXMEMORY_VOLATILE_TTL)
-        {
-            struct evictionPoolEntry *pool = EvictionPoolLRU;
+        for( j=0 ; j <server.dbnum; j++){
 
-            while(bestkey == NULL) {
-                unsigned long total_keys = 0, keys;
+        	if (server.maxmemory_policy & (MAXMEMORY_FLAG_LRU|MAXMEMORY_FLAG_LFU) ||
+            server.maxmemory_policy == MAXMEMORY_VOLATILE_TTL){
 
-                /* We don't want to make local-db choices when expiring keys,
-                 * so to start populate the eviction pool sampling keys from
-                 * every DB. */
-                for (i = 0; i < server.dbnum; i++) {
-                    db = server.db+i;
-                    dict = (server.maxmemory_policy & MAXMEMORY_FLAG_ALLKEYS) ?
-                            db->dict : db->expires;
-                    if ((keys = dictSize(dict)) != 0) {
-                        evictionPoolPopulate(i, dict, db->dict, pool);
-                        total_keys += keys;
-                    }
-                }
-                if (!total_keys) break; /* No keys to evict. */
+        		db = server.db + j;
 
-                /* Go backward from best to worst element to evict. */
-                for (k = EVPOOL_SIZE-1; k >= 0; k--) {
-                    if (pool[k].key == NULL) continue;
-                    bestdbid = pool[k].dbid;
+        		/*check if there is an entry to dequeue */
+        		checkQueueFordeQueue(j ,db->EvictQueue);
 
-                    if (server.maxmemory_policy & MAXMEMORY_FLAG_ALLKEYS) {
-                        de = dictFind(server.db[pool[k].dbid].dict,
-                            pool[k].key);
-                    } else {
-                        de = dictFind(server.db[pool[k].dbid].expires,
-                            pool[k].key);
-                    }
+        		/*choose BestEviction Entry from Queue*/
+        		de = chooseBestKeyFromQueue(db->EvictQueue);
+        		if(de == NULL){
+        			if(db->EvictQueue->front == db->EvictQueue->rear){
+            			serverLog(LL_NOTICE, "[DB : %d]There is no Entry in queue", j);
+            			return 0;
+        			}
+        			else{
+            			serverLog(LL_WARNING, "[DB : %d]Fail to choose Candidate Entry", j);
+            			serverAssert(0);
+            			//return 0;
 
-                    /* Remove the entry from the pool. */
-                    if (pool[k].key != pool[k].cached)
-                        sdsfree(pool[k].key);
-                    pool[k].key = NULL;
-                    pool[k].idle = 0;
+        			}
+        		} else {
 
-                    /* If the key exists, is our pick. Otherwise it is
-                     * a ghost and we need to try the next element. */
-                    if (de) {
-                        bestkey = dictGetKey(de);
-                        break;
-                    } else {
-                        /* Ghost... Iterate again. */
-                    }
-                }
-            }
+        			serverLog(LL_DEBUG, "[DB : %d]Success to choose Candidate Entry", j);
+        			bestkey = dictGetKey(de);
+        			bestdbid = j;
+
+        		}
+
         }
 
-        /* volatile-random and allkeys-random policy */
-        else if (server.maxmemory_policy == MAXMEMORY_ALLKEYS_RANDOM ||
-                 server.maxmemory_policy == MAXMEMORY_VOLATILE_RANDOM)
-        {
-            /* When evicting a random key, we try to evict a key for
-             * each DB, so we use the static 'next_db' variable to
-             * incrementally visit all DBs. */
-            for (i = 0; i < server.dbnum; i++) {
-                j = (++next_db) % server.dbnum;
-                db = server.db+j;
-                dict = (server.maxmemory_policy == MAXMEMORY_ALLKEYS_RANDOM) ?
-                        db->dict : db->expires;
-                if (dictSize(dict) != 0) {
-                    de = dictGetRandomKey(dict);
-                    bestkey = dictGetKey(de);
-                    bestdbid = j;
-                    break;
-                }
-            }
+        	/* volatile-random and allkeys-random policy */
+        	else if (server.maxmemory_policy == MAXMEMORY_ALLKEYS_RANDOM ||
+        	                 server.maxmemory_policy == MAXMEMORY_VOLATILE_RANDOM)
+        	{
+
+        		/* When evicting a random key, we try to evict a key for
+        		 * each DB, so we use the static 'next_db' variable to
+        		 * incrementally visit all DBs. */
+        		for (i = 0; i < server.dbnum; i++) {
+        			j = (++next_db) % server.dbnum;
+        			db = server.db+j;
+        			dict = (server.maxmemory_policy == MAXMEMORY_ALLKEYS_RANDOM) ?
+        					db->dict : db->expires;
+        			if (dictSize(dict) != 0) {
+        				de = dictGetRandomKey(dict);
+        				bestkey = dictGetKey(de);
+        				bestdbid = j;
+        				break;
+        			}
+        		}
+        	}
+        	/* Finally remove the selected key. */
+        	if(bestkey){
+        		db = server.db + bestdbid;
+        		robj *keyobj = createStringObject(bestkey,sdslen(bestkey));
+        		serverLog(LL_DEBUG, "SELECTED BESTKEY : %s", (char *)keyobj->ptr);
+        		propagateExpire(db,keyobj,server.lazyfree_lazy_eviction);
+        		/* We compute the amount of memory freed by db*Delete() alone.
+        		 * It is possible that actually the memory needed to propagate
+        		 * the DEL in AOF and replication link is greater than the one
+        		 * we are freeing removing the key, but we can't account for
+        		 * that otherwise we would never exit the loop.
+        		 *
+        		 * AOF and Output buffer memory will be freed eventually so
+        		 * we only care about memory used by the key space. */
+
+        		delta = (long long) zmalloc_used_memory();
+        		latencyStartMonitor(eviction_latency);
+        		if(server.tiering_enabled){
+        			//Relational Model Eviction
+        			isPersisted = dbPersistOrClear(db, keyobj);
+        		} else {
+
+        			if(server.lazyfree_lazy_eviction){
+        				dbAsyncDelete(db,keyobj);
+        			} else {
+        				dbSyncDelete(db,keyobj);
+        			}
+        		}
+        		latencyEndMonitor(eviction_latency);
+        	  latencyAddSampleIfNeeded("eviction-del",eviction_latency);
+        	  latencyRemoveNestedEvent(latency,eviction_latency);
+        	  delta -= (long long) zmalloc_used_memory();
+        	  mem_freed += delta;
+        	  server.stat_evictedkeys++;
+        	  notifyKeyspaceEvent(NOTIFY_EVICTED, "evicted", keyobj, db->id);
+        	  if(!server.tiering_enabled){
+        		  decrRefCount(keyobj);
+        	  }
+        	  keys_freed++;
+
+        	  /* When the memory to free starts to be big enough, we may
+        	   * start spending so much time here that is impossible to
+        	   * deliver data to the slaves fast enough, so we force the
+        	   * transmission here inside the loop. */
+        	  if (slaves) flushSlavesOutputBuffers();
+
+        	  /* Normally our stop condition is the ability to release
+        	   * a fixed, pre-computed amount of memory. However when we
+        	   * are deleting objects in another thread, it's better to
+        	   * check, from time to time, if we already reached our target
+        	   * memory, since the "mem_freed" amount is computed only
+        	   * across the dbAsyncDelete() call, while the thread can
+        	   * release the memory all the time. */
+        	  if (server.lazyfree_lazy_eviction && !(keys_freed % 16)){
+        		  overhead = freeMemoryGetNotCountedMemory();
+        		  mem_used = zmalloc_used_memory();
+        		  mem_used = (mem_used > overhead) ? mem_used-overhead : 0;
+        		  if (mem_used <= server.maxmemory) {
+        			  mem_freed = mem_tofree;
+        		  }
+        	  }
+        	}
+        	 if (!keys_freed) {
+        		 latencyEndMonitor(latency);
+        		 latencyAddSampleIfNeeded("eviction-cycle",latency);
+        		 goto cant_free; /* nothing to free... */
+        	 }
+        	 if(isPersisted)
+        		 break;
         }
-
-        /* Finally remove the selected key. */
-        if (bestkey) {
-            db = server.db+bestdbid;
-            robj *keyobj = createStringObject(bestkey,sdslen(bestkey));
-            propagateExpire(db,keyobj,server.lazyfree_lazy_eviction);
-            /* We compute the amount of memory freed by db*Delete() alone.
-             * It is possible that actually the memory needed to propagate
-             * the DEL in AOF and replication link is greater than the one
-             * we are freeing removing the key, but we can't account for
-             * that otherwise we would never exit the loop.
-             *
-             * AOF and Output buffer memory will be freed eventually so
-             * we only care about memory used by the key space. */
-            delta = (long long) zmalloc_used_memory();
-            latencyStartMonitor(eviction_latency);
-            if (server.tiering_enabled) {
-                /* ADDB */
-                /* 1. Synchronous Tiering - deprecated */
-                /* persistKey(db,keyobj); */
-                /* 2. Eager-background Tiering */
-                isPersisted = dbPersistOrClear(db,keyobj);
-            } else {
-                if (server.lazyfree_lazy_eviction)
-                    dbAsyncDelete(db,keyobj);
-                else
-                    dbSyncDelete(db,keyobj);
-            }
-            latencyEndMonitor(eviction_latency);
-            latencyAddSampleIfNeeded("eviction-del",eviction_latency);
-            latencyRemoveNestedEvent(latency,eviction_latency);
-            delta -= (long long) zmalloc_used_memory();
-            mem_freed += delta;
-            server.stat_evictedkeys++;
-            notifyKeyspaceEvent(NOTIFY_EVICTED, "evicted",
-                keyobj, db->id);
-            if(!server.tiering_enabled)
-                decrRefCount(keyobj);
-            keys_freed++;
-
-            /* When the memory to free starts to be big enough, we may
-             * start spending so much time here that is impossible to
-             * deliver data to the slaves fast enough, so we force the
-             * transmission here inside the loop. */
-            if (slaves) flushSlavesOutputBuffers();
-
-            /* Normally our stop condition is the ability to release
-             * a fixed, pre-computed amount of memory. However when we
-             * are deleting objects in another thread, it's better to
-             * check, from time to time, if we already reached our target
-             * memory, since the "mem_freed" amount is computed only
-             * across the dbAsyncDelete() call, while the thread can
-             * release the memory all the time. */
-            if (server.lazyfree_lazy_eviction && !(keys_freed % 16)) {
-                overhead = freeMemoryGetNotCountedMemory();
-                mem_used = zmalloc_used_memory();
-                mem_used = (mem_used > overhead) ? mem_used-overhead : 0;
-                if (mem_used <= server.maxmemory) {
-                    mem_freed = mem_tofree;
-                }
-            }
-        }
-
-        if (!keys_freed) {
-            latencyEndMonitor(latency);
-            latencyAddSampleIfNeeded("eviction-cycle",latency);
-            goto cant_free; /* nothing to free... */
-        }
-
-        if(isPersisted)
-            break;
     }
+
     latencyEndMonitor(latency);
     latencyAddSampleIfNeeded("eviction-cycle",latency);
     return C_OK;
@@ -577,4 +561,8 @@ cant_free:
     }
     return C_ERR;
 }
+
+
+
+
 

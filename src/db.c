@@ -485,6 +485,12 @@ long long emptyDb(int dbnum, int flags, void(callback)(void*)) {
             slotToKeyFlush();
         }
     }
+
+//    for (j = 0; j < server.dbnum; j++){
+//
+//    	redisDb *db = server.db + j;
+//    	initializeQueue(db->EvictQueue);
+//    }
     if (dbnum == -1) flushSlaveKeysWithExpireList();
     return removed;
 }

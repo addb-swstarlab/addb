@@ -205,13 +205,12 @@ void *bioProcessBackgroundJobs(void *arg) {
             robj *keyobj = (robj *)job->arg2;
             robj *valobj = (robj *)job->arg3;
             if(valobj->encoding == OBJ_ENCODING_REL){
-            	serverLog(LL_VERBOSE, "BIOPROCESSBACKGROUND JOB, KEY : %s", (char *)keyobj->ptr);
             	prepareWriteToRocksDB(db, keyobj, valobj);
             } else {
             	persistKey(db, keyobj, valobj);
             }
             decrRefCount(keyobj);
-            decrRefCount(valobj);
+            //decrRefCount(valobj);
         } else if (type == BIO_TIERED_FREE) {
             /* ADDB */
             dictEntry *de = (dictEntry *)job->arg1;

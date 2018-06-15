@@ -8,6 +8,7 @@
 #include "server.h"
 #include "dict.h"
 #include "circular_queue.h"
+#include <assert.h>
 
 #define QUEUE_MAX INT32_MAX-1
 Queue *createArrayQueue() {
@@ -15,6 +16,7 @@ Queue *createArrayQueue() {
     queue->rear = 0;
     queue->front = 0;
     queue->max = DEFAULT_ARRAY_QUEUE_SIZE;
+    queue->key_offset = 0;
     queue->buf = (dictEntry **)zmalloc(sizeof(dictEntry *) * queue->max);
     return queue;
 }
@@ -73,10 +75,11 @@ void *dequeue(Queue *queue) {
     }
     robj *obj = dictGetVal(retVal);
     serverAssert(obj != NULL);
-    //TODO- MODIFY LATER
+
     if(obj->location != LOCATION_PERSISTED) {
         return NULL;
     }
+
     queue->buf[queue->rear] = NULL;
     queue->rear = (queue->rear + 1) % queue->max;
     return retVal;
@@ -100,7 +103,91 @@ void *chooseBestKeyFromQueue(Queue *queue){
 		return NULL;
 	}
 	else{
-		bestEntry = queue->buf[queue->rear];
+
+		bestEntry = queue->buf[queue->key_offset];  //queue->rear
+		robj *obj = dictGetVal(bestEntry);
+
+		if(obj->location == LOCATION_PERSISTED){
+			if(queue->key_offset != queue->front){
+
+				queue->key_offset = (queue->key_offset + 1) % queue->max;
+				bestEntry = queue->buf[queue->key_offset];
+				obj = dictGetVal(bestEntry);
+			}
+		}
+
+		if((obj->location != LOCATION_PERSISTED) & (obj->location != LOCATION_REDIS_ONLY)){
+			serverLog(LL_WARNING, "Unknown Object Location Information : %d", obj->location);
+			serverAssert(0);
+		}
+
+		assert(obj->location == LOCATION_REDIS_ONLY);
 		return bestEntry;
+
 	}
+}
+
+int checkQueueFordeQueue(int dbnum, Queue *queue){
+
+	dictEntry *de = NULL;
+	if(queue->rear == queue->front){
+		return 0;
+	}
+
+	if(queue->rear == queue->key_offset){
+
+		de = queue->buf[queue->key_offset];
+		robj *val = dictGetVal(de);
+
+		if(val->location == LOCATION_REDIS_ONLY){
+			serverLog(LL_VERBOSE, "No Entry to dequeue");
+			return 2;
+		}
+
+		if(val->location == LOCATION_PERSISTED){
+			queue->key_offset = (queue->key_offset + 1) % queue->max;
+			de = dequeue(queue);
+
+			sds dequeuekey = dictGetKey(de);
+			robj *keyobj = createStringObject(dequeuekey,sdslen(dequeuekey));
+			redisDb *db = server.db + dbnum;
+
+			int Flushed = dbPersistOrClear(db, keyobj);
+			if(!Flushed){
+				serverAssert(0);
+			}
+			return 1;
+		}
+	}
+	else {
+
+		if(queue->rear != queue->key_offset){
+			serverLog(LL_VERBOSE, "Dequeue Multiple Entries");
+			dictEntry *dequeueEntry = NULL;
+			int isFlushed = 0;
+			while(queue->rear != queue->key_offset){
+				if(queue->rear != queue->key_offset){
+					dequeueEntry = dequeue(queue);
+					sds key = dictGetKey(dequeueEntry);
+					robj *hashval = dictGetVal(dequeueEntry);
+					robj *keyobj = createStringObject(key,sdslen(key));
+					redisDb *db = server.db + dbnum;
+					serverLog(LL_VERBOSE, "DEQUEUEENTRY DB NUM : %d", dbnum);
+					serverLog(LL_VERBOSE, "[DB: %d]DEQUEUEENTRY KEY : %s [Front : %d, Key_Offset : %d, Rear : %d]",
+							dbnum, key, queue->front, queue->key_offset, queue->rear);
+					isFlushed = dbPersistOrClear(db, keyobj);
+				}
+				else {
+					serverLog(LL_VERBOSE, "Break!!! [QUEUE Rear : %d, Key_offset : %d, Front : %d]",
+							queue->rear, queue->key_offset, queue->front);
+					break;
+				}
+			}
+		}
+		else {
+			serverLog(LL_WARNING, "checkQueueFordeQueue Error");
+			serverAssert(0);
+		}
+	}
+	return 1;
 }

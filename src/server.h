@@ -592,7 +592,7 @@ typedef struct RedisModuleDigest {
 /* ADDB */
 #define LOCATION_REDIS_ONLY 0
 //#define LOCATION_FLUSH      1  //NOT USED NOW
-#define LOCATION_PERSISTED  2
+#define LOCATION_PERSISTED 1
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
 typedef struct redisObject {
