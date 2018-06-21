@@ -28,7 +28,7 @@ void *dequeue(Queue *queue);
 void *chooseBestKeyFromQueue(Queue *queue);
 int checkQueueFordeQueue(int dbnum, Queue *queue);
 //int checkQueueFordeQueue(Queue *queue);
-
+void *forceDequeue(Queue *queue);
 
 
 //dictEntry *dequeue(Queue *queue);

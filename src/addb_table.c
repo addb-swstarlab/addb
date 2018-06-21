@@ -504,3 +504,13 @@ void chooseBestKeyCommand(client *c){
 	}
 }
 
+void queueEmptyCommand(client *c){
+	int j =0;
+
+    for (j = 0; j < server.dbnum; j++){
+
+    	redisDb *db = server.db + j;
+    	initializeQueue(db->EvictQueue);
+   }
+	addReply(c, shared.ok);
+}

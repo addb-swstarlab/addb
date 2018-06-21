@@ -335,6 +335,7 @@ struct redisCommand redisCommandTable[] = {
 	{"dequeueentry", dequeueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
 	{"queuerear", getRearQueueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
 	{"evictbestkey", chooseBestKeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+	{"emptyqueue", queueEmptyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
 
 
 

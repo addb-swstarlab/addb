@@ -85,13 +85,43 @@ void *dequeue(Queue *queue) {
     return retVal;
 }
 
+void *forceDequeue(Queue *queue) {
+    dictEntry *retVal = NULL;
+    /* If it is empty, return null */
+    if(queue->rear == queue->front) {
+        return NULL;
+    }
+    retVal = queue->buf[queue->rear];
+    if(retVal == NULL) {
+        serverLog(LL_DEBUG, "queue->rear : %d, queue->front : %d, queue->max : %d",
+                queue->rear, queue->front, queue->max);
+        serverAssert(0);
+    }
+    robj *obj = dictGetVal(retVal);
+    serverAssert(obj != NULL);
+
+    queue->buf[queue->rear] = NULL;
+    queue->rear = (queue->rear + 1) % queue->max;
+    return retVal;
+}
+
+
 int isEmpty(Queue *queue) {
     return queue->rear == queue->front;
 }
 
 //TODO - Implement later
 void initializeQueue(Queue *queue){
+	//int start = queue->rear;
+	int end = queue->front;
+
+	for(int start = queue->rear; start <= end; start++){
+		serverLog(LL_DEBUG, "Rear : %d(start : %d), Front : %d(end : %d)", queue->rear, start, queue->front, end);
+		forceDequeue(queue);
+	}
+
 	queue->rear = 0;
+	queue->key_offset = 0;
 	queue->front = 0;
 }
 
