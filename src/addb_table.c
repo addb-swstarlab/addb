@@ -227,6 +227,42 @@ void fpScanCommand(client *c) {
     setDeferredMultiBulkLength(c, replylen, numreplies);
 }
 
+/*
+ * fpPartitionFilterCommand
+ * Filter partition from Metadict by parsed stack structure.
+ * --- Parameters ---
+ *  arg1: Parsed stack structure
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      Stack:
+ *          "*3*col2:EqaulTo*2*col2:EqaulTo:Or*1*col2:EqaulTo*0*col2:EqaulTo:Or:Or$"
+ *          (select * from kv where col2=0 or col2=1 or col2=2 or col2=3;)
+ *  Command:
+ *      redis-cli> FPPARTITIONFILTER *3*col2:EqualTo*2*col2:EqualTo:Or*1*col2:EqualTo*0*cold2:EqualTo:Or:Or$"
+ *  Results:
+ *      redis-cli> "2:0" // col2 = 0
+ *      redis-cli> "2:1" // col2 = 1
+ *      redis-cli> "2:2" // col2 = 2
+ *      redis-cli> "2:3" // col2 = 3
+ *      ...
+ */
+void fpPartitionFilterCommand(client *c) {
+    /*Parses stringfied stack structure to readable parameters*/
+    /*Scans Metadict by readable parameters*/
+
+    /*Prints out target partitions*/
+    // TODO(totoro): Changes reply to real partition data.
+    void *replylen = addDeferredMultiBulkLength(c);
+    size_t numreplies = 0;
+    addReplyBulkCString(c, "2:1");
+    addReplyBulkCString(c, "2:2");
+    addReplyBulkCString(c, "2:3");
+    addReplyBulkCString(c, "2:4");
+    numreplies += 4;
+    setDeferredMultiBulkLength(c, replylen, numreplies);
+}
+
 /*Lookup key in metadict */
 void metakeysCommand(client *c){
 
@@ -270,7 +306,7 @@ void fieldsAndValueCommand(client *c){
     	 addReply(c, shared.nullbulk);
     }
     else {
-    
+
      	char str_buf[1024];
      	unsigned long numkeys = 0;
      	void *replylen = addDeferredMultiBulkLength(c);

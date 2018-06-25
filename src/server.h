@@ -2073,6 +2073,7 @@ void securityWarningCommand(client *c);
 void fpWriteCommand(client *c);
 void fpReadCommand(client *c);
 void fpScanCommand(client *c);
+void fpPartitionFilterCommand(client *c);
 void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire, int unit, robj *ok_reply, robj *abort_reply);
 int getGenericCommand(client *c);
 void metakeysCommand(client *c);
