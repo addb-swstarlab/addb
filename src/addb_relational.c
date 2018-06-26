@@ -510,8 +510,8 @@ ColumnParameter *parseColumnParameter(const sds rawColumnIdsString) {
             sizeof(ColumnParameter));
     param->original = sdsnew(rawColumnIdsString);
 
-    vectorTypeInit(&param->columnIdStrList, VECTOR_TYPE_SDS);
-    vectorTypeInit(&param->columnIdList, VECTOR_TYPE_LONG);
+    vectorTypeInit(&param->columnIdStrList, STL_TYPE_SDS);
+    vectorTypeInit(&param->columnIdList, STL_TYPE_LONG);
 
     int tokenCounts;
     sds *tokens = sdssplit(param->original, RELMODEL_COLUMN_DELIMITER,

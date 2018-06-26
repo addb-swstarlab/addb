@@ -208,7 +208,7 @@ void fpScanCommand(client *c) {
 
     /*Load data from Redis or RocksDB*/
     Vector data;
-    vectorTypeInit(&data, VECTOR_TYPE_SDS);
+    vectorTypeInit(&data, STL_TYPE_SDS);
     scanDataFromADDB(c->db, scanParam, &data);
 
     /*Scan data to client*/

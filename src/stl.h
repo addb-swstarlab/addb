@@ -5,24 +5,25 @@
 #ifndef __ADDB_STL_H
 #define __ADDB_STL_H
 
-#define INIT_VECTOR_SIZE 10
+/*
+ * STL type
+ *  - DEFAULT: Allows all pointer types(Polymorphism)
+ *  - SDS: sds
+ *  - LONG: long
+ *  - ROBJ: robj
+ */
+#define STL_TYPE_DEFAULT 0
+#define STL_TYPE_SDS 1
+#define STL_TYPE_LONG 2
+#define STL_TYPE_ROBJ 3
 
-#define VECTOR_TYPE_DEFAULT 0
-#define VECTOR_TYPE_SDS 1
-#define VECTOR_TYPE_LONG 2
-#define VECTOR_TYPE_ROBJ 3
+#define INIT_VECTOR_SIZE 10
 
 #include <stddef.h>
 #include "sds.h"
 
-typedef struct Vector_ {
-    /*
-     * Vector type
-     *  - DEFAULT: Allows all pointer types(Polymorphism)
-     *  - SDS: sds
-     *  - LONG: long
-     *  - ROBJ: robj
-     */
+/* Vector */
+typedef struct _Vector {
     unsigned type:2;
     void **data;
     size_t size;

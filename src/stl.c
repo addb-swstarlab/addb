@@ -4,7 +4,7 @@
 #include "sds.h"
 
 void vectorInit(Vector *v) {
-    v->type = VECTOR_TYPE_DEFAULT;
+    v->type = STL_TYPE_DEFAULT;
     v->data = NULL;
     v->size = 0;
     v->count = 0;
@@ -16,13 +16,13 @@ void vectorTypeInit(Vector *v, int type) {
 }
 
 size_t _vectorGetDatumSize(Vector *v) {
-    if (v->type == VECTOR_TYPE_DEFAULT) {
+    if (v->type == STL_TYPE_DEFAULT) {
         return sizeof(void *);
-    } else if (v->type == VECTOR_TYPE_LONG) {
+    } else if (v->type == STL_TYPE_LONG) {
         return sizeof(long);
-    } else if (v->type == VECTOR_TYPE_SDS) {
+    } else if (v->type == STL_TYPE_SDS) {
         return sizeof(sds);
-    } else if (v->type == VECTOR_TYPE_ROBJ) {
+    } else if (v->type == STL_TYPE_ROBJ) {
         return sizeof(robj *);
     } else {
         serverLog(LL_DEBUG, "FATAL ERROR: Wrong vector type [%d]", v->type);
@@ -66,15 +66,15 @@ int vectorSet(Vector *v, size_t index, void *datum) {
         return C_ERR;
     }
 
-    if (v->type == VECTOR_TYPE_DEFAULT) {
+    if (v->type == STL_TYPE_DEFAULT) {
         v->data[index] = datum;
-    } else if (v->type == VECTOR_TYPE_LONG) {
+    } else if (v->type == STL_TYPE_LONG) {
         long *dataLong = (long *) v->data;
         dataLong[index] = (long) datum;
-    } else if (v->type == VECTOR_TYPE_SDS) {
+    } else if (v->type == STL_TYPE_SDS) {
         sds *dataSds = (sds *) v->data;
         dataSds[index] = (sds) datum;
-    } else if (v->type == VECTOR_TYPE_ROBJ) {
+    } else if (v->type == STL_TYPE_ROBJ) {
         robj **dataRobj = (robj **) v->data;
         dataRobj[index] = (robj *) datum;
     } else {
@@ -141,11 +141,11 @@ void *vectorUnlink(Vector *v, size_t index) {
 }
 
 int vectorFreeDatum(Vector *v, void *datum) {
-    if (v->type == VECTOR_TYPE_DEFAULT) {
+    if (v->type == STL_TYPE_DEFAULT) {
         zfree(datum);
-    } else if (v->type == VECTOR_TYPE_SDS) {
+    } else if (v->type == STL_TYPE_SDS) {
         sdsfree((sds) datum);
-    } else if (v->type == VECTOR_TYPE_ROBJ) {
+    } else if (v->type == STL_TYPE_ROBJ) {
         decrRefCount((robj *) datum);
     }
     return C_OK;
