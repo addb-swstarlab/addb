@@ -674,3 +674,9 @@ void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
         }
     }
 }
+
+Condition *parseCondition(const sds rawConditionStr) {
+    // TODO(totoro): Implements function by using Stack.
+    return NULL;
+}
+

@@ -13,6 +13,16 @@
 #define MAX_TMPBUF_SIZE 128
 #define SDS_DATA_KEY_MAX (sizeof(struct sdshdr) + DATA_KEY_MAX_SIZE)
 
+#define CONDITION_OP_TYPE_NONE 0    // Default
+#define CONDITION_OP_TYPE_AND 1     // &&
+#define CONDITION_OP_TYPE_OR 2      // ||
+#define CONDITION_OP_TYPE_NOT 3     // !
+#define CONDITION_OP_TYPE_EQ 4      // ==
+#define CONDITION_OP_TYPE_LT 5      // <
+#define CONDITION_OP_TYPE_LTE 6     // <=
+#define CONDITION_OP_TYPE_GT 7      // >
+#define CONDITION_OP_TYPE_GTE 8     // >=
+
 //typedef struct DataKeyInfo {
 //    char dataKeyCopy[MAX_TMPBUF_SIZE];  //the whole string
 //    char *tableId;                //table name inner ptr
@@ -22,6 +32,7 @@
 //    int rowCnt;                     // used for tiering
 //} DataKeyInfo;
 
+/*Scan Parameters*/
 typedef struct _RowGroupParameter {
     robj *dictObj;      // RowGroup dict table object
     uint64_t isInRocksDb:1, rowCount:63;
@@ -41,6 +52,19 @@ typedef struct _ScanParameter {
     RowGroupParameter *rowGroupParams;
     ColumnParameter *columnParam;
 } ScanParameter;
+
+/*Partition Filter Parameters*/
+typedef struct _Condition {
+    unsigned op:4;  // Operator
+    union {
+        void *cond;
+        int columnId;
+    } left;         // Left operand
+    union {
+        void *cond;
+        int value;
+    } right;        // Right operand
+} Condition;
 
 NewDataKeyInfo *parsingDataKeyInfo(sds dataKeyString);
 int changeDataKeyInfo(NewDataKeyInfo *dataKeyInfo, int number);
@@ -98,5 +122,7 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
 void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
                          ColumnParameter *columnParam,
                          RowGroupParameter rowGroupParam, Vector *data);
+
+Condition *parseCondition(const sds rawConditionStr);
 
 #endif

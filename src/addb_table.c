@@ -241,24 +241,26 @@ void fpScanCommand(client *c) {
  *  Command:
  *      redis-cli> FPPARTITIONFILTER *3*col2:EqualTo*2*col2:EqualTo:Or*1*col2:EqualTo*0*cold2:EqualTo:Or:Or$"
  *  Results:
- *      redis-cli> "2:0" // col2 = 0
- *      redis-cli> "2:1" // col2 = 1
- *      redis-cli> "2:2" // col2 = 2
- *      redis-cli> "2:3" // col2 = 3
+ *      redis-cli> "M:{30:2:0}" // col2 = 0
+ *      redis-cli> "M:{30:2:1}" // col2 = 1
+ *      redis-cli> "M:{30:2:2}" // col2 = 2
+ *      redis-cli> "M:{30:2:3}" // col2 = 3
  *      ...
  */
 void fpPartitionFilterCommand(client *c) {
     /*Parses stringfied stack structure to readable parameters*/
+    sds rawConditionStr = (sds) c->argv[1]->ptr;
+    Condition *root = parseCondition(rawConditionStr);
     /*Scans Metadict by readable parameters*/
 
     /*Prints out target partitions*/
     // TODO(totoro): Changes reply to real partition data.
     void *replylen = addDeferredMultiBulkLength(c);
     size_t numreplies = 0;
-    addReplyBulkCString(c, "2:1");
-    addReplyBulkCString(c, "2:2");
-    addReplyBulkCString(c, "2:3");
-    addReplyBulkCString(c, "2:4");
+    addReplyBulkCString(c, "M:{30:2:1}");
+    addReplyBulkCString(c, "M:{30:2:2}");
+    addReplyBulkCString(c, "M:{30:2:3}");
+    addReplyBulkCString(c, "M:{30:2:4}");
     numreplies += 4;
     setDeferredMultiBulkLength(c, replylen, numreplies);
 }
