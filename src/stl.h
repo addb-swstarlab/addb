@@ -38,8 +38,24 @@ int vectorSet(Vector *v, size_t index, void *datum);
 void *vectorGet(Vector *v, size_t index);
 int vectorDelete(Vector *v, size_t index);
 void *vectorUnlink(Vector *v, size_t index);
+void *vectorPop(Vector *v);
 int vectorFreeDatum(Vector *v, void *datum);
 int vectorFree(Vector *v);
 int vectorFreeDeep(Vector *v);
+
+/* Stack */
+/* Implemented by using Vector */
+typedef struct _Stack {
+    unsigned type:2;
+    Vector data;
+} Stack;
+
+void stackInit(Stack *s);
+void stackTypeInit(Stack *s, int type);
+size_t stackCount(Stack *s);
+int stackPush(Stack *s, void *datum);
+void *stackPop(Stack *s);
+int stackFree(Stack *s);
+int stackFreeDeep(Stack *s);
 
 #endif

@@ -329,6 +329,7 @@ struct redisCommand redisCommandTable[] = {
     {"testgetmeta",testGetMetaCommand,3,"rF",0,NULL,1,1,1,0,0},
     {"testsdslocation",testSdsLocationCommand,-1,"r",0,NULL,1,1,1,0,0},
     {"testvectorinterface",testVectorInterfaceCommand,-1,"r",0,NULL,1,1,1,0,0},
+    {"teststackinterface",testStackInterfaceCommand,-1,"r",0,NULL,1,1,1,0,0},
     {"fields", fieldsAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
     {"rockskey", rocksdbkeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
     {"rockskv", getRocksDBkeyAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},

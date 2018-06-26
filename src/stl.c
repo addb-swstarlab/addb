@@ -140,6 +140,13 @@ void *vectorUnlink(Vector *v, size_t index) {
     return target;
 }
 
+void *vectorPop(Vector *v) {
+    void *target = vectorGet(v, v->count - 1);
+    vectorSet(v, v->count - 1, NULL);
+    v->count--;
+    return target;
+}
+
 int vectorFreeDatum(Vector *v, void *datum) {
     if (v->type == STL_TYPE_DEFAULT) {
         zfree(datum);
@@ -171,5 +178,36 @@ int vectorFreeDeep(Vector *v) {
     }
     vectorFree(v);
     return C_OK;
+}
+
+void stackInit(Stack *s) {
+    s->type = STL_TYPE_DEFAULT;
+    vectorInit(&s->data);
+}
+
+void stackTypeInit(Stack *s, int type) {
+    stackInit(s);
+    s->type = type;
+    s->data.type = type;
+}
+
+size_t stackCount(Stack *s) {
+    return s->data.count;
+}
+
+int stackPush(Stack *s, void *datum) {
+    return vectorAdd(&s->data, datum);
+}
+
+void *stackPop(Stack *s) {
+    return vectorPop(&s->data);
+}
+
+int stackFree(Stack *s) {
+    return vectorFree(&s->data);
+}
+
+int stackFreeDeep(Stack *s) {
+    return vectorFreeDeep(&s->data);
 }
 

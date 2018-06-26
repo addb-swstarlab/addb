@@ -2095,6 +2095,7 @@ void testSetMetaCommand(client *c);
 void testGetMetaCommand(client *c);
 void testSdsLocationCommand(client *c);
 void testVectorInterfaceCommand(client *c);
+void testStackInterfaceCommand(client *c);
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));
