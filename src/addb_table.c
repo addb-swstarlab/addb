@@ -236,10 +236,10 @@ void fpScanCommand(client *c) {
  * --- Usage Examples ---
  *  Parameters:
  *      Stack:
- *          "*3*col2:EqaulTo*2*col2:EqaulTo:Or*1*col2:EqaulTo*0*col2:EqaulTo:Or:Or$"
- *          (select * from kv where col2=0 or col2=1 or col2=2 or col2=3;)
+ *          "3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
+ *          (select * from kv where 2=0 or 2=1 or 2=2 or 2=3;)
  *  Command:
- *      redis-cli> FPPARTITIONFILTER *3*col2:EqualTo*2*col2:EqualTo:Or*1*col2:EqualTo*0*cold2:EqualTo:Or:Or$"
+ *      redis-cli> FPPARTITIONFILTER 3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
  *  Results:
  *      redis-cli> "M:{30:2:0}" // col2 = 0
  *      redis-cli> "M:{30:2:1}" // col2 = 1
@@ -250,7 +250,10 @@ void fpScanCommand(client *c) {
 void fpPartitionFilterCommand(client *c) {
     /*Parses stringfied stack structure to readable parameters*/
     sds rawConditionStr = (sds) c->argv[1]->ptr;
-    Condition *root = parseCondition(rawConditionStr);
+    Condition *root = parseConditions(rawConditionStr);
+    serverLog(LL_DEBUG, "");
+    serverLog(LL_DEBUG, "[FILTER][PARSE] Condition Tree");
+    logCondition(root);
     /*Scans Metadict by readable parameters*/
 
     /*Prints out target partitions*/
@@ -263,6 +266,7 @@ void fpPartitionFilterCommand(client *c) {
     addReplyBulkCString(c, "M:{30:2:4}");
     numreplies += 4;
     setDeferredMultiBulkLength(c, replylen, numreplies);
+    freeConditions(root);
 }
 
 /*Lookup key in metadict */

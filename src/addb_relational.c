@@ -675,8 +675,170 @@ void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
     }
 }
 
-Condition *parseCondition(const sds rawConditionStr) {
-    // TODO(totoro): Implements function by using Stack.
-    return NULL;
+int getOperatorType(char *operator) {
+    if (strcmp(operator, "And") == 0) {
+        return CONDITION_OP_TYPE_AND;
+    } else if (strcmp(operator, "Or") == 0) {
+        return CONDITION_OP_TYPE_OR;
+    } else if (strcmp(operator, "Not") == 0) {
+        return CONDITION_OP_TYPE_NOT;
+    } else if (strcmp(operator, "EqualTo") == 0) {
+        return CONDITION_OP_TYPE_EQ;
+    } else if (strcmp(operator, "LessThan") == 0) {
+        return CONDITION_OP_TYPE_LT;
+    } else if (strcmp(operator, "LessThanEqual") == 0) {
+        return CONDITION_OP_TYPE_LTE;
+    } else if (strcmp(operator, "GreaterThan") == 0) {
+        return CONDITION_OP_TYPE_GT;
+    } else if (strcmp(operator, "GreaterThanEqual") == 0) {
+        return CONDITION_OP_TYPE_GTE;
+    } else {
+        serverLog(LL_WARNING, "[FILTER][PARSE] Invalid Operator '%s'",
+                  operator);
+        serverPanic("[FILTER][PARSE] Invalid Operator");
+    }
 }
 
+const char *getOperatorStr(int optype) {
+    if (optype == CONDITION_OP_TYPE_AND) {
+        return "And";
+    } else if (optype == CONDITION_OP_TYPE_OR) {
+        return "Or";
+    } else if (optype == CONDITION_OP_TYPE_NOT) {
+        return "Not";
+    } else if (optype == CONDITION_OP_TYPE_EQ) {
+        return "EqualTo";
+    } else if (optype == CONDITION_OP_TYPE_LT) {
+        return "LessThan";
+    } else if (optype == CONDITION_OP_TYPE_LTE) {
+        return "LessThanEqual";
+    } else if (optype == CONDITION_OP_TYPE_GT) {
+        return "GreaterThan";
+    } else if (optype == CONDITION_OP_TYPE_GTE) {
+        return "GreaterThanEqual";
+    } else {
+        serverLog(LL_WARNING, "[FILTER][PARSE] Invalid Operator Type '%d'",
+                  optype);
+        serverPanic("[FILTER][PARSE] Invalid Operator Type");
+    }
+}
+
+int getOperatorOperandCount(int optype) {
+    if (
+            (optype < CONDITION_OP_TYPE_AND) ||
+            (optype > CONDITION_OP_TYPE_GTE)
+    ) {
+        return -1;
+    }
+
+    if (optype == CONDITION_OP_TYPE_NOT) {
+        return 1;
+    }
+
+    return 2;
+}
+
+Condition *parseConditions(const sds rawConditionsStr) {
+    char copyStr[MAX_TMPBUF_SIZE];
+    char *savePtr = NULL;
+    char *token = NULL;
+    memcpy(copyStr, rawConditionsStr, sdslen(rawConditionsStr) + 1);
+
+    Stack s;
+    stackInit(&s);
+
+    // Parses raw conditions by condition unit.
+    token = strtok_r(copyStr, PARTITION_FILTER_OPERATOR_PREFIX, &savePtr);
+    while (savePtr[0] != '\0') {
+        Condition *cond = createCondition(token, &s);
+        stackPush(&s, (void *) cond);
+        token = strtok_r(NULL, PARTITION_FILTER_OPERATOR_PREFIX, &savePtr);
+    }
+
+    // Last token must be "$".
+    serverAssert(strcmp(token, "$") == 0);
+    // Number of stack element must be 1.
+    serverAssert(stackCount(&s) == 1);
+    Condition *root = stackPop(&s);
+    stackFreeDeep(&s);
+
+    return root;
+}
+
+Condition *createCondition(const char *rawConditionStr, Stack *s) {
+    char copyStr[MAX_TMPBUF_SIZE];
+    char *savePtr = NULL;
+    char *token = NULL;
+    memcpy(copyStr, rawConditionStr, strlen(rawConditionStr) + 1);
+
+    // Parses raw condition by operand unit.
+    Condition *cond = zmalloc(sizeof(Condition));
+    token = strtok_r(copyStr, PARTITION_FILTER_OPERAND_PREFIX, &savePtr);
+    int leafOperandCount = 0;
+    while (savePtr[0] != '\0') {
+        long value = (long) atoi(token);
+        stackPush(s, (void *) value);
+        leafOperandCount++;
+        token = strtok_r(NULL, PARTITION_FILTER_OPERAND_PREFIX, &savePtr);
+    }
+
+    int optype = getOperatorType(token);
+    cond->op = optype;
+    cond->opCount = getOperatorOperandCount(optype);
+
+    if (leafOperandCount > 0) {
+        serverAssert(leafOperandCount == cond->opCount);
+        cond->isLeaf = true;
+        cond->first.columnId = (long) stackPop(s);
+        if (cond->opCount == 2) {
+            cond->second.value = (long) stackPop(s);
+        } else {
+            cond->second.value = 0;
+        }
+    } else {
+        cond->isLeaf = false;
+        cond->first.cond = stackPop(s);
+        if (cond->opCount == 2) {
+            cond->second.cond = stackPop(s);
+        } else {
+            cond->second.cond = NULL;
+        }
+    }
+
+    return cond;
+}
+
+
+void logCondition(const Condition *cond) {
+    if (cond == NULL) {
+        return;
+    }
+
+    serverLog(LL_DEBUG, "[FILTER][PARSE] Operator '%s'",
+              getOperatorStr(cond->op));
+    if (cond->isLeaf) {
+        serverLog(LL_DEBUG, "[FILTER][PARSE] Leaf First '%ld'",
+                  cond->first.columnId);
+        serverLog(LL_DEBUG, "[FILTER][PARSE] Leaf Second '%ld'",
+                  cond->second.value);
+        return;
+    }
+
+    serverLog(LL_DEBUG, "[FILTER][PARSE] Non-Leaf First");
+    logCondition(cond->first.cond);
+    serverLog(LL_DEBUG, "[FILTER][PARSE] Non-Leaf Second");
+    logCondition(cond->second.cond);
+}
+
+void freeConditions(Condition *cond) {
+    if (cond->isLeaf) {
+        zfree(cond);
+        return;
+    }
+
+    freeConditions(cond->first.cond);
+    if (cond->opCount == 2) {
+        freeConditions(cond->second.cond);
+    }
+    zfree(cond);
+}

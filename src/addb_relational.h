@@ -56,14 +56,16 @@ typedef struct _ScanParameter {
 /*Partition Filter Parameters*/
 typedef struct _Condition {
     unsigned op:4;  // Operator
+    int opCount;
+    bool isLeaf;
     union {
         void *cond;
-        int columnId;
-    } left;         // Left operand
+        long columnId;
+    } first;        // First operand
     union {
         void *cond;
-        int value;
-    } right;        // Right operand
+        long value;
+    } second;       // Second operand
 } Condition;
 
 NewDataKeyInfo *parsingDataKeyInfo(sds dataKeyString);
@@ -123,6 +125,9 @@ void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
                          ColumnParameter *columnParam,
                          RowGroupParameter rowGroupParam, Vector *data);
 
-Condition *parseCondition(const sds rawConditionStr);
+Condition *parseConditions(const sds rawConditionsStr);
+Condition *createCondition(const char *rawConditionStr, Stack *s);
+void logCondition(const Condition *cond);
+void freeConditions(Condition *cond);
 
 #endif
