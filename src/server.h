@@ -459,6 +459,9 @@ typedef long long mstime_t; /* millisecond time type. */
 #define OBJ_ZSET 3
 #define OBJ_HASH 4
 
+/*ADDB COLUMN VECTOR*/
+#define OBJ_VECTOR 5
+
 /* The "module" object type is a special one that signals that the object
  * is one directly managed by a Redis module. In this case the value points
  * to a moduleValue struct, which contains the object value (which is only
@@ -584,6 +587,7 @@ typedef struct RedisModuleDigest {
 #define OBJ_ENCODING_QUICKLIST 9 /* Encoded as linked list of ziplists */
 
 #define OBJ_ENCODING_REL 10 /*Encode as Relational Model */
+#define OBJ_ENCODING_VECTOR 11 /*Encode as Vector*/
 
 #define LRU_BITS 24
 #define LRU_CLOCK_MAX ((1<<LRU_BITS)-1) /* Max value of obj->lru */
@@ -1229,6 +1233,7 @@ struct redisServer {
 
     /*ADDB Relational*/
     int rowgroup_size;
+    int columnvector_size;
 };
 
 typedef struct pubsubPattern {
