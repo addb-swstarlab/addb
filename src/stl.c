@@ -3,18 +3,6 @@
 #include "stl.h"
 #include "sds.h"
 
-void vectorInit(Vector *v) {
-    v->type = STL_TYPE_DEFAULT;
-    v->data = NULL;
-    v->size = 0;
-    v->count = 0;
-}
-
-void vectorTypeInit(Vector *v, int type) {
-    vectorInit(v);
-    v->type = type;
-}
-
 size_t _vectorGetDatumSize(Vector *v) {
     if (v->type == STL_TYPE_DEFAULT) {
         return sizeof(void *);
@@ -29,6 +17,30 @@ size_t _vectorGetDatumSize(Vector *v) {
         serverPanic("FATAL ERROR: Wrong vector type");
         return -1;
     }
+}
+
+void vectorInit(Vector *v) {
+    v->type = STL_TYPE_DEFAULT;
+    v->data = NULL;
+    v->size = 0;
+    v->count = 0;
+}
+
+void vectorInitWithSize(Vector *v, size_t size) {
+    vectorInit(v);
+    v->size = size;
+    v->data = (void **) zmalloc(_vectorGetDatumSize(v) * v->size);
+}
+
+void vectorTypeInit(Vector *v, int type) {
+    vectorInit(v);
+    v->type = type;
+}
+
+void vectorTypeInitWithSize(Vector *v, int type, size_t size) {
+    vectorTypeInit(v, type);
+    v->size = size;
+    v->data = (void **) zmalloc(_vectorGetDatumSize(v) * v->size);
 }
 
 void _vectorResizeIfNeeded(Vector *v) {

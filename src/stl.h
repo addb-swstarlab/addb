@@ -31,7 +31,9 @@ typedef struct _Vector {
 } Vector;
 
 void vectorInit(Vector *v);
+void vecotrInitWithSize(Vector *v, size_t size);
 void vectorTypeInit(Vector *v, int type);
+void vectorTypeInitWithSize(Vector *v, int type, size_t size);
 size_t vectorCount(Vector *v);
 int vectorAdd(Vector *v, void *datum);
 int vectorSet(Vector *v, size_t index, void *datum);
