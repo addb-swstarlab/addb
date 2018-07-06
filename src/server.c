@@ -317,7 +317,7 @@ struct redisCommand redisCommandTable[] = {
     {"fpread",fpReadCommand,2,"rF",0,NULL,1,1,1,0,0},
     {"fpwrite",fpWriteCommand,-3,"wm",0,NULL,1,1,1,0,0},
     {"fpscan",fpScanCommand,-3,"rF",0,NULL,1,1,1,0,0},
-    {"fppartitionfilter",fpPartitionFilterCommand,2,"rF",0,NULL,1,1,1,0,0},
+    {"fppartitionfilter",fpPartitionFilterCommand,3,"rF",0,NULL,1,1,1,0,0},
     {"metakeys",metakeysCommand,2,"rS",0,NULL,0,0,0,0,0,0,0},
 
     /*

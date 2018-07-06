@@ -1,5 +1,6 @@
 #include "addb_relational.h"
 #include "sds.h"
+#include "util.h"
 #include <math.h>
 #include <assert.h>
 
@@ -66,6 +67,58 @@ NewDataKeyInfo * parsingDataKeyInfo(sds dataKeyString){
   serverLog(LL_DEBUG,"TOKEN : %s, SAVEPTR: %s, table_number : %d, partitionInfo : %s, rowgroup : %d",
               token, saveptr, ret->tableId,ret->partitionInfo.partitionString, ret->rowGroupId);
   return ret;
+}
+
+// addb parsing metakey information
+MetaKeyInfo *parseMetaKeyInfo(sds metakey) {
+    // Metakey format = "M:{tableId:partitionInfo}"
+    // example = "M:{100:3:10000:5:3000}"
+    assert(metakey != NULL);
+
+    MetaKeyInfo *metaKeyInfo = (MetaKeyInfo *) zmalloc(sizeof(MetaKeyInfo));
+    char copyStr[MAX_TMPBUF_SIZE];
+    char *savePtr = NULL;
+    char *token = NULL;
+    size_t size = sdslen(metakey) + 1;
+
+    assert(size == (strlen(metakey) + 1));
+    assert(size < MAX_TMPBUF_SIZE);
+
+    memcpy(copyStr, metakey, size);
+
+    // Parse the meta prefix
+    if ((token = strtok_r(copyStr, RELMODEL_DELIMITER, &savePtr)) == NULL) {
+        serverLog(LL_WARNING, "Fatal: MetaKey broken error: [%s]", metakey);
+        zfree(metaKeyInfo);
+        return NULL;
+    }
+
+    if (strcmp(token, "M") != 0) {
+        serverLog(LL_WARNING, "Wrong metakey requested: [%s]", metakey);
+        zfree(metaKeyInfo);
+        return NULL;
+    }
+
+    // Parse tableId
+    if ((token = strtok_r(NULL, RELMODEL_DELIMITER, &savePtr)) == NULL) {
+        serverLog(LL_WARNING, "Fatal: MetaKey broken error: [%s]", metakey);
+        zfree(metaKeyInfo);
+        return NULL;
+    }
+    metaKeyInfo->tableId = atoi(token + strlen(RELMODEL_BRACE_PREFIX));
+
+    // Parse partitionInfo
+    if ((token = strtok_r(NULL, RELMODEL_BRACE_SUFFIX, &savePtr)) == NULL) {
+        serverLog(LL_WARNING, "Fatal: MetaKey broken error: [%s]", metakey);
+        zfree(metaKeyInfo);
+        return NULL;
+    }
+    size_t partitionSize = strlen(token) + 1;
+    assert(partitionSize <= PARTITION_KEY_MAX_SIZE);
+    memcpy(metaKeyInfo->partitionInfo.partitionString, token, partitionSize);
+    metaKeyInfo->isPartitionString = true;
+
+    return metaKeyInfo;
 }
 
 /*addb get dictEntry, a candidate for evict*/
@@ -675,7 +728,8 @@ void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
     }
 }
 
-int getOperatorType(char *operator) {
+/* ADDB Create Partition Filter parameter*/
+int _getOperatorType(char *operator) {
     if (strcmp(operator, "And") == 0) {
         return CONDITION_OP_TYPE_AND;
     } else if (strcmp(operator, "Or") == 0) {
@@ -686,20 +740,20 @@ int getOperatorType(char *operator) {
         return CONDITION_OP_TYPE_EQ;
     } else if (strcmp(operator, "LessThan") == 0) {
         return CONDITION_OP_TYPE_LT;
-    } else if (strcmp(operator, "LessThanEqual") == 0) {
+    } else if (strcmp(operator, "LessThanOrEqual") == 0) {
         return CONDITION_OP_TYPE_LTE;
     } else if (strcmp(operator, "GreaterThan") == 0) {
         return CONDITION_OP_TYPE_GT;
-    } else if (strcmp(operator, "GreaterThanEqual") == 0) {
+    } else if (strcmp(operator, "GreaterThanOrEqual") == 0) {
         return CONDITION_OP_TYPE_GTE;
     } else {
-        serverLog(LL_WARNING, "[FILTER][PARSE] Invalid Operator '%s'",
+        serverLog(LL_WARNING, "[FILTER][PARSE][FATAL] Invalid Operator '%s'",
                   operator);
-        serverPanic("[FILTER][PARSE] Invalid Operator");
+        serverPanic("[FILTER][PARSE][FATAL] Invalid Operator");
     }
 }
 
-const char *getOperatorStr(int optype) {
+const char *_getOperatorStr(int optype) {
     if (optype == CONDITION_OP_TYPE_AND) {
         return "And";
     } else if (optype == CONDITION_OP_TYPE_OR) {
@@ -711,19 +765,20 @@ const char *getOperatorStr(int optype) {
     } else if (optype == CONDITION_OP_TYPE_LT) {
         return "LessThan";
     } else if (optype == CONDITION_OP_TYPE_LTE) {
-        return "LessThanEqual";
+        return "LessThanOrEqual";
     } else if (optype == CONDITION_OP_TYPE_GT) {
         return "GreaterThan";
     } else if (optype == CONDITION_OP_TYPE_GTE) {
-        return "GreaterThanEqual";
+        return "GreaterThanOrEqual";
     } else {
-        serverLog(LL_WARNING, "[FILTER][PARSE] Invalid Operator Type '%d'",
+        serverLog(LL_WARNING,
+                  "[FILTER][PARSE][FATAL] Invalid Operator Type '%d'",
                   optype);
-        serverPanic("[FILTER][PARSE] Invalid Operator Type");
+        serverPanic("[FILTER][PARSE][FATAL] Invalid Operator Type");
     }
 }
 
-int getOperatorOperandCount(int optype) {
+int _getOperatorOperandCount(int optype) {
     if (
             (optype < CONDITION_OP_TYPE_AND) ||
             (optype > CONDITION_OP_TYPE_GTE)
@@ -738,7 +793,12 @@ int getOperatorOperandCount(int optype) {
     return 2;
 }
 
-Condition *parseConditions(const sds rawConditionsStr) {
+// TODO(totoro): Implements validateConditions function by regex.
+bool validateConditions(const sds rawConditionStr) {
+    return true;
+}
+
+int parseConditions(const sds rawConditionsStr, Condition **root) {
     char copyStr[MAX_TMPBUF_SIZE];
     char *savePtr = NULL;
     char *token = NULL;
@@ -750,95 +810,399 @@ Condition *parseConditions(const sds rawConditionsStr) {
     // Parses raw conditions by condition unit.
     token = strtok_r(copyStr, PARTITION_FILTER_OPERATOR_PREFIX, &savePtr);
     while (savePtr[0] != '\0') {
-        Condition *cond = createCondition(token, &s);
+        Condition *cond;
+        if (createCondition(token, &s, &cond) == C_ERR) {
+            serverLog(LL_DEBUG,
+                      "[FILTER][PARSE] Input Condition is invalid form: %s",
+                      token);
+            return C_ERR;
+        }
         stackPush(&s, (void *) cond);
         token = strtok_r(NULL, PARTITION_FILTER_OPERATOR_PREFIX, &savePtr);
     }
 
     // Last token must be "$".
-    serverAssert(strcmp(token, "$") == 0);
     // Number of stack element must be 1.
-    serverAssert(stackCount(&s) == 1);
-    Condition *root = stackPop(&s);
-    stackFreeDeep(&s);
+    if (strcmp(token, "$") != 0 || stackCount(&s) != 1) {
+        serverLog(LL_DEBUG,
+                  "[FILTER][PARSE] Entire condition is invalid form: lastToken[%s], stackCount[%zu]",
+                  token, stackCount(&s));
+        return C_ERR;
+    }
 
-    return root;
+    *root = stackPop(&s);
+    stackFree(&s);
+
+    return C_OK;
 }
 
-Condition *createCondition(const char *rawConditionStr, Stack *s) {
+int createCondition(const char *rawConditionStr, Stack *s,
+                    Condition **cond) {
     char copyStr[MAX_TMPBUF_SIZE];
     char *savePtr = NULL;
     char *token = NULL;
     memcpy(copyStr, rawConditionStr, strlen(rawConditionStr) + 1);
+    serverLog(LL_DEBUG, "[FILTER][PARSE] raw condition: %s", rawConditionStr);
 
     // Parses raw condition by operand unit.
-    Condition *cond = zmalloc(sizeof(Condition));
+    Condition *newcond = zmalloc(sizeof(Condition));
     token = strtok_r(copyStr, PARTITION_FILTER_OPERAND_PREFIX, &savePtr);
     int leafOperandCount = 0;
     while (savePtr[0] != '\0') {
-        long value = (long) atoi(token);
-        stackPush(s, (void *) value);
+        ConditionChild *child = (ConditionChild *) zmalloc(
+                sizeof(ConditionChild));
+        long tokenLong;
+        if (string2l(token, strlen(token), &tokenLong) == 1) {
+            child->type = CONDITION_CHILD_VALUE_TYPE_LONG;
+            child->value.l = tokenLong;
+        } else {
+            child->type = CONDITION_CHILD_VALUE_TYPE_SDS;
+            child->value.s = sdsnew(token);
+        }
+        stackPush(s, (void *) child);
         leafOperandCount++;
         token = strtok_r(NULL, PARTITION_FILTER_OPERAND_PREFIX, &savePtr);
     }
 
-    int optype = getOperatorType(token);
-    cond->op = optype;
-    cond->opCount = getOperatorOperandCount(optype);
+    int optype = _getOperatorType(token);
+    newcond->op = optype;
+    newcond->opCount = _getOperatorOperandCount(optype);
 
     if (leafOperandCount > 0) {
-        serverAssert(leafOperandCount == cond->opCount);
-        cond->isLeaf = true;
-        cond->first.columnId = (long) stackPop(s);
-        if (cond->opCount == 2) {
-            cond->second.value = (long) stackPop(s);
-        } else {
-            cond->second.value = 0;
+        if (leafOperandCount != newcond->opCount) {
+            // Invalid condition format detected...
+            return C_ERR;
+        }
+
+        newcond->isLeaf = true;
+        newcond->first = (ConditionChild *) stackPop(s);
+        if (newcond->first->type != CONDITION_CHILD_VALUE_TYPE_LONG) {
+            // Invalid condition format detected...
+            return C_ERR;
+        }
+        newcond->second = NULL;
+        if (newcond->opCount == 2) {
+            newcond->second = (ConditionChild *) stackPop(s);
         }
     } else {
-        cond->isLeaf = false;
-        cond->first.cond = stackPop(s);
-        if (cond->opCount == 2) {
-            cond->second.cond = stackPop(s);
+        if (newcond->opCount > (int) stackCount(s)) {
+            // Invalid condition format detected...
+            return C_ERR;
+        }
+
+        newcond->isLeaf = false;
+
+        ConditionChild *child = (ConditionChild *) zmalloc(
+                sizeof(ConditionChild));
+        child->type = CONDITION_CHILD_VALUE_TYPE_COND;
+        child->value.cond = (Condition *) stackPop(s);
+        newcond->first = child;
+
+        newcond->second = NULL;
+        if (newcond->opCount == 2) {
+            ConditionChild *child = (ConditionChild *) zmalloc(
+                    sizeof(ConditionChild));
+            child->type = CONDITION_CHILD_VALUE_TYPE_COND;
+            child->value.cond = (Condition *) stackPop(s);
+            newcond->second = child;
+        }
+    }
+    *cond = newcond;
+
+    return C_OK;
+}
+
+int _parsePartitions(const char *partitionInfo, Vector *v) {
+    char copyStr[MAX_TMPBUF_SIZE];
+    char *savePtr = NULL;
+    char *token = NULL;
+    size_t size = strlen(partitionInfo) + 1;
+
+    assert(size < MAX_TMPBUF_SIZE);
+    memcpy(copyStr, partitionInfo, size);
+
+    token = strtok_r(copyStr, RELMODEL_DELIMITER, &savePtr);
+    while (savePtr[0] != '\0') {
+        PartitionParameter *param = (PartitionParameter *) zmalloc(
+                sizeof(PartitionParameter));
+        param->columnId = atoi(token);
+        if ((token = strtok_r(NULL, RELMODEL_DELIMITER, &savePtr)) == NULL) {
+            zfree(param);
+            serverLog(
+                    LL_DEBUG,
+                    "[FILTER][EVALUATE] PartitionInfo of key is invalid form: [%s]",
+                    partitionInfo);
+            return C_ERR;
+        }
+        long valueLong;
+        if (string2l(token, strlen(token), &valueLong) == 1) {
+            param->type = CONDITION_CHILD_VALUE_TYPE_LONG;
+            param->value.l = valueLong;
         } else {
-            cond->second.cond = NULL;
+            param->type = CONDITION_CHILD_VALUE_TYPE_SDS;
+            param->value.s = sdsnew(token);
+        }
+        vectorAdd(v, param);
+        token = strtok_r(NULL, RELMODEL_DELIMITER, &savePtr);
+    }
+    return C_OK;
+}
+
+void _freePartitionParameters(Vector *partitions) {
+    for (size_t i = 0; i < vectorCount(partitions); ++i) {
+        PartitionParameter *param = (PartitionParameter *) vectorGet(
+                partitions, i);
+        if (param->type == CONDITION_CHILD_VALUE_TYPE_SDS) {
+            sdsfree(param->value.s);
+        }
+        zfree(param);
+    }
+    vectorFree(partitions);
+}
+
+bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
+                           const ConditionChild *second, Vector *partitions) {
+    if (
+            optype != CONDITION_OP_TYPE_EQ &&
+            optype != CONDITION_OP_TYPE_LT &&
+            optype != CONDITION_OP_TYPE_LTE &&
+            optype != CONDITION_OP_TYPE_GT &&
+            optype != CONDITION_OP_TYPE_GTE
+    ) {
+        return false;
+    }
+
+    if (
+            first == NULL ||
+            !(
+                first->type == CONDITION_CHILD_VALUE_TYPE_LONG ||
+                first->type == CONDITION_CHILD_VALUE_TYPE_SDS
+             ) ||
+            second == NULL ||
+            !(
+                second->type == CONDITION_CHILD_VALUE_TYPE_LONG ||
+                second->type == CONDITION_CHILD_VALUE_TYPE_SDS
+             ) ||
+            partitions == NULL
+    ) {
+        return false;
+    }
+
+    for (size_t i = 0; i < vectorCount(partitions); ++i) {
+        PartitionParameter *param = (PartitionParameter *) vectorGet(
+                partitions, i);
+        if (
+                first->type != CONDITION_CHILD_VALUE_TYPE_LONG ||
+                !(
+                    second->type == CONDITION_CHILD_VALUE_TYPE_LONG ||
+                    second->type == CONDITION_CHILD_VALUE_TYPE_SDS
+                )
+        ) {
+            serverLog(
+                    LL_WARNING,
+                    "[FILTER][EVALUATE][FATAL] Invalid column ID type: type[%d]",
+                    first->type);
+            serverPanic("[FILTER][EVALUATE][FATAL] Invalid column ID type");
+            return false;
+        }
+
+        if (
+                first->value.l != param->columnId ||
+                second->type != param->type
+        ) {
+            continue;
+        }
+
+        if (optype == CONDITION_OP_TYPE_EQ) {
+            if (second->type == CONDITION_CHILD_VALUE_TYPE_LONG) {
+                return second->value.l == param->value.l;
+            } else if (second->type == CONDITION_CHILD_VALUE_TYPE_SDS) {
+                return sdscmp(second->value.s, param->value.s) == 0;
+            }
+        }
+
+        if (second->type == CONDITION_CHILD_VALUE_TYPE_SDS) {
+            return false;
+        }
+
+        if (optype == CONDITION_OP_TYPE_LT) {
+            return param->value.l < second->value.l;
+        } else if (optype == CONDITION_OP_TYPE_LTE) {
+            return param->value.l <= second->value.l;
+        } else if (optype == CONDITION_OP_TYPE_GT) {
+            return param->value.l > second->value.l;
+        } else if (optype == CONDITION_OP_TYPE_GTE) {
+            return param->value.l >= second->value.l;
+        } else {
+            serverLog(
+                    LL_WARNING,
+                    "[FILTER][EVALUATE][FATAL] Invalid operator type: %s",
+                    _getOperatorStr(optype));
+            serverPanic("[FILTER][EVALUATE][FATAL] Invalid operator type");
+            return false;
         }
     }
 
-    return cond;
+    return false;
 }
 
+bool _evaluateNonleafOperator(const int optype, const ConditionChild *first,
+                              const ConditionChild *second,
+                              Vector *partitions) {
+    if (
+            optype != CONDITION_OP_TYPE_OR &&
+            optype != CONDITION_OP_TYPE_AND &&
+            optype != CONDITION_OP_TYPE_NOT
+       ) {
+        return false;
+    }
+
+    if (
+            first == NULL ||
+            first->type != CONDITION_CHILD_VALUE_TYPE_COND ||
+            partitions == NULL
+    ) {
+        return false;
+    }
+
+    if(
+            optype != CONDITION_OP_TYPE_NOT &&
+            (
+                second == NULL ||
+                second->type != CONDITION_CHILD_VALUE_TYPE_COND
+            )
+    ) {
+        return false;
+    }
+
+    if (optype == CONDITION_OP_TYPE_OR) {
+        return _evaluateCondition(first->value.cond, partitions) ||
+            _evaluateCondition(second->value.cond, partitions);
+    } else if (optype == CONDITION_OP_TYPE_AND) {
+        return _evaluateCondition(first->value.cond, partitions) &&
+            _evaluateCondition(second->value.cond, partitions);
+    } else if (optype == CONDITION_OP_TYPE_NOT) {
+        return !_evaluateCondition(first->value.cond, partitions);
+    } else {
+        serverLog(
+                LL_WARNING,
+                "[FILTER][EVALUATE][FATAL] Invalid operator type: %s",
+                _getOperatorStr(optype));
+        serverPanic("[FILTER][EVALUATE][FATAL] Invalid operator type");
+    }
+
+    return false;
+}
+
+bool _evaluateCondition(const Condition *cond, Vector *partitions) {
+    if (cond->isLeaf) {
+        bool result = _evaluateLeafOperator(cond->op, cond->first, cond->second,
+                                            partitions);
+        serverLog(
+                LL_DEBUG,
+                "[FILTER][EVALUATE] _evaluateCondition leaf optype[%s], result[%d]",
+                _getOperatorStr(cond->op), result);
+        return result;
+    }
+
+    bool result = _evaluateNonleafOperator(cond->op, cond->first, cond->second,
+                                    partitions);
+    serverLog(
+            LL_DEBUG,
+            "[FILTER][EVALUATE] _evaluateCondition non-leaf optype[%s], result[%d]",
+            _getOperatorStr(cond->op), result);
+    return result;
+}
+
+bool evaluateCondition(const Condition *root, int tableId, const sds metakey) {
+    MetaKeyInfo *metaKeyInfo = parseMetaKeyInfo(metakey);
+    if (tableId != metaKeyInfo->tableId || !metaKeyInfo->isPartitionString) {
+        return false;
+    }
+
+    Vector partitions;
+    vectorInit(&partitions);
+    if (_parsePartitions(metaKeyInfo->partitionInfo.partitionString,
+                         &partitions) == C_ERR) {
+        _freePartitionParameters(&partitions);
+        return false;
+    }
+
+    // Prints a log of partitions.
+    serverLog(LL_DEBUG, "[FILTER][EVALUATE] Parsed partitions");
+    for (size_t i = 0; i < vectorCount(&partitions); ++i) {
+        PartitionParameter *param = (PartitionParameter *) vectorGet(
+                &partitions, i);
+        if (param->type == CONDITION_CHILD_VALUE_TYPE_SDS) {
+            serverLog(LL_DEBUG,
+                      "[FILTER][EVALUATE] columnId[%d] param sds value[%s]",
+                      param->columnId, param->value.s);
+        } else if (param->type == CONDITION_CHILD_VALUE_TYPE_LONG) {
+            serverLog(LL_DEBUG,
+                      "[FILTER][EVALUATE] columnId[%d] param long value[%ld]",
+                      param->columnId, param->value.l);
+        }
+    }
+
+    bool result = false;
+    if (_evaluateCondition(root, &partitions)) {
+        result = true;
+    }
+
+    _freePartitionParameters(&partitions);
+    zfree(metaKeyInfo);
+    return result;
+}
 
 void logCondition(const Condition *cond) {
     if (cond == NULL) {
         return;
     }
 
-    serverLog(LL_DEBUG, "[FILTER][PARSE] Operator '%s'",
-              getOperatorStr(cond->op));
-    if (cond->isLeaf) {
-        serverLog(LL_DEBUG, "[FILTER][PARSE] Leaf First '%ld'",
-                  cond->first.columnId);
-        serverLog(LL_DEBUG, "[FILTER][PARSE] Leaf Second '%ld'",
-                  cond->second.value);
-        return;
+    serverLog(LL_DEBUG, "[FILTER][LOG] Operator '%s'",
+              _getOperatorStr(cond->op));
+    if (cond->first != NULL) {
+        if (cond->first->type == CONDITION_CHILD_VALUE_TYPE_COND) {
+            serverLog(LL_DEBUG, "[FILTER][LOG] Non-leaf First");
+            logCondition(cond->first->value.cond);
+        } else if (cond->first->type == CONDITION_CHILD_VALUE_TYPE_LONG) {
+            serverLog(LL_DEBUG, "[FILTER][LOG] Leaf First Long '%ld'",
+                      cond->first->value.l);
+        } else if (cond->first->type == CONDITION_CHILD_VALUE_TYPE_SDS) {
+            serverLog(LL_DEBUG, "[FILTER][LOG] Leaf First Sds '%s'",
+                      cond->first->value.s);
+        }
     }
-
-    serverLog(LL_DEBUG, "[FILTER][PARSE] Non-Leaf First");
-    logCondition(cond->first.cond);
-    serverLog(LL_DEBUG, "[FILTER][PARSE] Non-Leaf Second");
-    logCondition(cond->second.cond);
+    if (cond->second != NULL) {
+        if (cond->second->type == CONDITION_CHILD_VALUE_TYPE_COND) {
+            serverLog(LL_DEBUG, "[FILTER][LOG] Non-leaf Second");
+            logCondition(cond->second->value.cond);
+        } else if (cond->second->type == CONDITION_CHILD_VALUE_TYPE_LONG) {
+            serverLog(LL_DEBUG, "[FILTER][LOG] Leaf Second Long '%ld'",
+                      cond->second->value.l);
+        } else if (cond->second->type == CONDITION_CHILD_VALUE_TYPE_SDS) {
+            serverLog(LL_DEBUG, "[FILTER][LOG] Leaf Second Sds '%s'",
+                      cond->second->value.s);
+        }
+    }
 }
 
 void freeConditions(Condition *cond) {
-    if (cond->isLeaf) {
-        zfree(cond);
-        return;
+    if (cond->first != NULL) {
+        if (cond->first->type == CONDITION_CHILD_VALUE_TYPE_COND) {
+            freeConditions(cond->first->value.cond);
+        } else if (cond->first->type == CONDITION_CHILD_VALUE_TYPE_SDS) {
+            sdsfree(cond->first->value.s);
+        }
+        zfree(cond->first);
     }
-
-    freeConditions(cond->first.cond);
-    if (cond->opCount == 2) {
-        freeConditions(cond->second.cond);
+    if (cond->second != NULL) {
+        if (cond->second->type == CONDITION_CHILD_VALUE_TYPE_COND) {
+            freeConditions(cond->second->value.cond);
+        } else if (cond->first->type == CONDITION_CHILD_VALUE_TYPE_SDS) {
+            sdsfree(cond->second->value.s);
+        }
+        zfree(cond->second);
     }
     zfree(cond);
 }

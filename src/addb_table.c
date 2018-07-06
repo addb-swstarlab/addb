@@ -235,11 +235,12 @@ void fpScanCommand(client *c) {
  *
  * --- Usage Examples ---
  *  Parameters:
+ *      tableId: 100
  *      Stack:
  *          "3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
  *          (select * from kv where 2=0 or 2=1 or 2=2 or 2=3;)
  *  Command:
- *      redis-cli> FPPARTITIONFILTER 3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
+ *      redis-cli> FPPARTITIONFILTER 100 3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
  *  Results:
  *      redis-cli> "M:{30:2:0}" // col2 = 0
  *      redis-cli> "M:{30:2:1}" // col2 = 1
@@ -249,24 +250,71 @@ void fpScanCommand(client *c) {
  */
 void fpPartitionFilterCommand(client *c) {
     /*Parses stringfied stack structure to readable parameters*/
-    sds rawConditionStr = (sds) c->argv[1]->ptr;
-    Condition *root = parseConditions(rawConditionStr);
-    serverLog(LL_DEBUG, "");
+    sds rawTableId = (sds) c->argv[1]->ptr;
+    sds rawConditionStr = (sds) c->argv[2]->ptr;
+
+    long tableId;
+    if (string2l(rawTableId, sdslen(rawTableId), &tableId) == 0) {
+        serverLog(LL_WARNING, "[FILTER] TableId is not integer value: [%s]",
+                  rawTableId);
+        addReplyErrorFormat(c, "[FILTER] TableId is not integer value: [%s]",
+                            rawTableId);
+        return;
+    }
+
+    if (!validateConditions(rawConditionStr)) {
+        serverLog(LL_WARNING, "[FILTER] Stack structure is not valid form: [%s]",
+                  rawConditionStr);
+        addReplyErrorFormat(c, "[FILTER] Stack structure is not valid form: [%s]",
+                            rawConditionStr);
+        return;
+    }
+
+    Condition *root;
+    if (parseConditions(rawConditionStr, &root) == C_ERR) {
+        serverLog(LL_WARNING,
+                  "[FILTER][FATAL] Stack condition parser failed, server would have a memory leak...: [%s]",
+                  rawConditionStr);
+        addReplyErrorFormat(c,
+                            "[FILTER][FATAL] Stack condition parser failed, server would have a memory leak...: [%s]",
+                            rawConditionStr);
+        return;
+    }
+
+    serverLog(LL_DEBUG, "   ");
     serverLog(LL_DEBUG, "[FILTER][PARSE] Condition Tree");
     logCondition(root);
+
     /*Scans Metadict by readable parameters*/
+    Vector metakeys;
+    vectorTypeInit(&metakeys, STL_TYPE_SDS);
+
+    dictIterator *di = dictGetSafeIterator(c->db->Metadict);
+    dictEntry *de = NULL;
+    while ((de = dictNext(di)) != NULL) {
+        sds metakey = (sds) dictGetKey(de);
+        if (evaluateCondition(root, tableId, metakey)) {
+            vectorAdd(&metakeys, metakey);
+        }
+    }
+    dictReleaseIterator(di);
+
 
     /*Prints out target partitions*/
-    // TODO(totoro): Changes reply to real partition data.
+    /*Scan data to client*/
     void *replylen = addDeferredMultiBulkLength(c);
     size_t numreplies = 0;
-    addReplyBulkCString(c, "M:{30:2:1}");
-    addReplyBulkCString(c, "M:{30:2:2}");
-    addReplyBulkCString(c, "M:{30:2:3}");
-    addReplyBulkCString(c, "M:{30:2:4}");
-    numreplies += 4;
+    serverLog(LL_DEBUG, "Loaded data from ADDB...");
+    for (size_t i = 0; i < vectorCount(&metakeys); ++i) {
+        sds metakey = sdsdup((sds) vectorGet(&metakeys, i));
+        serverLog(LL_DEBUG, "i: %zu, metakey: %s", i, metakey);
+        addReplyBulkSds(c, metakey);
+        numreplies++;
+    }
+
     setDeferredMultiBulkLength(c, replylen, numreplies);
     freeConditions(root);
+    vectorFree(&metakeys);
 }
 
 /*Lookup key in metadict */

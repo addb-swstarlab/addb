@@ -46,4 +46,10 @@ typedef struct NewDataKeyInfo {
 	uint32_t timeStamp;
 } NewDataKeyInfo;
 
+typedef struct _MetaKeyInfo {
+    int tableId;
+    unsigned isPartitionString:1;
+    Partition partitionInfo;
+} MetaKeyInfo;
+
 #endif
