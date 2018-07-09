@@ -793,23 +793,28 @@ int _getOperatorOperandCount(int optype) {
     return 2;
 }
 
-// TODO(totoro): Implements validateConditions function by regex.
-bool validateConditions(const sds rawConditionStr) {
+// TODO(totoro): Implements validateStatements function by regex.
+bool validateStatements(const sds rawStatementsStr) {
     return true;
 }
 
-int parseConditions(const sds rawConditionsStr, Condition **root) {
+// TODO(totoro): Implements validateStatement function by regex.
+bool validateStatement(const sds rawStatementStr) {
+    return true;
+}
+
+int parseStatement(const sds rawStatementStr, Condition **root) {
     char copyStr[MAX_TMPBUF_SIZE];
     char *savePtr = NULL;
     char *token = NULL;
-    memcpy(copyStr, rawConditionsStr, sdslen(rawConditionsStr) + 1);
+    memcpy(copyStr, rawStatementStr, sdslen(rawStatementStr) + 1);
 
     Stack s;
     stackInit(&s);
 
     // Parses raw conditions by condition unit.
-    token = strtok_r(copyStr, PARTITION_FILTER_OPERATOR_PREFIX, &savePtr);
-    while (savePtr[0] != '\0') {
+    token = strtok_r(copyStr, PARTITION_FILTER_OPERATOR_DELIMITER, &savePtr);
+    while (token != NULL) {
         Condition *cond;
         if (createCondition(token, &s, &cond) == C_ERR) {
             serverLog(LL_DEBUG,
@@ -818,12 +823,12 @@ int parseConditions(const sds rawConditionsStr, Condition **root) {
             return C_ERR;
         }
         stackPush(&s, (void *) cond);
-        token = strtok_r(NULL, PARTITION_FILTER_OPERATOR_PREFIX, &savePtr);
+        token = strtok_r(NULL, PARTITION_FILTER_OPERATOR_DELIMITER, &savePtr);
     }
 
-    // Last token must be "$".
+    // Last token must be NULL.
     // Number of stack element must be 1.
-    if (strcmp(token, "$") != 0 || stackCount(&s) != 1) {
+    if (token != NULL || stackCount(&s) != 1) {
         serverLog(LL_DEBUG,
                   "[FILTER][PARSE] Entire condition is invalid form: lastToken[%s], stackCount[%zu]",
                   token, stackCount(&s));
@@ -846,7 +851,7 @@ int createCondition(const char *rawConditionStr, Stack *s,
 
     // Parses raw condition by operand unit.
     Condition *newcond = zmalloc(sizeof(Condition));
-    token = strtok_r(copyStr, PARTITION_FILTER_OPERAND_PREFIX, &savePtr);
+    token = strtok_r(copyStr, PARTITION_FILTER_OPERAND_DELIMITER, &savePtr);
     int leafOperandCount = 0;
     while (savePtr[0] != '\0') {
         ConditionChild *child = (ConditionChild *) zmalloc(
@@ -861,8 +866,9 @@ int createCondition(const char *rawConditionStr, Stack *s,
         }
         stackPush(s, (void *) child);
         leafOperandCount++;
-        token = strtok_r(NULL, PARTITION_FILTER_OPERAND_PREFIX, &savePtr);
+        token = strtok_r(NULL, PARTITION_FILTER_OPERAND_DELIMITER, &savePtr);
     }
+    serverLog(LL_DEBUG, "[FILTER][PARSE] condition operator: %s", token);
 
     int optype = _getOperatorType(token);
     newcond->op = optype;

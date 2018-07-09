@@ -239,6 +239,10 @@ void fpScanCommand(client *c) {
  *      Stack:
  *          "3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
  *          (select * from kv where 2=0 or 2=1 or 2=2 or 2=3;)
+ *          "3*2*EqualTo:$1*2*EqualTo:0*2*EqualTo:Or:$"
+ *          (Double Filtering)
+ *          (select * from kv where col2=3)
+ *          (select * from kv where col2=1 or col2=0)
  *  Command:
  *      redis-cli> FPPARTITIONFILTER 100 3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
  *  Results:
@@ -251,7 +255,7 @@ void fpScanCommand(client *c) {
 void fpPartitionFilterCommand(client *c) {
     /*Parses stringfied stack structure to readable parameters*/
     sds rawTableId = (sds) c->argv[1]->ptr;
-    sds rawConditionStr = (sds) c->argv[2]->ptr;
+    sds rawStatementsStr = (sds) c->argv[2]->ptr;
 
     long tableId;
     if (string2l(rawTableId, sdslen(rawTableId), &tableId) == 0) {
@@ -262,30 +266,15 @@ void fpPartitionFilterCommand(client *c) {
         return;
     }
 
-    if (!validateConditions(rawConditionStr)) {
+    if (!validateStatements(rawStatementsStr)) {
         serverLog(LL_WARNING, "[FILTER] Stack structure is not valid form: [%s]",
-                  rawConditionStr);
+                  rawStatementsStr);
         addReplyErrorFormat(c, "[FILTER] Stack structure is not valid form: [%s]",
-                            rawConditionStr);
+                            rawStatementsStr);
         return;
     }
 
-    Condition *root;
-    if (parseConditions(rawConditionStr, &root) == C_ERR) {
-        serverLog(LL_WARNING,
-                  "[FILTER][FATAL] Stack condition parser failed, server would have a memory leak...: [%s]",
-                  rawConditionStr);
-        addReplyErrorFormat(c,
-                            "[FILTER][FATAL] Stack condition parser failed, server would have a memory leak...: [%s]",
-                            rawConditionStr);
-        return;
-    }
-
-    serverLog(LL_DEBUG, "   ");
-    serverLog(LL_DEBUG, "[FILTER][PARSE] Condition Tree");
-    logCondition(root);
-
-    /*Scans Metadict by readable parameters*/
+    /*Initializes Vector for Metadict keys*/
     Vector metakeys;
     vectorTypeInit(&metakeys, STL_TYPE_SDS);
 
@@ -293,12 +282,52 @@ void fpPartitionFilterCommand(client *c) {
     dictEntry *de = NULL;
     while ((de = dictNext(di)) != NULL) {
         sds metakey = (sds) dictGetKey(de);
-        if (evaluateCondition(root, tableId, metakey)) {
-            vectorAdd(&metakeys, metakey);
-        }
+        vectorAdd(&metakeys, metakey);
     }
     dictReleaseIterator(di);
 
+    char copyStr[MAX_TMPBUF_SIZE];
+    char *savePtr = NULL;
+    char *token = NULL;
+    memcpy(copyStr, rawStatementsStr, sdslen(rawStatementsStr) + 1);
+
+    token = strtok_r(copyStr, PARTITION_FILTER_STATEMENT_SUFFIX, &savePtr);
+    while (token != NULL) {
+        Condition *root;
+        sds rawStatementStr = sdsnew(token);
+
+        if (parseStatement(rawStatementStr, &root) == C_ERR) {
+            serverLog(
+                    LL_WARNING,
+                    "[FILTER][FATAL] Stack condition parser failed, server would have a memory leak...: [%s]",
+                    rawStatementsStr);
+            addReplyErrorFormat(
+                    c,
+                    "[FILTER][FATAL] Stack condition parser failed, server would have a memory leak...: [%s]",
+                    rawStatementsStr);
+            return;
+        }
+
+        serverLog(LL_DEBUG, "   ");
+        serverLog(LL_DEBUG, "[FILTER][PARSE] Condition Tree");
+        logCondition(root);
+
+        Vector filteredMetakeys;
+        vectorInit(&filteredMetakeys);
+        for (size_t i = 0; i < vectorCount(&metakeys); ++i) {
+            sds metakey = (sds) vectorGet(&metakeys, i);
+            if (evaluateCondition(root, tableId, metakey)) {
+                vectorAdd(&filteredMetakeys, metakey);
+            }
+        }
+        vectorFree(&metakeys);
+        metakeys = filteredMetakeys;
+
+        sdsfree(rawStatementStr);
+        freeConditions(root);
+
+        token = strtok_r(NULL, PARTITION_FILTER_STATEMENT_SUFFIX, &savePtr);
+    }
 
     /*Prints out target partitions*/
     /*Scan data to client*/
@@ -313,7 +342,6 @@ void fpPartitionFilterCommand(client *c) {
     }
 
     setDeferredMultiBulkLength(c, replylen, numreplies);
-    freeConditions(root);
     vectorFree(&metakeys);
 }
 

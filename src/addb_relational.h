@@ -148,8 +148,9 @@ void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
                          RowGroupParameter rowGroupParam, Vector *data);
 
 /*Partition Filter*/
-bool validateConditions(const sds rawConditionStr);
-int parseConditions(const sds rawConditionsStr, Condition **root);
+bool validateStatements(const sds rawStatementsStr);
+bool validateStatement(const sds rawStatementStr);
+int parseStatement(const sds rawStatementStr, Condition **root);
 int createCondition(const char *rawConditionStr, Stack *s, Condition **cond);
 bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
                            const ConditionChild *second, Vector *partitions);
