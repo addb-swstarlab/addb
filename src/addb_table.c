@@ -235,11 +235,16 @@ void fpScanCommand(client *c) {
  *
  * --- Usage Examples ---
  *  Parameters:
+ *      tableId: 100
  *      Stack:
- *          "*3*col2:EqaulTo*2*col2:EqaulTo:Or*1*col2:EqaulTo*0*col2:EqaulTo:Or:Or$"
- *          (select * from kv where col2=0 or col2=1 or col2=2 or col2=3;)
+ *          "3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
+ *          (select * from kv where 2=0 or 2=1 or 2=2 or 2=3;)
+ *          "3*2*EqualTo:$1*2*EqualTo:0*2*EqualTo:Or:$"
+ *          (Double Filtering)
+ *          (select * from kv where col2=3)
+ *          (select * from kv where col2=1 or col2=0)
  *  Command:
- *      redis-cli> FPPARTITIONFILTER *3*col2:EqualTo*2*col2:EqualTo:Or*1*col2:EqualTo*0*cold2:EqualTo:Or:Or$"
+ *      redis-cli> FPPARTITIONFILTER 100 3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
  *  Results:
  *      redis-cli> "M:{30:2:0}" // col2 = 0
  *      redis-cli> "M:{30:2:1}" // col2 = 1
@@ -249,20 +254,95 @@ void fpScanCommand(client *c) {
  */
 void fpPartitionFilterCommand(client *c) {
     /*Parses stringfied stack structure to readable parameters*/
-    sds rawConditionStr = (sds) c->argv[1]->ptr;
-    Condition *root = parseCondition(rawConditionStr);
-    /*Scans Metadict by readable parameters*/
+    sds rawTableId = (sds) c->argv[1]->ptr;
+    sds rawStatementsStr = (sds) c->argv[2]->ptr;
+
+    long tableId;
+    if (string2l(rawTableId, sdslen(rawTableId), &tableId) == 0) {
+        serverLog(LL_WARNING, "[FILTER] TableId is not integer value: [%s]",
+                  rawTableId);
+        addReplyErrorFormat(c, "[FILTER] TableId is not integer value: [%s]",
+                            rawTableId);
+        return;
+    }
+
+    if (!validateStatements(rawStatementsStr)) {
+        serverLog(LL_WARNING, "[FILTER] Stack structure is not valid form: [%s]",
+                  rawStatementsStr);
+        addReplyErrorFormat(c, "[FILTER] Stack structure is not valid form: [%s]",
+                            rawStatementsStr);
+        return;
+    }
+
+    /*Initializes Vector for Metadict keys*/
+    Vector metakeys;
+    vectorTypeInit(&metakeys, STL_TYPE_SDS);
+
+    dictIterator *di = dictGetSafeIterator(c->db->Metadict);
+    dictEntry *de = NULL;
+    while ((de = dictNext(di)) != NULL) {
+        sds metakey = (sds) dictGetKey(de);
+        vectorAdd(&metakeys, metakey);
+    }
+    dictReleaseIterator(di);
+
+    char copyStr[MAX_TMPBUF_SIZE];
+    char *savePtr = NULL;
+    char *token = NULL;
+    memcpy(copyStr, rawStatementsStr, sdslen(rawStatementsStr) + 1);
+
+    token = strtok_r(copyStr, PARTITION_FILTER_STATEMENT_SUFFIX, &savePtr);
+    while (token != NULL) {
+        Condition *root;
+        sds rawStatementStr = sdsnew(token);
+
+        if (parseStatement(rawStatementStr, &root) == C_ERR) {
+            serverLog(
+                    LL_WARNING,
+                    "[FILTER][FATAL] Stack condition parser failed, server would have a memory leak...: [%s]",
+                    rawStatementsStr);
+            addReplyErrorFormat(
+                    c,
+                    "[FILTER][FATAL] Stack condition parser failed, server would have a memory leak...: [%s]",
+                    rawStatementsStr);
+            return;
+        }
+
+        serverLog(LL_DEBUG, "   ");
+        serverLog(LL_DEBUG, "[FILTER][PARSE] Condition Tree");
+        logCondition(root);
+
+        Vector filteredMetakeys;
+        vectorInit(&filteredMetakeys);
+        for (size_t i = 0; i < vectorCount(&metakeys); ++i) {
+            sds metakey = (sds) vectorGet(&metakeys, i);
+            if (evaluateCondition(root, tableId, metakey)) {
+                vectorAdd(&filteredMetakeys, metakey);
+            }
+        }
+        vectorFree(&metakeys);
+        metakeys = filteredMetakeys;
+
+        sdsfree(rawStatementStr);
+        freeConditions(root);
+
+        token = strtok_r(NULL, PARTITION_FILTER_STATEMENT_SUFFIX, &savePtr);
+    }
 
     /*Prints out target partitions*/
-    // TODO(totoro): Changes reply to real partition data.
+    /*Scan data to client*/
     void *replylen = addDeferredMultiBulkLength(c);
     size_t numreplies = 0;
-    addReplyBulkCString(c, "M:{30:2:1}");
-    addReplyBulkCString(c, "M:{30:2:2}");
-    addReplyBulkCString(c, "M:{30:2:3}");
-    addReplyBulkCString(c, "M:{30:2:4}");
-    numreplies += 4;
+    serverLog(LL_DEBUG, "Loaded data from ADDB...");
+    for (size_t i = 0; i < vectorCount(&metakeys); ++i) {
+        sds metakey = sdsdup((sds) vectorGet(&metakeys, i));
+        serverLog(LL_DEBUG, "i: %zu, metakey: %s", i, metakey);
+        addReplyBulkSds(c, metakey);
+        numreplies++;
+    }
+
     setDeferredMultiBulkLength(c, replylen, numreplies);
+    vectorFree(&metakeys);
 }
 
 /*Lookup key in metadict */

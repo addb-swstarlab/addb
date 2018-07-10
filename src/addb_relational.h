@@ -13,6 +13,11 @@
 #define MAX_TMPBUF_SIZE 128
 #define SDS_DATA_KEY_MAX (sizeof(struct sdshdr) + DATA_KEY_MAX_SIZE)
 
+#define CONDITION_CHILD_VALUE_TYPE_NONE 0
+#define CONDITION_CHILD_VALUE_TYPE_COND 1
+#define CONDITION_CHILD_VALUE_TYPE_LONG 2
+#define CONDITION_CHILD_VALUE_TYPE_SDS 3
+
 #define CONDITION_OP_TYPE_NONE 0    // Default
 #define CONDITION_OP_TYPE_AND 1     // &&
 #define CONDITION_OP_TYPE_OR 2      // ||
@@ -54,19 +59,38 @@ typedef struct _ScanParameter {
 } ScanParameter;
 
 /*Partition Filter Parameters*/
+typedef union _ConditionValue {
+    void *cond;
+    long l;
+    sds s;
+} ConditionValue;
+
+typedef struct _ConditionChild {
+    unsigned type:2;
+    ConditionValue value;
+} ConditionChild;
+
 typedef struct _Condition {
     unsigned op:4;  // Operator
-    union {
-        void *cond;
-        int columnId;
-    } left;         // Left operand
-    union {
-        void *cond;
-        int value;
-    } right;        // Right operand
+    int opCount;
+    bool isLeaf;
+    ConditionChild *first;
+    ConditionChild *second;
 } Condition;
 
+typedef struct _PartitionValue {
+    long l;
+    sds s;
+} PartitionValue;
+
+typedef struct _PartitionParameter {
+    int columnId;
+    unsigned type:2;
+    PartitionValue value;
+} PartitionParameter;
+
 NewDataKeyInfo *parsingDataKeyInfo(sds dataKeyString);
+MetaKeyInfo *parseMetaKeyInfo(sds metakey);
 int changeDataKeyInfo(NewDataKeyInfo *dataKeyInfo, int number);
 
 dictEntry *getCandidatedictFirstEntry(client *c, NewDataKeyInfo *dataKeyInfo);
@@ -123,6 +147,18 @@ void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
                          ColumnParameter *columnParam,
                          RowGroupParameter rowGroupParam, Vector *data);
 
-Condition *parseCondition(const sds rawConditionStr);
+/*Partition Filter*/
+bool validateStatements(const sds rawStatementsStr);
+bool validateStatement(const sds rawStatementStr);
+int parseStatement(const sds rawStatementStr, Condition **root);
+int createCondition(const char *rawConditionStr, Stack *s, Condition **cond);
+bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
+                           const ConditionChild *second, Vector *partitions);
+bool _evaluateNonleafOperator(const int optype, const ConditionChild *first,
+                              const ConditionChild *second, Vector *partitions);
+bool _evaluateCondition(const Condition *cond, Vector *partitions);
+bool evaluateCondition(const Condition *cond, int tableId, const sds metakey);
+void logCondition(const Condition *cond);
+void freeConditions(Condition *cond);
 
 #endif

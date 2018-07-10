@@ -19,6 +19,9 @@
 #define RELMODEL_COLUMN_DELIMITER ","
 #define REL_MODEL_FIELD_PREFIX "F:"
 
+#define PARTITION_FILTER_OPERAND_DELIMITER "*"
+#define PARTITION_FILTER_OPERATOR_DELIMITER ":"
+#define PARTITION_FILTER_STATEMENT_SUFFIX "$"
 
 #define MAX_COLUMN_NUMBER 100  /*Modify later*/
 
@@ -42,5 +45,11 @@ typedef struct NewDataKeyInfo {
 	Partition partitionInfo;
 	uint32_t timeStamp;
 } NewDataKeyInfo;
+
+typedef struct _MetaKeyInfo {
+    int tableId;
+    unsigned isPartitionString:1;
+    Partition partitionInfo;
+} MetaKeyInfo;
 
 #endif
