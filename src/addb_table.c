@@ -227,16 +227,43 @@ void fpScanCommand(client *c) {
     setDeferredMultiBulkLength(c, replylen, numreplies);
 }
 
+void _addReplyMetakeysResults(client *c, Vector *metakeys) {
+    void *replylen = addDeferredMultiBulkLength(c);
+    size_t numreplies = 0;
+    serverLog(LL_DEBUG, "Loaded data from ADDB...");
+    for (size_t i = 0; i < vectorCount(metakeys); ++i) {
+        sds metakey = sdsdup((sds) vectorGet(metakeys, i));
+        serverLog(LL_DEBUG, "i: %zu, metakey: %s", i, metakey);
+        addReplyBulkSds(c, metakey);
+        numreplies++;
+    }
+
+    setDeferredMultiBulkLength(c, replylen, numreplies);
+    return;
+}
+
 /*
- * fpPartitionFilterCommand
- * Filter partition from Metadict by parsed stack structure.
+ * metakeysCommand
+ *  Lookup key in metadict
+ *  Filter partition from Metadict by parsed stack structure.
  * --- Parameters ---
  *  arg1: Parsed stack structure
  *
  * --- Usage Examples ---
+ * --- Example 1: Pattern search only ---
  *  Parameters:
- *      tableId: 100
- *      Stack:
+ *      pattern: *
+ *  Command:
+ *      redis-cli> METAKEYS *
+ *  Results:
+ *      redis-cli> "M:{30:2:0}"
+ *      redis-cli> "M:{1:1:3:3:1}"
+ *      redis-cli> "M:{100:2:0}"
+ *      redis-cli> ...
+ *  --- Example 2: Statements searching ---
+ *  Parameters:
+ *      pattern: M:{100:*}
+ *      Statements:
  *          "3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
  *          (select * from kv where 2=0 or 2=1 or 2=2 or 2=3;)
  *          "3*2*EqualTo:$1*2*EqualTo:0*2*EqualTo:Or:$"
@@ -244,27 +271,50 @@ void fpScanCommand(client *c) {
  *          (select * from kv where col2=3)
  *          (select * from kv where col2=1 or col2=0)
  *  Command:
- *      redis-cli> FPPARTITIONFILTER 100 3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
+ *      redis-cli> METAKEYS M:{100:*} 3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$
  *  Results:
- *      redis-cli> "M:{30:2:0}" // col2 = 0
- *      redis-cli> "M:{30:2:1}" // col2 = 1
- *      redis-cli> "M:{30:2:2}" // col2 = 2
- *      redis-cli> "M:{30:2:3}" // col2 = 3
+ *      redis-cli> "M:{100:2:0}" // col2 = 0
+ *      redis-cli> "M:{100:2:1}" // col2 = 1
+ *      redis-cli> "M:{100:2:2}" // col2 = 2
+ *      redis-cli> "M:{100:2:3}" // col2 = 3
  *      ...
  */
-void fpPartitionFilterCommand(client *c) {
+void metakeysCommand(client *c){
     /*Parses stringfied stack structure to readable parameters*/
-    sds rawTableId = (sds) c->argv[1]->ptr;
-    sds rawStatementsStr = (sds) c->argv[2]->ptr;
+    sds pattern = (sds) c->argv[1]->ptr;
+    bool allkeys = (pattern[0] == '*' && pattern[1] == '\0');
 
-    long tableId;
-    if (string2l(rawTableId, sdslen(rawTableId), &tableId) == 0) {
-        serverLog(LL_WARNING, "[FILTER] TableId is not integer value: [%s]",
-                  rawTableId);
-        addReplyErrorFormat(c, "[FILTER] TableId is not integer value: [%s]",
-                            rawTableId);
+    /*Initializes Vector for Metadict keys*/
+    Vector metakeys;
+    vectorTypeInit(&metakeys, STL_TYPE_SDS);
+
+    /*Pattern match searching for metakeys*/
+    dictIterator *di = dictGetSafeIterator(c->db->Metadict);
+    dictEntry *de = NULL;
+    while ((de = dictNext(di)) != NULL) {
+        sds metakey = (sds) dictGetKey(de);
+        if (
+                allkeys ||
+                stringmatchlen(pattern, sdslen(pattern), metakey,
+                               sdslen(metakey), 0)
+        ) {
+            vectorAdd(&metakeys, metakey);
+        }
+    }
+    dictReleaseIterator(di);
+
+    /* If rawStatements is null or empty, prints pattern matching
+     * results only...
+     */
+    if (c->argc < 3) {
+        /*Prints out target partitions*/
+        /*Scan data to client*/
+        _addReplyMetakeysResults(c, &metakeys);
+        vectorFree(&metakeys);
         return;
     }
+
+    sds rawStatementsStr = (sds) c->argv[2]->ptr;
 
     if (!validateStatements(rawStatementsStr)) {
         serverLog(LL_WARNING, "[FILTER] Stack structure is not valid form: [%s]",
@@ -273,18 +323,6 @@ void fpPartitionFilterCommand(client *c) {
                             rawStatementsStr);
         return;
     }
-
-    /*Initializes Vector for Metadict keys*/
-    Vector metakeys;
-    vectorTypeInit(&metakeys, STL_TYPE_SDS);
-
-    dictIterator *di = dictGetSafeIterator(c->db->Metadict);
-    dictEntry *de = NULL;
-    while ((de = dictNext(di)) != NULL) {
-        sds metakey = (sds) dictGetKey(de);
-        vectorAdd(&metakeys, metakey);
-    }
-    dictReleaseIterator(di);
 
     char copyStr[MAX_TMPBUF_SIZE];
     char *savePtr = NULL;
@@ -316,7 +354,7 @@ void fpPartitionFilterCommand(client *c) {
         vectorInit(&filteredMetakeys);
         for (size_t i = 0; i < vectorCount(&metakeys); ++i) {
             sds metakey = (sds) vectorGet(&metakeys, i);
-            if (evaluateCondition(root, tableId, metakey)) {
+            if (evaluateCondition(root, metakey)) {
                 vectorAdd(&filteredMetakeys, metakey);
             }
         }
@@ -331,48 +369,8 @@ void fpPartitionFilterCommand(client *c) {
 
     /*Prints out target partitions*/
     /*Scan data to client*/
-    void *replylen = addDeferredMultiBulkLength(c);
-    size_t numreplies = 0;
-    serverLog(LL_DEBUG, "Loaded data from ADDB...");
-    for (size_t i = 0; i < vectorCount(&metakeys); ++i) {
-        sds metakey = sdsdup((sds) vectorGet(&metakeys, i));
-        serverLog(LL_DEBUG, "i: %zu, metakey: %s", i, metakey);
-        addReplyBulkSds(c, metakey);
-        numreplies++;
-    }
-
-    setDeferredMultiBulkLength(c, replylen, numreplies);
+    _addReplyMetakeysResults(c, &metakeys);
     vectorFree(&metakeys);
-}
-
-/*Lookup key in metadict */
-void metakeysCommand(client *c){
-
-    dictIterator *di;
-    dictEntry *de;
-    sds pattern = c->argv[1]->ptr;
-    int plen = sdslen(pattern), allkeys;
-    unsigned long numkeys = 0;
-    void *replylen = addDeferredMultiBulkLength(c);
-
-    di = dictGetSafeIterator(c->db->Metadict);
-    allkeys = (pattern[0] == '*' && pattern[1] == '\0');
-    while((de = dictNext(di)) != NULL) {
-        sds key = dictGetKey(de);
-        robj *keyobj;
-
-        if (allkeys || stringmatchlen(pattern,plen,key,sdslen(key),0)) {
-            keyobj = createStringObject(key,sdslen(key));
-            if (expireIfNeeded(c->db,keyobj) == 0) {
-                addReplyBulk(c,keyobj);
-                numkeys++;
-            }
-            decrRefCount(keyobj);
-        }
-    }
-    dictReleaseIterator(di);
-    setDeferredMultiBulkLength(c,replylen,numkeys);
-
 }
 
 /*Lookup the value list of field and field in dict*/

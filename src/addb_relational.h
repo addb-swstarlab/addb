@@ -157,7 +157,7 @@ bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
 bool _evaluateNonleafOperator(const int optype, const ConditionChild *first,
                               const ConditionChild *second, Vector *partitions);
 bool _evaluateCondition(const Condition *cond, Vector *partitions);
-bool evaluateCondition(const Condition *cond, int tableId, const sds metakey);
+bool evaluateCondition(const Condition *cond, const sds metakey);
 void logCondition(const Condition *cond);
 void freeConditions(Condition *cond);
 

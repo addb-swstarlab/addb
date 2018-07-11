@@ -1120,9 +1120,10 @@ bool _evaluateCondition(const Condition *cond, Vector *partitions) {
     return result;
 }
 
-bool evaluateCondition(const Condition *root, int tableId, const sds metakey) {
+bool evaluateCondition(const Condition *root, const sds metakey) {
     MetaKeyInfo *metaKeyInfo = parseMetaKeyInfo(metakey);
-    if (tableId != metaKeyInfo->tableId || !metaKeyInfo->isPartitionString) {
+    if (!metaKeyInfo->isPartitionString) {
+        // TODO(totoro): Needs to handle 'isPartitionInt' case...
         return false;
     }
 
