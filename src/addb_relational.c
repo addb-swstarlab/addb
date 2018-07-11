@@ -990,7 +990,7 @@ bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
         }
     }
 
-    return false;
+    return true;
 }
 
 bool _evaluateNonleafOperator(const int optype, const ConditionChild *first,
