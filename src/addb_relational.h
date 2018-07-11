@@ -18,15 +18,89 @@
 #define CONDITION_CHILD_VALUE_TYPE_LONG 2
 #define CONDITION_CHILD_VALUE_TYPE_SDS 3
 
-#define CONDITION_OP_TYPE_NONE 0    // Default
-#define CONDITION_OP_TYPE_AND 1     // &&
-#define CONDITION_OP_TYPE_OR 2      // ||
-#define CONDITION_OP_TYPE_NOT 3     // !
-#define CONDITION_OP_TYPE_EQ 4      // ==
-#define CONDITION_OP_TYPE_LT 5      // <
-#define CONDITION_OP_TYPE_LTE 6     // <=
-#define CONDITION_OP_TYPE_GT 7      // >
-#define CONDITION_OP_TYPE_GTE 8     // >=
+#define CONDITION_OP_TYPE_NONE 0            // Default
+#define CONDITION_OP_TYPE_AND 1             // &&
+#define CONDITION_OP_TYPE_OR 2              // ||
+#define CONDITION_OP_TYPE_NOT 3             // !
+#define CONDITION_OP_TYPE_EQ 4              // ==
+#define CONDITION_OP_TYPE_LT 5              // <
+#define CONDITION_OP_TYPE_LTE 6             // <=
+#define CONDITION_OP_TYPE_GT 7              // >
+#define CONDITION_OP_TYPE_GTE 8             // >=
+#define CONDITION_OP_TYPE_IS_NULL 9         // NULL
+#define CONDITION_OP_TYPE_IS_NOT_NULL 10    // NOT NULL
+
+/* ADDB Create Partition Filter parameter*/
+static inline int _getOperatorType(char *operator) {
+    if (strcmp(operator, "And") == 0) {
+        return CONDITION_OP_TYPE_AND;
+    } else if (strcmp(operator, "Or") == 0) {
+        return CONDITION_OP_TYPE_OR;
+    } else if (strcmp(operator, "Not") == 0) {
+        return CONDITION_OP_TYPE_NOT;
+    } else if (strcmp(operator, "EqualTo") == 0) {
+        return CONDITION_OP_TYPE_EQ;
+    } else if (strcmp(operator, "LessThan") == 0) {
+        return CONDITION_OP_TYPE_LT;
+    } else if (strcmp(operator, "LessThanOrEqual") == 0) {
+        return CONDITION_OP_TYPE_LTE;
+    } else if (strcmp(operator, "GreaterThan") == 0) {
+        return CONDITION_OP_TYPE_GT;
+    } else if (strcmp(operator, "GreaterThanOrEqual") == 0) {
+        return CONDITION_OP_TYPE_GTE;
+    } else if (strcmp(operator, "IsNull") == 0) {
+        return CONDITION_OP_TYPE_IS_NULL;
+    } else if (strcmp(operator, "IsNotNull") == 0) {
+        return CONDITION_OP_TYPE_IS_NOT_NULL;
+    } else {
+        return -1;
+    }
+}
+
+static inline const char *_getOperatorStr(int optype) {
+    if (optype == CONDITION_OP_TYPE_AND) {
+        return "And";
+    } else if (optype == CONDITION_OP_TYPE_OR) {
+        return "Or";
+    } else if (optype == CONDITION_OP_TYPE_NOT) {
+        return "Not";
+    } else if (optype == CONDITION_OP_TYPE_EQ) {
+        return "EqualTo";
+    } else if (optype == CONDITION_OP_TYPE_LT) {
+        return "LessThan";
+    } else if (optype == CONDITION_OP_TYPE_LTE) {
+        return "LessThanOrEqual";
+    } else if (optype == CONDITION_OP_TYPE_GT) {
+        return "GreaterThan";
+    } else if (optype == CONDITION_OP_TYPE_GTE) {
+        return "GreaterThanOrEqual";
+    } else if (optype == CONDITION_OP_TYPE_IS_NULL) {
+        return "IsNull";
+    } else if (optype == CONDITION_OP_TYPE_IS_NOT_NULL) {
+        return "IsNotNull";
+    } else {
+        return NULL;
+    }
+}
+
+static inline int _getOperatorOperandCount(int optype) {
+    if (
+            (optype < CONDITION_OP_TYPE_AND) ||
+            (optype > CONDITION_OP_TYPE_IS_NOT_NULL)
+    ) {
+        return -1;
+    }
+
+    if (
+            optype == CONDITION_OP_TYPE_NOT ||
+            optype == CONDITION_OP_TYPE_IS_NULL ||
+            optype == CONDITION_OP_TYPE_IS_NOT_NULL
+    ) {
+        return 1;
+    }
+
+    return 2;
+}
 
 //typedef struct DataKeyInfo {
 //    char dataKeyCopy[MAX_TMPBUF_SIZE];  //the whole string

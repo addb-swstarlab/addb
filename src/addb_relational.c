@@ -728,71 +728,6 @@ void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
     }
 }
 
-/* ADDB Create Partition Filter parameter*/
-int _getOperatorType(char *operator) {
-    if (strcmp(operator, "And") == 0) {
-        return CONDITION_OP_TYPE_AND;
-    } else if (strcmp(operator, "Or") == 0) {
-        return CONDITION_OP_TYPE_OR;
-    } else if (strcmp(operator, "Not") == 0) {
-        return CONDITION_OP_TYPE_NOT;
-    } else if (strcmp(operator, "EqualTo") == 0) {
-        return CONDITION_OP_TYPE_EQ;
-    } else if (strcmp(operator, "LessThan") == 0) {
-        return CONDITION_OP_TYPE_LT;
-    } else if (strcmp(operator, "LessThanOrEqual") == 0) {
-        return CONDITION_OP_TYPE_LTE;
-    } else if (strcmp(operator, "GreaterThan") == 0) {
-        return CONDITION_OP_TYPE_GT;
-    } else if (strcmp(operator, "GreaterThanOrEqual") == 0) {
-        return CONDITION_OP_TYPE_GTE;
-    } else {
-        serverLog(LL_WARNING, "[FILTER][PARSE][FATAL] Invalid Operator '%s'",
-                  operator);
-        serverPanic("[FILTER][PARSE][FATAL] Invalid Operator");
-    }
-}
-
-const char *_getOperatorStr(int optype) {
-    if (optype == CONDITION_OP_TYPE_AND) {
-        return "And";
-    } else if (optype == CONDITION_OP_TYPE_OR) {
-        return "Or";
-    } else if (optype == CONDITION_OP_TYPE_NOT) {
-        return "Not";
-    } else if (optype == CONDITION_OP_TYPE_EQ) {
-        return "EqualTo";
-    } else if (optype == CONDITION_OP_TYPE_LT) {
-        return "LessThan";
-    } else if (optype == CONDITION_OP_TYPE_LTE) {
-        return "LessThanOrEqual";
-    } else if (optype == CONDITION_OP_TYPE_GT) {
-        return "GreaterThan";
-    } else if (optype == CONDITION_OP_TYPE_GTE) {
-        return "GreaterThanOrEqual";
-    } else {
-        serverLog(LL_WARNING,
-                  "[FILTER][PARSE][FATAL] Invalid Operator Type '%d'",
-                  optype);
-        serverPanic("[FILTER][PARSE][FATAL] Invalid Operator Type");
-    }
-}
-
-int _getOperatorOperandCount(int optype) {
-    if (
-            (optype < CONDITION_OP_TYPE_AND) ||
-            (optype > CONDITION_OP_TYPE_GTE)
-    ) {
-        return -1;
-    }
-
-    if (optype == CONDITION_OP_TYPE_NOT) {
-        return 1;
-    }
-
-    return 2;
-}
-
 // TODO(totoro): Implements validateStatements function by regex.
 bool validateStatements(const sds rawStatementsStr) {
     return true;
@@ -871,6 +806,12 @@ int createCondition(const char *rawConditionStr, Stack *s,
     serverLog(LL_DEBUG, "[FILTER][PARSE] condition operator: %s", token);
 
     int optype = _getOperatorType(token);
+    if (optype == -1) {
+        serverLog(LL_WARNING, "[FILTER][PARSE][FATAL] Invalid Operator '%s'",
+                  token);
+        serverPanic("[FILTER][PARSE][FATAL] Invalid Operator");
+        return C_ERR;
+    }
     newcond->op = optype;
     newcond->opCount = _getOperatorOperandCount(optype);
 
@@ -973,49 +914,49 @@ bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
             optype != CONDITION_OP_TYPE_LT &&
             optype != CONDITION_OP_TYPE_LTE &&
             optype != CONDITION_OP_TYPE_GT &&
-            optype != CONDITION_OP_TYPE_GTE
+            optype != CONDITION_OP_TYPE_GTE &&
+            optype != CONDITION_OP_TYPE_IS_NULL &&
+            optype != CONDITION_OP_TYPE_IS_NOT_NULL
     ) {
         return false;
     }
 
-    if (
-            first == NULL ||
-            !(
-                first->type == CONDITION_CHILD_VALUE_TYPE_LONG ||
-                first->type == CONDITION_CHILD_VALUE_TYPE_SDS
-             ) ||
-            second == NULL ||
-            !(
-                second->type == CONDITION_CHILD_VALUE_TYPE_LONG ||
-                second->type == CONDITION_CHILD_VALUE_TYPE_SDS
-             ) ||
-            partitions == NULL
-    ) {
+    if (partitions == NULL) {
         return false;
     }
 
     for (size_t i = 0; i < vectorCount(partitions); ++i) {
         PartitionParameter *param = (PartitionParameter *) vectorGet(
                 partitions, i);
-        if (
-                first->type != CONDITION_CHILD_VALUE_TYPE_LONG ||
-                !(
-                    second->type == CONDITION_CHILD_VALUE_TYPE_LONG ||
-                    second->type == CONDITION_CHILD_VALUE_TYPE_SDS
-                )
-        ) {
-            serverLog(
-                    LL_WARNING,
-                    "[FILTER][EVALUATE][FATAL] Invalid column ID type: type[%d]",
-                    first->type);
-            serverPanic("[FILTER][EVALUATE][FATAL] Invalid column ID type");
+        if (first == NULL || first->type != CONDITION_CHILD_VALUE_TYPE_LONG) {
             return false;
         }
 
+        if (first->value.l != param->columnId) {
+            continue;
+        }
+
+        if (optype == CONDITION_OP_TYPE_IS_NULL) {
+            // TODO(totoro): Implements IS_NULL operator...
+            return false;
+        }
+
+        if (optype == CONDITION_OP_TYPE_IS_NOT_NULL) {
+            // TODO(totoro): Implements IS_NOT_NULL operator...
+            return true;
+        }
+
         if (
-                first->value.l != param->columnId ||
-                second->type != param->type
+                second == NULL ||
+                !(
+                    second->type == CONDITION_CHILD_VALUE_TYPE_LONG ||
+                    second->type == CONDITION_CHILD_VALUE_TYPE_SDS
+                 )
         ) {
+            return false;
+        }
+
+        if (second->type != param->type) {
             continue;
         }
 
@@ -1112,7 +1053,7 @@ bool _evaluateCondition(const Condition *cond, Vector *partitions) {
     }
 
     bool result = _evaluateNonleafOperator(cond->op, cond->first, cond->second,
-                                    partitions);
+                                           partitions);
     serverLog(
             LL_DEBUG,
             "[FILTER][EVALUATE] _evaluateCondition non-leaf optype[%s], result[%d]",
