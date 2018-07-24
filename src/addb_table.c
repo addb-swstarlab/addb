@@ -324,7 +324,7 @@ void metakeysCommand(client *c){
         return;
     }
 
-    char copyStr[MAX_TMPBUF_SIZE];
+    char copyStr[sdslen(rawStatementStr) + 1];
     char *savePtr = NULL;
     char *token = NULL;
     memcpy(copyStr, rawStatementsStr, sdslen(rawStatementsStr) + 1);
