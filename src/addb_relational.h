@@ -18,17 +18,20 @@
 #define CONDITION_CHILD_VALUE_TYPE_LONG 2
 #define CONDITION_CHILD_VALUE_TYPE_SDS 3
 
-#define CONDITION_OP_TYPE_NONE 0            // Default
-#define CONDITION_OP_TYPE_AND 1             // &&
-#define CONDITION_OP_TYPE_OR 2              // ||
-#define CONDITION_OP_TYPE_NOT 3             // !
-#define CONDITION_OP_TYPE_EQ 4              // ==
-#define CONDITION_OP_TYPE_LT 5              // <
-#define CONDITION_OP_TYPE_LTE 6             // <=
-#define CONDITION_OP_TYPE_GT 7              // >
-#define CONDITION_OP_TYPE_GTE 8             // >=
-#define CONDITION_OP_TYPE_IS_NULL 9         // NULL
-#define CONDITION_OP_TYPE_IS_NOT_NULL 10    // NOT NULL
+#define CONDITION_OP_TYPE_NONE 0                // Default
+#define CONDITION_OP_TYPE_AND 1                 // &&
+#define CONDITION_OP_TYPE_OR 2                  // ||
+#define CONDITION_OP_TYPE_NOT 3                 // !
+#define CONDITION_OP_TYPE_EQ 4                  // ==
+#define CONDITION_OP_TYPE_LT 5                  // <
+#define CONDITION_OP_TYPE_LTE 6                 // <=
+#define CONDITION_OP_TYPE_GT 7                  // >
+#define CONDITION_OP_TYPE_GTE 8                 // >=
+#define CONDITION_OP_TYPE_IS_NULL 9             // isNull
+#define CONDITION_OP_TYPE_IS_NOT_NULL 10        // isNotNull
+#define CONDITION_OP_TYPE_STRING_CONTAINS 11    // StringContains
+#define CONDITION_OP_TYPE_STRING_ENDS_WITH 12   // StringEndsWith
+#define CONDITION_OP_TYPE_STRING_STARTS_WITH 13 // StringStartsWith
 
 /* ADDB Create Partition Filter parameter*/
 static inline int _getOperatorType(char *operator) {
@@ -52,6 +55,12 @@ static inline int _getOperatorType(char *operator) {
         return CONDITION_OP_TYPE_IS_NULL;
     } else if (strcmp(operator, "IsNotNull") == 0) {
         return CONDITION_OP_TYPE_IS_NOT_NULL;
+    } else if (strcmp(operator, "StringContains") == 0) {
+        return CONDITION_OP_TYPE_STRING_CONTAINS;
+    } else if (strcmp(operator, "StringEndsWith") == 0) {
+        return CONDITION_OP_TYPE_STRING_ENDS_WITH;
+    } else if (strcmp(operator, "StringStartsWith") == 0) {
+        return CONDITION_OP_TYPE_STRING_STARTS_WITH;
     } else {
         return -1;
     }
@@ -78,6 +87,12 @@ static inline const char *_getOperatorStr(int optype) {
         return "IsNull";
     } else if (optype == CONDITION_OP_TYPE_IS_NOT_NULL) {
         return "IsNotNull";
+    } else if (optype == CONDITION_OP_TYPE_STRING_CONTAINS) {
+        return "StringContains";
+    } else if (optype == CONDITION_OP_TYPE_STRING_ENDS_WITH) {
+        return "StringEndsWith";
+    } else if (optype == CONDITION_OP_TYPE_STRING_STARTS_WITH) {
+        return "StringStartsWith";
     } else {
         return NULL;
     }
@@ -86,7 +101,7 @@ static inline const char *_getOperatorStr(int optype) {
 static inline int _getOperatorOperandCount(int optype) {
     if (
             (optype < CONDITION_OP_TYPE_AND) ||
-            (optype > CONDITION_OP_TYPE_IS_NOT_NULL)
+            (optype > CONDITION_OP_TYPE_STRING_STARTS_WITH)
     ) {
         return -1;
     }
