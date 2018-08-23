@@ -776,6 +776,8 @@ int parseStatement(const sds rawStatementStr, Condition **root) {
     return C_OK;
 }
 
+// TODO(totoro): Needs to find and fix memory leak at this function. There are
+// 8 byte memory leak...
 int createCondition(const char *rawConditionStr, Stack *s,
                     Condition **cond) {
     char copyStr[MAX_TMPBUF_SIZE];
@@ -907,6 +909,19 @@ void _freePartitionParameters(Vector *partitions) {
     vectorFree(partitions);
 }
 
+sds convertLikeStatementToGlobPattern(const int optype,
+                                      const sds likeStatement) {
+    if (optype == CONDITION_OP_TYPE_STRING_CONTAINS) {
+        return sdscatfmt(sdsempty(), "%s%S%s", "*", likeStatement, "*");
+    } else if (optype == CONDITION_OP_TYPE_STRING_ENDS_WITH) {
+        return sdscatfmt(sdsempty(), "%s%S", "*", likeStatement);
+    } else if (optype == CONDITION_OP_TYPE_STRING_STARTS_WITH) {
+        return sdscatfmt(sdsempty(), "%S%s", likeStatement, "*");
+    } else {
+        return NULL;
+    }
+}
+
 bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
                            const ConditionChild *second, Vector *partitions) {
     if (
@@ -916,7 +931,10 @@ bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
             optype != CONDITION_OP_TYPE_GT &&
             optype != CONDITION_OP_TYPE_GTE &&
             optype != CONDITION_OP_TYPE_IS_NULL &&
-            optype != CONDITION_OP_TYPE_IS_NOT_NULL
+            optype != CONDITION_OP_TYPE_IS_NOT_NULL &&
+            optype != CONDITION_OP_TYPE_STRING_CONTAINS &&
+            optype != CONDITION_OP_TYPE_STRING_ENDS_WITH &&
+            optype != CONDITION_OP_TYPE_STRING_STARTS_WITH
     ) {
         return false;
     }
@@ -966,6 +984,22 @@ bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
             } else if (second->type == CONDITION_CHILD_VALUE_TYPE_SDS) {
                 return sdscmp(second->value.s, param->value.s) == 0;
             }
+        }
+
+        if (
+            optype == CONDITION_OP_TYPE_STRING_CONTAINS ||
+            optype == CONDITION_OP_TYPE_STRING_ENDS_WITH ||
+            optype == CONDITION_OP_TYPE_STRING_STARTS_WITH
+        ) {
+            if (second->type != CONDITION_CHILD_VALUE_TYPE_SDS) {
+                return false;
+            }
+
+            sds converted = convertLikeStatementToGlobPattern(optype,
+                                                              second->value.s);
+            bool result = (bool) stringmatch(converted, param->value.s, 0);
+            sdsfree(converted);
+            return result;
         }
 
         if (second->type == CONDITION_CHILD_VALUE_TYPE_SDS) {

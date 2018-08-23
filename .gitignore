@@ -21,3 +21,4 @@ src/.make-settings
 *.swp
 tags
 *\:default/
+.vscode/
