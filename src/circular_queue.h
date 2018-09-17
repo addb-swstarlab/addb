@@ -11,7 +11,7 @@
 #include "dict.h"
 #include <stdlib.h>
 
-#define DEFAULT_ARRAY_QUEUE_SIZE 100
+#define DEFAULT_ARRAY_QUEUE_SIZE 1000000
 
 typedef struct _arrayQueue {
     int32_t rear;
@@ -26,6 +26,7 @@ Queue *createArrayQueue();
 int enqueue(Queue *queue, dictEntry *entry);
 void *dequeue(Queue *queue);
 void *chooseBestKeyFromQueue(Queue *queue);
+void *chooseBestKeyFromQueue_(Queue *queue);
 int checkQueueFordeQueue(int dbnum, Queue *queue);
 //int checkQueueFordeQueue(Queue *queue);
 void *forceDequeue(Queue *queue);

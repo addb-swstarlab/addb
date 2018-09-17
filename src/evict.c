@@ -409,7 +409,7 @@ int freeMemoryIfNeeded(void) {
 
     latencyStartMonitor(latency);
     while (mem_freed < mem_tofree) {
-    	serverLog(LL_DEBUG, "[FREEMEMORYIFNEEDED CALLED]");
+    	serverLog(LL_DEBUG, "[FREE_MEMORY_IF_NEEDED CALLED]");
         int j, k, i, keys_freed = 0;
         static int next_db = 0;
         sds bestkey = NULL;
@@ -428,27 +428,26 @@ int freeMemoryIfNeeded(void) {
         		db = server.db + j;
 
         		/*check if there is an entry to dequeue */
-        		checkQueueFordeQueue(j ,db->EvictQueue);
+        		//checkQueueFordeQueue(j ,db->EvictQueue);
 
         		/*choose BestEviction Entry from Queue*/
-        		de = chooseBestKeyFromQueue(db->EvictQueue);
+        		de = chooseBestKeyFromQueue_(db->EvictQueue);
         		if(de == NULL){
         			if(db->EvictQueue->front == db->EvictQueue->rear){
             			serverLog(LL_NOTICE, "[DB : %d]There is no Entry in queue", j);
             			return 0;
         			}
-        			else{
-            			serverLog(LL_WARNING, "[DB : %d]Fail to choose Candidate Entry", j);
-            			serverAssert(0);
+        			else {
+            			serverLog(LL_VERBOSE, "Waiting for ROCKSDB Flushing");
+            			//serverLog(LL_WARNING, "[DB : %d]Fail to choose Candidate Entry", j);
+            			//serverAssert(0);
             			//return 0;
-
         			}
         		} else {
-
         			serverLog(LL_DEBUG, "[DB : %d]Success to choose Candidate Entry", j);
+        			serverLog(LL_VERBOSE, "Found");
         			bestkey = dictGetKey(de);
         			bestdbid = j;
-
         		}
 
         }

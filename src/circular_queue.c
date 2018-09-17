@@ -76,9 +76,9 @@ void *dequeue(Queue *queue) {
     robj *obj = dictGetVal(retVal);
     serverAssert(obj != NULL);
 
-    if(obj->location != LOCATION_PERSISTED) {
-        return NULL;
-    }
+//    if(obj->location != LOCATION_PERSISTED) {
+//        return NULL;
+//    }
 
     queue->buf[queue->rear] = NULL;
     queue->rear = (queue->rear + 1) % queue->max;
@@ -163,6 +163,8 @@ int checkQueueFordeQueue(int dbnum, Queue *queue){
 	if(queue->rear == queue->front){
 		return 0;
 	}
+	serverLog(LL_VERBOSE, "[QUEUE Rear : %d, Key_offset : %d, Front : %d, QUEUE_SIZE : %d]",
+			queue->rear, queue->key_offset, queue->front, queue->max);
 
 	if(queue->rear == queue->key_offset){
 
@@ -190,7 +192,6 @@ int checkQueueFordeQueue(int dbnum, Queue *queue){
 		}
 	}
 	else {
-
 		if(queue->rear != queue->key_offset){
 			serverLog(LL_VERBOSE, "Dequeue Multiple Entries");
 			dictEntry *dequeueEntry = NULL;
@@ -220,4 +221,29 @@ int checkQueueFordeQueue(int dbnum, Queue *queue){
 		}
 	}
 	return 1;
+}
+
+void *chooseBestKeyFromQueue_(Queue *queue){
+	dictEntry *bestEntry = NULL;
+	dictEntry *bestEntryCandidate = NULL;
+	if(queue->front == queue->rear) {
+		serverLog(LL_DEBUG, "ENQUEUE ENTRY IS NULL");
+		return NULL;
+	} else {
+		bestEntryCandidate = queue->buf[queue->rear];
+		robj * obj = dictGetVal(bestEntryCandidate);
+		if (obj->location == LOCATION_REDIS_ONLY) {
+			bestEntry = dequeue(queue);
+		}
+//		if (obj->location == LOCATION_PERSISTED) {
+//			dequeue(queue);
+//		   //decrRefCount(obj);
+//			return NULL;
+//		} else if (obj->location == LOCATION_REDIS_ONLY) {
+//			bestEntry = bestEntryCandidate;
+//		}
+		return bestEntry;
+	}
+	assert(0);
+	return NULL;
 }
