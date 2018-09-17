@@ -424,12 +424,9 @@ serverLog(LL_DEBUG ,"PREPARING WRITE FOR ROCKSDB");
  		sds field_key = dictGetKey(de);
  		sds val = dictGetVal(de);
 
-
  		sprintf(keystr, "%s:%s%s",keyobj->ptr,REL_MODEL_FIELD_PREFIX, field_key);
  		sds rocksKey = sdsnew(keystr);
  		robj *value = createStringObject(val, sdslen(val));
-
-
  		setPersistentKey(db->persistent_store, rocksKey, sdslen(rocksKey), value->ptr, sdslen(value->ptr));
  	}
     targetVal->location = LOCATION_PERSISTED;

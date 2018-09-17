@@ -445,8 +445,7 @@ int freeMemoryIfNeeded(void) {
         			}
         		} else {
         			serverLog(LL_DEBUG, "[DB : %d]Success to choose Candidate Entry", j);
-        			serverLog(LL_VERBOSE, "Found");
-        			bestkey = dictGetKey(de);
+         			bestkey = dictGetKey(de);
         			bestdbid = j;
         		}
 

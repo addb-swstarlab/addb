@@ -46,7 +46,8 @@ int enqueue(Queue *queue, dictEntry *entry) {
 		        }
 		        queue->buf =
 		                (dictEntry **)zrealloc(queue->buf, sizeof(dictEntry *) * newCapacity);
-		        queue->rear = 0;
+		        //queue->rear = 0;
+		        queue->rear = (queue->rear) % queue->max;
 		        queue->front = queue->max - 1;
 		        queue->max = newCapacity;
 		        serverLog(LL_DEBUG, "[EXTEND AFTER] queue->rear : %d, queue->front : %d, queue->max : %d",
@@ -76,9 +77,9 @@ void *dequeue(Queue *queue) {
     robj *obj = dictGetVal(retVal);
     serverAssert(obj != NULL);
 
-//    if(obj->location != LOCATION_PERSISTED) {
-//        return NULL;
-//    }
+    if(obj->location != LOCATION_PERSISTED) {
+        return NULL;
+    }
 
     queue->buf[queue->rear] = NULL;
     queue->rear = (queue->rear + 1) % queue->max;
@@ -226,22 +227,19 @@ int checkQueueFordeQueue(int dbnum, Queue *queue){
 void *chooseBestKeyFromQueue_(Queue *queue){
 	dictEntry *bestEntry = NULL;
 	dictEntry *bestEntryCandidate = NULL;
+
 	if(queue->front == queue->rear) {
-		serverLog(LL_DEBUG, "ENQUEUE ENTRY IS NULL");
+		serverLog(LL_VERBOSE, "ENQUEUE ENTRY IS NULL");
 		return NULL;
 	} else {
+		serverLog(LL_DEBUG, "buf front : %d, buf rear : %d, size : %d", queue->front, queue->rear, queue->max);
 		bestEntryCandidate = queue->buf[queue->rear];
 		robj * obj = dictGetVal(bestEntryCandidate);
-		if (obj->location == LOCATION_REDIS_ONLY) {
+		if (obj->location == LOCATION_PERSISTED) {
 			bestEntry = dequeue(queue);
+		} else if (obj->location == LOCATION_REDIS_ONLY) {
+			bestEntry = bestEntryCandidate;
 		}
-//		if (obj->location == LOCATION_PERSISTED) {
-//			dequeue(queue);
-//		   //decrRefCount(obj);
-//			return NULL;
-//		} else if (obj->location == LOCATION_REDIS_ONLY) {
-//			bestEntry = bestEntryCandidate;
-//		}
 		return bestEntry;
 	}
 	assert(0);
