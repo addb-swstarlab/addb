@@ -17,7 +17,9 @@ Queue *createArrayQueue() {
     queue->front = 0;
     queue->max = DEFAULT_ARRAY_QUEUE_SIZE;
     queue->key_offset = 0;
+    queue->size = 0;
     queue->buf = (dictEntry **)zmalloc(sizeof(dictEntry *) * queue->max);
+    queue->extend = 0;
     return queue;
 }
 
@@ -49,7 +51,10 @@ int enqueue(Queue *queue, dictEntry *entry) {
 		        //queue->rear = 0;
 		        queue->rear = (queue->rear) % queue->max;
 		        queue->front = queue->max - 1;
+		        queue->key_offset = queue->front + 1;
 		        queue->max = newCapacity;
+		        queue->extend = 1;
+
 		        serverLog(LL_DEBUG, "[EXTEND AFTER] queue->rear : %d, queue->front : %d, queue->max : %d",
 		                                queue->rear, queue->front, queue->max);
 		    }
@@ -57,6 +62,8 @@ int enqueue(Queue *queue, dictEntry *entry) {
 		    queue->buf[queue->front] = entry;
 
 		    queue->front = (queue->front + 1) % queue->max;
+		    queue->size++;
+
 		    result = 1;
 		    return result;
 	}
@@ -70,19 +77,46 @@ void *dequeue(Queue *queue) {
     }
     retVal = queue->buf[queue->rear];
     if(retVal == NULL) {
-        serverLog(LL_DEBUG, "queue->rear : %d, queue->front : %d, queue->max : %d",
+        serverLog(LL_VERBOSE, "dequeue : queue->rear : %d, queue->front : %d, queue->max : %d",
                 queue->rear, queue->front, queue->max);
-        serverAssert(0);
+       queue->rear = (queue->rear + 1) % queue->max;
+    	return NULL;
     }
     robj *obj = dictGetVal(retVal);
     serverAssert(obj != NULL);
 
-    if(obj->location != LOCATION_PERSISTED) {
-        return NULL;
+//    if(obj->location != LOCATION_PERSISTED) {
+//        serverLog(LL_VERBOSE, "hello");
+//        return NULL;
+//    }
+    if(obj->location == LOCATION_PERSISTED) {
+      queue->buf[queue->rear] = NULL;
+      queue->rear = (queue->rear + 1) % queue->max;
+      queue->size--;
     }
 
-    queue->buf[queue->rear] = NULL;
-    queue->rear = (queue->rear + 1) % queue->max;
+    return retVal;
+}
+
+void *dequeueForFlush(Queue *queue) {
+    dictEntry *retVal = NULL;
+    /* If it is empty, return null */
+    if(queue->rear == queue->front) {
+        return NULL;
+    }
+    retVal = queue->buf[queue->key_offset];
+    if(retVal == NULL) {
+        serverLog(LL_VERBOSE, "dequeue_for_flush : queue->rear : %d, queue->front : %d, queue->max : %d",
+                queue->rear, queue->front, queue->max);
+        return NULL;
+    }
+    robj *obj = dictGetVal(retVal);
+    serverAssert(obj != NULL);
+
+    if(obj->location != LOCATION_REDIS_ONLY) {
+        return NULL;
+    }
+    queue->key_offset = (queue->key_offset + 1) % queue->max;
     return retVal;
 }
 
@@ -224,24 +258,59 @@ int checkQueueFordeQueue(int dbnum, Queue *queue){
 	return 1;
 }
 
-void *chooseBestKeyFromQueue_(Queue *queue){
+void *chooseClearKeyFromQueue_(Queue *queue) {
 	dictEntry *bestEntry = NULL;
+	dictEntry *clearEntry = NULL;
 	dictEntry *bestEntryCandidate = NULL;
 
 	if(queue->front == queue->rear) {
-		serverLog(LL_VERBOSE, "ENQUEUE ENTRY IS NULL");
 		return NULL;
 	} else {
-		serverLog(LL_DEBUG, "buf front : %d, buf rear : %d, size : %d", queue->front, queue->rear, queue->max);
-		bestEntryCandidate = queue->buf[queue->rear];
+		clearEntry = dequeue(queue);
+		if (clearEntry == NULL) {
+			return NULL;
+		}
+		robj * clearobj = dictGetVal(clearEntry);
+		if (clearobj->location == LOCATION_REDIS_ONLY ) {
+			if (queue->extend == 1) {
+				queue->rear = (queue->max)/2;
+				queue->extend = 0;
+			}
+			return NULL;
+		} else if (clearobj->location == LOCATION_FLUSH ) {
+			return NULL;
+		} else if ( clearobj->location == LOCATION_PERSISTED ) {
+			serverLog(LL_DEBUG, "clear [%d] : dequeue :%s,  rear : %d", queue->size, dictGetKey(clearEntry), queue->rear);
+			return clearEntry;
+		}
+	}
+	return NULL;
+}
+
+void *chooseBestKeyFromQueue_(Queue *queue) {
+	dictEntry *bestEntry = NULL;
+	dictEntry *clearEntry = NULL;
+	dictEntry *bestEntryCandidate = NULL;
+	serverLog(LL_DEBUG, "Queue Status [%d] : front : %d, rear : %d, size : %d, key_offset: %d",
+			queue->size, queue->front, queue->rear, queue->max, queue->key_offset);
+
+	if(queue->front == queue->rear) {
+		return NULL;
+	} else if ( queue->key_offset  == queue->front ) {
+		return NULL;
+	} else if ( (queue->key_offset + 1) % queue->max  == queue->rear ) {
+		return NULL;
+	} else {
+		bestEntryCandidate = dequeueForFlush(queue);
+		serverLog(LL_DEBUG, "bestkey = %s , key_offset : %d" , dictGetKey(bestEntryCandidate), queue->key_offset - 1);
+
 		robj * obj = dictGetVal(bestEntryCandidate);
 		if (obj->location == LOCATION_PERSISTED) {
-			bestEntry = dequeue(queue);
-		} else if (obj->location == LOCATION_REDIS_ONLY) {
-			bestEntry = bestEntryCandidate;
+			serverAssert(0);
 		}
-		return bestEntry;
+		obj->location = LOCATION_FLUSH;
+		return bestEntryCandidate;
 	}
-	assert(0);
+	serverAssert(0);
 	return NULL;
 }

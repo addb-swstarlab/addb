@@ -123,6 +123,48 @@ int dbPersistOrClear(redisDb *db, robj *key) {
     }
 }
 
+int dbPersist_(redisDb *db, robj *key) {
+	/* If the value is composed of a few allocations, to free in a lazy way
+	 * is actually just slower... So under a certain limit we just free
+	 * the object synchronously. */
+	dictEntry *de = dictFind(db->dict, key->ptr);
+	if (de) {
+		robj *val = dictGetVal(de);
+		if (val->location != LOCATION_REDIS_ONLY) 	serverAssert(0);
+		if (val->encoding == OBJ_ENCODING_REL) {
+			bioCreateBackgroundJob(BIO_TIERING, db, key, val);
+		} else { // for prototype
+			/*ToDO distinct with #define*/
+			serverLog(LL_DEBUG, "EVICT NOT RELMODEL");
+			bioCreateBackgroundJob(BIO_TIERING, db, key,
+					getDecodedObject(dictGetVal(de)));
+		}
+		return C_OK;
+	}
+	return C_ERR;
+}
+
+int dbClear_(redisDb *db, robj *key) {
+	/* If the value is composed of a few allocations, to free in a lazy way
+	 * is actually just slower... So under a certain limit we just free
+	 * the object synchronously. */
+	dictEntry *de = dictFind(db->dict, key->ptr);
+	if (de) {
+		robj *val = dictGetVal(de);
+		if (val->location != LOCATION_PERSISTED) serverAssert(0);
+		/* Deleting an entry from the expires dict will not free the sds of
+		 * the key, because it is shared with the main dictionary. */
+		if (dictSize(db->expires) > 0)
+			dictDelete(db->expires, key->ptr);
+		serverLog(LL_DEBUG, "DELETE PERSISTED ENTRY KEY : %s",
+				(char *) key->ptr);
+		dictEntry *entry = dictUnlink(db->dict, key->ptr);
+		bioCreateBackgroundJob(BIO_TIERED_FREE, entry, NULL, NULL);
+		return C_OK;
+	}
+	return C_ERR;
+}
+
 /* Empty a Redis DB asynchronously. What the function does actually is to
  * create a new empty set of hash tables and scheduling the old ones for
  * lazy freeing. */

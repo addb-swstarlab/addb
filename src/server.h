@@ -595,8 +595,8 @@ typedef struct RedisModuleDigest {
 
 /* ADDB */
 #define LOCATION_REDIS_ONLY 0
-//#define LOCATION_FLUSH      1  //NOT USED NOW
 #define LOCATION_PERSISTED 1
+#define LOCATION_FLUSH 2
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
 typedef struct redisObject {
@@ -1817,6 +1817,8 @@ void slotToKeyDel(robj *key);
 void slotToKeyFlush(void);
 int dbAsyncDelete(redisDb *db, robj *key);
 int dbPersistOrClear(redisDb *db, robj *key);
+int dbPersist_(redisDb *db, robj *key);
+int dbClear_(redisDb *db, robj *key);
 void emptyDbAsync(redisDb *db);
 void slotToKeyFlushAsync(void);
 size_t lazyfreeGetPendingObjectsCount(void);

@@ -413,13 +413,16 @@ void fieldsAndValueCommand(client *c){
 
 
 void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal){
-serverLog(LL_DEBUG ,"PREPARING WRITE FOR ROCKSDB");
+	 serverLog(LL_DEBUG ,"PREPARING WRITE FOR ROCKSDB");
     dictIterator *di;
     dictEntry *de;
     char keystr[SDS_DATA_KEY_MAX];
 
  	dict *hashdictObj = (dict *) targetVal->ptr;
+ 	if (hashdictObj == NULL) assert(0);
+
  	di = dictGetSafeIterator(hashdictObj);
+ 	if (di == NULL) assert(0);
  	while((de = dictNext(di)) != NULL){
  		sds field_key = dictGetKey(de);
  		sds val = dictGetVal(de);

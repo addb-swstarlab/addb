@@ -413,9 +413,11 @@ int freeMemoryIfNeeded(void) {
         int j, k, i, keys_freed = 0;
         static int next_db = 0;
         sds bestkey = NULL;
+        sds victimKey = NULL;
         int bestdbid;
         redisDb *db;
         dict *dict;
+        dictEntry *victim;
         dictEntry *de;
         int isPersisted = 0;
         int isFlushed = 0;
@@ -432,21 +434,18 @@ int freeMemoryIfNeeded(void) {
 
         		/*choose BestEviction Entry from Queue*/
         		de = chooseBestKeyFromQueue_(db->EvictQueue);
-        		if(de == NULL){
-        			if(db->EvictQueue->front == db->EvictQueue->rear){
-            			serverLog(LL_NOTICE, "[DB : %d]There is no Entry in queue", j);
-            			return 0;
-        			}
-        			else {
-            			serverLog(LL_VERBOSE, "Waiting for ROCKSDB Flushing");
-            			//serverLog(LL_WARNING, "[DB : %d]Fail to choose Candidate Entry", j);
-            			//serverAssert(0);
-            			//return 0;
-        			}
+        		if( de == NULL ) {
+        			//if(db->EvictQueue->front == db->EvictQueue->rear) return 0;
+        			return 0;
         		} else {
         			serverLog(LL_DEBUG, "[DB : %d]Success to choose Candidate Entry", j);
          			bestkey = dictGetKey(de);
         			bestdbid = j;
+        		}
+
+        		victim = chooseClearKeyFromQueue_(db->EvictQueue);
+        		if (victim != NULL) {
+        			victimKey = dictGetKey(victim);
         		}
 
         }
@@ -491,7 +490,13 @@ int freeMemoryIfNeeded(void) {
         		latencyStartMonitor(eviction_latency);
         		if(server.tiering_enabled){
         			//Relational Model Eviction
-        			isPersisted = dbPersistOrClear(db, keyobj);
+        			//isPersisted = dbPersistOrClear(db, keyobj);
+        			if (victimKey != NULL) {
+        			 robj *victimKeyobj = createStringObject(victimKey, sdslen(victimKey));
+        			 isFlushed = dbClear_(db, victimKeyobj);
+        			 decrRefCount(victimKeyobj);
+        			}
+        			isPersisted = dbPersist_(db, keyobj);
         		} else {
 
         			if(server.lazyfree_lazy_eviction){

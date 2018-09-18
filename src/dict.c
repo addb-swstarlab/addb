@@ -587,6 +587,7 @@ dictEntry *dictNext(dictIterator *iter)
                     break;
                 }
             }
+            //assert(ht->table[iter->index]);
             iter->entry = ht->table[iter->index];
         } else {
             iter->entry = iter->nextEntry;
