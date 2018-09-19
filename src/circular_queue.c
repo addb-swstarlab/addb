@@ -19,7 +19,7 @@ Queue *createArrayQueue() {
     queue->key_offset = 0;
     queue->size = 0;
     queue->buf = (dictEntry **)zmalloc(sizeof(dictEntry *) * queue->max);
-    queue->extend = 0;
+    queue->extend = COMPLETED;
     return queue;
 }
 
@@ -48,12 +48,12 @@ int enqueue(Queue *queue, dictEntry *entry) {
 		        }
 		        queue->buf =
 		                (dictEntry **)zrealloc(queue->buf, sizeof(dictEntry *) * newCapacity);
-		        //queue->rear = 0;
-		        queue->rear = (queue->rear) % queue->max;
+		        queue->rear = 0;
+		        //queue->rear = (queue->rear) % queue->max;
 		        queue->front = queue->max - 1;
 		        queue->key_offset = queue->front + 1;
 		        queue->max = newCapacity;
-		        queue->extend = 1;
+		        queue->extend = EXTEND;
 
 		        serverLog(LL_DEBUG, "[EXTEND AFTER] queue->rear : %d, queue->front : %d, queue->max : %d",
 		                                queue->rear, queue->front, queue->max);
@@ -85,10 +85,6 @@ void *dequeue(Queue *queue) {
     robj *obj = dictGetVal(retVal);
     serverAssert(obj != NULL);
 
-//    if(obj->location != LOCATION_PERSISTED) {
-//        serverLog(LL_VERBOSE, "hello");
-//        return NULL;
-//    }
     if(obj->location == LOCATION_PERSISTED) {
       queue->buf[queue->rear] = NULL;
       queue->rear = (queue->rear + 1) % queue->max;
@@ -264,22 +260,32 @@ void *chooseClearKeyFromQueue_(Queue *queue) {
 	dictEntry *bestEntryCandidate = NULL;
 
 	if(queue->front == queue->rear) {
+		/* no Entry to Clear */
 		return NULL;
 	} else {
 		clearEntry = dequeue(queue);
 		if (clearEntry == NULL) {
+			/* Because of Queue extension, there can exists null entry */
 			return NULL;
 		}
 		robj * clearobj = dictGetVal(clearEntry);
 		if (clearobj->location == LOCATION_REDIS_ONLY ) {
-			if (queue->extend == 1) {
+			if (queue->extend == EXTEND) {
+				/* if key pointer jump to front, because of queue extension,
+				 * rear should follow front, but rear start from 0, require to process
+				 * LOCATION_PERSISTED entry
+				 */
 				queue->rear = (queue->max)/2;
-				queue->extend = 0;
+				queue->extend = COMPLETED;
 			}
 			return NULL;
 		} else if (clearobj->location == LOCATION_FLUSH ) {
+			/* Waiting for process of flushing to RockDB*/
 			return NULL;
 		} else if ( clearobj->location == LOCATION_PERSISTED ) {
+			/* determine victim to clean data structure to RocksDB,
+			 * because LOCATION_PERSISTED shows that tiering is end
+			 */
 			serverLog(LL_DEBUG, "clear [%d] : dequeue :%s,  rear : %d", queue->size, dictGetKey(clearEntry), queue->rear);
 			return clearEntry;
 		}
@@ -295,10 +301,13 @@ void *chooseBestKeyFromQueue_(Queue *queue) {
 			queue->size, queue->front, queue->rear, queue->max, queue->key_offset);
 
 	if(queue->front == queue->rear) {
+		/* no Entry to Clear */
 		return NULL;
 	} else if ( queue->key_offset  == queue->front ) {
+		/* no Entry to Flush, waiting for data input */
 		return NULL;
 	} else if ( (queue->key_offset + 1) % queue->max  == queue->rear ) {
+		/* In circular queue, key offset should not exceed rear */
 		return NULL;
 	} else {
 		bestEntryCandidate = dequeueForFlush(queue);

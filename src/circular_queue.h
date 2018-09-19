@@ -23,6 +23,11 @@ typedef struct _arrayQueue {
     dictEntry **buf;
 } Queue;
 
+enum {
+	EXTEND,
+	COMPLETED
+};
+
 Queue *createArrayQueue();
 //void enqueue(Queue *queue, dictEntry *entry);
 int enqueue(Queue *queue, dictEntry *entry);
