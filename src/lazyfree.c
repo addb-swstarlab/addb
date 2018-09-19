@@ -132,7 +132,7 @@ int dbPersist_(redisDb *db, robj *key) {
 		robj *val = dictGetVal(de);
 		if (val->location != LOCATION_REDIS_ONLY) 	serverAssert(0);
 		if (val->encoding == OBJ_ENCODING_REL) {
-			serverLog(LL_VERBOSE, "TIERING PERSISTED ENTRY KEY : %s",
+			serverLog(LL_DEBUG, "TIERING PERSISTED ENTRY KEY : %s",
 					(char *) key->ptr);
 			bioCreateBackgroundJob(BIO_TIERING, db, key, val);
 		} else { // for prototype
@@ -158,7 +158,7 @@ int dbClear_(redisDb *db, robj *key) {
 		 * the key, because it is shared with the main dictionary. */
 		if (dictSize(db->expires) > 0)
 			dictDelete(db->expires, key->ptr);
-		serverLog(LL_VERBOSE, "DELETE PERSISTED ENTRY KEY : %s",
+		serverLog(LL_DEBUG, "DELETE PERSISTED ENTRY KEY : %s",
 				(char *) key->ptr);
 		dictEntry *entry = dictUnlink(db->dict, key->ptr);
 		bioCreateBackgroundJob(BIO_TIERED_FREE, entry, NULL, NULL);
