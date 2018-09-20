@@ -446,6 +446,8 @@ int freeMemoryIfNeeded(void) {
         		victim = chooseClearKeyFromQueue_(db->EvictQueue);
         		if (victim != NULL) {
         			victimKey = dictGetKey(victim);
+        		} else {
+        			serverLog(LL_DEBUG, "CLEAR VICTIM is NULL [rear: %d]" , db->EvictQueue->rear);
         		}
 
         }

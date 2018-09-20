@@ -130,7 +130,7 @@ int dbPersist_(redisDb *db, robj *key) {
 	dictEntry *de = dictFind(db->dict, key->ptr);
 	if (de) {
 		robj *val = dictGetVal(de);
-		if (val->location != LOCATION_REDIS_ONLY) 	serverAssert(0);
+		if (val->location != LOCATION_FLUSH) serverAssert(0);
 		if (val->encoding == OBJ_ENCODING_REL) {
 			serverLog(LL_DEBUG, "TIERING PERSISTED ENTRY KEY : %s",
 					(char *) key->ptr);
