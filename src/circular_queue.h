@@ -11,7 +11,7 @@
 #include "dict.h"
 #include <stdlib.h>
 
-#define DEFAULT_ARRAY_QUEUE_SIZE 4
+#define DEFAULT_ARRAY_QUEUE_SIZE 1000000
 
 typedef struct _arrayQueue {
     int32_t rear;
