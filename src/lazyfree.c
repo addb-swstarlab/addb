@@ -6,6 +6,10 @@
 static size_t lazyfree_objects = 0;
 pthread_mutex_t lazyfree_objects_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+enum {
+	FAIL,
+	OK
+};
 /* Return the number of currently pending objects to free. */
 size_t lazyfreeGetPendingObjectsCount(void) {
     size_t aux;
@@ -141,9 +145,9 @@ int dbPersist_(redisDb *db, robj *key) {
 			bioCreateBackgroundJob(BIO_TIERING, db, key,
 					getDecodedObject(dictGetVal(de)));
 		}
-		return C_OK;
+		return OK;
 	}
-	return C_ERR;
+	return FAIL;
 }
 
 int dbClear_(redisDb *db, robj *key) {
@@ -163,9 +167,9 @@ int dbClear_(redisDb *db, robj *key) {
 		dictEntry *entry = dictUnlink(db->dict, key->ptr);
 		bioCreateBackgroundJob(BIO_TIERED_FREE, entry, NULL, NULL);
 		server.stat_clearkeys++;
-		return C_OK;
+		return OK;
 	}
-	return C_ERR;
+	return FAIL;
 }
 
 /* Empty a Redis DB asynchronously. What the function does actually is to

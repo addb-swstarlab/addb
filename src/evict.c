@@ -381,6 +381,10 @@ int freeMemoryIfNeeded(void) {
     long long delta;
     int slaves = listLength(server.slaves);
     int isClear = 0;
+    int isPersisted = 0;
+    int isFlushed = 0;
+    int isEnd = 0;
+    int victim_free = 0;
 
     /* When clients are paused the dataset should be static not just from the
      * POV of clients not being able to write, but also from the POV of
@@ -390,7 +394,7 @@ int freeMemoryIfNeeded(void) {
     /* Check if we are over the memory usage limit. If we are not, no need
      * to subtract the slaves output buffers. We can just return ASAP. */
     mem_reported = zmalloc_used_memory();
-    if (mem_reported <= server.maxmemory * 0.8) return C_OK;
+    if (mem_reported <= server.maxmemory * 8/10) return C_OK;
 
     /* Remove the size of slaves output buffers and AOF buffer from the
      * count of used memory. */
@@ -399,7 +403,7 @@ int freeMemoryIfNeeded(void) {
     mem_used = (mem_used > overhead) ? mem_used-overhead : 0;
 
     /* Check if we are still over the memory limit. */
-    if (mem_used <= server.maxmemory * 0.8) return C_OK;
+    if (mem_used <= server.maxmemory * 8/10) return C_OK;
 
     /* Compute how much memory we need to free. */
     mem_tofree = mem_used - server.maxmemory;
@@ -414,8 +418,10 @@ int freeMemoryIfNeeded(void) {
     latencyStartMonitor(latency);
 // while (mem_freed < mem_tofree) {
     while (!isClear) {
-    	  serverLog(LL_DEBUG, "[FREE_MEMORY CALLED]- [%d] : maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
-    			  index++, server.maxmemory, mem_used, mem_tofree, mem_freed);
+    	  serverLog(LL_DEBUG, "[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.8 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
+    			  index++, server.maxmemory*8/10, server.maxmemory, mem_used, mem_tofree, mem_freed);
+    	  serverLog(LL_DEBUG, "[FREE_MEMORY CALLED]- isFlushed : %d, isClear :%d, isPersisted :%d, isEnd : %d" ,
+    			  isFlushed, isClear, isPersisted, isEnd );
 
     	 int j, k, i, keys_freed = 0;
         static int next_db = 0;
@@ -426,24 +432,29 @@ int freeMemoryIfNeeded(void) {
         dict *dict;
         dictEntry *victim = NULL;
         dictEntry *de;
-        int isPersisted = 0;
-        int isFlushed = 0;
 
         if (server.maxmemory_policy & (MAXMEMORY_FLAG_LRU|MAXMEMORY_FLAG_LFU) ||
             server.maxmemory_policy == MAXMEMORY_VOLATILE_TTL){
 			for (j = 0; j < server.dbnum; j++) {
 				db = server.db + j;
-				if (isEmpty(db->EvictQueue)) return C_OK;
-				if (db->FreeQueue->size > db->FreeQueue->max * 0.3) {
+
+				if (isFlushed || db->FreeQueue->size == db->FreeQueue->max - 1) {
 					victim = chooseClearKeyFromQueue_(db->FreeQueue);
-					break;
-				} else {
+				}
+				if (!isFlushed) {
 					de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
-					if (de == NULL) break;
-					serverLog(LL_DEBUG, "[DB : %d] Success to choose Candidate Entry", j);
-					bestkey = dictGetKey(de);
-					bestdbid = j;
-					break;
+					if (de != NULL) {
+						serverLog(LL_DEBUG,
+								"[DB : %d] Success to choose Candidate Entry",
+								j);
+						bestkey = dictGetKey(de);
+						bestdbid = j;
+						break;
+					} else {
+						if(isEmpty(db->EvictQueue)) {
+							return C_OK;
+						}
+					}
 				}
 			}
         }
@@ -541,9 +552,11 @@ int freeMemoryIfNeeded(void) {
 				decrRefCount(victimKeyobj);
 				serverLog(LL_DEBUG, "CLEAR VICTIM SUCCESS [rear: %d]",
 						db->FreeQueue->rear);
+				victim_free++;
 			} else {
 				serverLog(LL_DEBUG, "CLEAR VICTIM is NULL [rear: %d]",
 						db->FreeQueue->rear);
+				isEnd = 1;
 			}
 
         	 if (!keys_freed && !server.tiering_enabled) {
@@ -552,10 +565,14 @@ int freeMemoryIfNeeded(void) {
         		 goto cant_free; /* nothing to free... */
         	 }
 
-        	 if (isPersisted) break;
-        	 serverLog(LL_DEBUG,"clearkeys : %d , freed_key : %d, size : %d" , server.stat_clearkeys, freed_key, db->FreeQueue->size);
-        	 if ( server.stat_clearkeys - freed_key >= db->FreeQueue->size * 0.1 ) {
+        	 serverLog(LL_DEBUG,"clearkeys : %d , freed_key : %d, size : %d, size * 0.1 : %d" ,
+        			 server.stat_clearkeys, freed_key, db->FreeQueue->size, db->FreeQueue->size/10);
+        	 //if ( isFlushed && (server.stat_clearkeys - freed_key >= db->FreeQueue->size/10)) {
+        	 if ( isFlushed && isEnd) {
         		 isClear = 1;
+        	 }
+        	 if (isPersisted && !isFlushed) {
+        		 break;
         	 }
 
     }
