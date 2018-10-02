@@ -162,6 +162,7 @@ int dbClear_(redisDb *db, robj *key) {
 				(char *) key->ptr);
 		dictEntry *entry = dictUnlink(db->dict, key->ptr);
 		bioCreateBackgroundJob(BIO_TIERED_FREE, entry, NULL, NULL);
+		server.stat_clearkeys++;
 		return C_OK;
 	}
 	return C_ERR;

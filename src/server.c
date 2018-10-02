@@ -1806,6 +1806,7 @@ void resetServerStats(void) {
     server.stat_numconnections = 0;
     server.stat_expiredkeys = 0;
     server.stat_evictedkeys = 0;
+    server.stat_clearkeys = 0;
     server.stat_keyspace_misses = 0;
     server.stat_keyspace_hits = 0;
     server.stat_active_defrag_hits = 0;
@@ -1898,7 +1899,8 @@ void initServer(void) {
         /*addb create Metadict*/
         server.db[j].Metadict = dictCreate(&dbDictType, NULL);
 
-        server.db[j].EvictQueue = createArrayQueue();
+        server.db[j].EvictQueue = createArrayQueue(DEFAULT_ARRAY_QUEUE_SIZE);
+        server.db[j].FreeQueue = createArrayQueue(DEFAULT_FREE_QUEUE_SIZE);
 
         server.db[j].blocking_keys = dictCreate(&keylistDictType,NULL);
         server.db[j].ready_keys = dictCreate(&objectKeyPointerValueDictType,NULL);
