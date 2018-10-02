@@ -216,10 +216,13 @@ void *bioProcessBackgroundJobs(void *arg) {
             dictEntry *de = (dictEntry *)job->arg1;
             sds key = dictGetKey(de);
             robj* val = dictGetVal(de);
+            //serverLog(1, "FREE Redis Structure[KEY : %s, VAL : %s]", (char *)key, (char *)val);
 
             sdsfree(key);
             decrRefCount(val);
             zfree(de);
+            //server.stat_clearkeys++;
+
         } else {
             serverPanic("Wrong job type in bioProcessBackgroundJobs().");
         }

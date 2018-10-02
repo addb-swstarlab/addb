@@ -431,8 +431,10 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal){
  		sds rocksKey = sdsnew(keystr);
  		robj *value = createStringObject(val, sdslen(val));
  		setPersistentKey(db->persistent_store, rocksKey, sdslen(rocksKey), value->ptr, sdslen(value->ptr));
+ 		sdsfree(rocksKey);
+ 		decrRefCount(value);
  	}
-    targetVal->location = LOCATION_PERSISTED;
+   targetVal->location = LOCATION_PERSISTED;
  	dictReleaseIterator(di);
 }
 
@@ -627,6 +629,7 @@ void queueEmptyCommand(client *c){
 
     	redisDb *db = server.db + j;
     	initializeQueue(db->EvictQueue);
+    	initializeQueue(db->FreeQueue);
    }
 	addReply(c, shared.ok);
 }

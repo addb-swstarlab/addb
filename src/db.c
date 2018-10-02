@@ -490,6 +490,7 @@ long long emptyDb(int dbnum, int flags, void(callback)(void*)) {
 
     	redisDb *db = server.db + j;
     	initializeQueue(db->EvictQueue);
+    	initializeQueue(db->FreeQueue);
    }
     if (dbnum == -1) flushSlaveKeysWithExpireList();
     return removed;

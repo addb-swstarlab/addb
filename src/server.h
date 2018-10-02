@@ -641,6 +641,7 @@ typedef struct redisDb {
     dict *Metadict;            /*using for relational metadata */
 
     Queue *EvictQueue;        /*used for best key management */
+    Queue *FreeQueue;
     persistent_store_t *persistent_store;
 } redisDb;
 
@@ -967,6 +968,8 @@ struct redisServer {
     long long stat_numconnections;  /* Number of connections received */
     long long stat_expiredkeys;     /* Number of expired keys */
     long long stat_evictedkeys;     /* Number of evicted keys (maxmemory) */
+    /* addb */
+    long long stat_clearkeys;
     long long stat_keyspace_hits;   /* Number of successful lookups of keys */
     long long stat_keyspace_misses; /* Number of failed lookups of keys */
     long long stat_active_defrag_hits;      /* number of allocations moved */

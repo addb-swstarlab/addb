@@ -376,10 +376,11 @@ size_t freeMemoryGetNotCountedMemory(void) {
 }
 
 int freeMemoryIfNeeded(void) {
-    size_t mem_reported, mem_used, mem_tofree, mem_freed;
+    size_t mem_reported, mem_used, mem_tofree, mem_freed, freed_key;
     mstime_t latency, eviction_latency;
     long long delta;
     int slaves = listLength(server.slaves);
+    int isClear = 0;
 
     /* When clients are paused the dataset should be static not just from the
      * POV of clients not being able to write, but also from the POV of
@@ -389,7 +390,7 @@ int freeMemoryIfNeeded(void) {
     /* Check if we are over the memory usage limit. If we are not, no need
      * to subtract the slaves output buffers. We can just return ASAP. */
     mem_reported = zmalloc_used_memory();
-    if (mem_reported <= server.maxmemory) return C_OK;
+    if (mem_reported <= server.maxmemory * 0.8) return C_OK;
 
     /* Remove the size of slaves output buffers and AOF buffer from the
      * count of used memory. */
@@ -398,58 +399,53 @@ int freeMemoryIfNeeded(void) {
     mem_used = (mem_used > overhead) ? mem_used-overhead : 0;
 
     /* Check if we are still over the memory limit. */
-    if (mem_used <= server.maxmemory) return C_OK;
+    if (mem_used <= server.maxmemory * 0.8) return C_OK;
 
     /* Compute how much memory we need to free. */
     mem_tofree = mem_used - server.maxmemory;
     mem_freed = 0;
+    freed_key = server.stat_clearkeys;
+
 
     if (server.maxmemory_policy == MAXMEMORY_NO_EVICTION)
         goto cant_free; /* We need to free memory, but policy forbids. */
 
+    int index = 0;
     latencyStartMonitor(latency);
-    while (mem_freed < mem_tofree) {
-    	serverLog(LL_DEBUG, "[FREE_MEMORY_IF_NEEDED CALLED]");
-        int j, k, i, keys_freed = 0;
+// while (mem_freed < mem_tofree) {
+    while (!isClear) {
+    	  serverLog(LL_DEBUG, "[FREE_MEMORY CALLED]- [%d] : maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
+    			  index++, server.maxmemory, mem_used, mem_tofree, mem_freed);
+
+    	 int j, k, i, keys_freed = 0;
         static int next_db = 0;
         sds bestkey = NULL;
         sds victimKey = NULL;
         int bestdbid;
         redisDb *db;
         dict *dict;
-        dictEntry *victim;
+        dictEntry *victim = NULL;
         dictEntry *de;
         int isPersisted = 0;
         int isFlushed = 0;
 
-        for( j=0 ; j <server.dbnum; j++){
-
-        	if (server.maxmemory_policy & (MAXMEMORY_FLAG_LRU|MAXMEMORY_FLAG_LFU) ||
+        if (server.maxmemory_policy & (MAXMEMORY_FLAG_LRU|MAXMEMORY_FLAG_LFU) ||
             server.maxmemory_policy == MAXMEMORY_VOLATILE_TTL){
-
-        		db = server.db + j;
-
-        		/*check if there is an entry to dequeue */
-        		//checkQueueFordeQueue(j ,db->EvictQueue);
-
-        		/*choose BestEviction Entry from Queue*/
-        		de = chooseBestKeyFromQueue_(db->EvictQueue);
-        		if( de == NULL ) {
-        			//if(db->EvictQueue->front == db->EvictQueue->rear) return 0;
-        			return 0;
-        		} else {
-        			serverLog(LL_DEBUG, "[DB : %d]Success to choose Candidate Entry", j);
-         			bestkey = dictGetKey(de);
-        			bestdbid = j;
-        		}
-
-        		victim = chooseClearKeyFromQueue_(db->EvictQueue);
-        		if (victim != NULL) {
-        			victimKey = dictGetKey(victim);
-        		} else {
-        			serverLog(LL_DEBUG, "CLEAR VICTIM is NULL [rear: %d]" , db->EvictQueue->rear);
-        		}
-
+			for (j = 0; j < server.dbnum; j++) {
+				db = server.db + j;
+				if (isEmpty(db->EvictQueue)) return C_OK;
+				if (db->FreeQueue->size > db->FreeQueue->max * 0.3) {
+					victim = chooseClearKeyFromQueue_(db->FreeQueue);
+					break;
+				} else {
+					de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
+					if (de == NULL) break;
+					serverLog(LL_DEBUG, "[DB : %d] Success to choose Candidate Entry", j);
+					bestkey = dictGetKey(de);
+					bestdbid = j;
+					break;
+				}
+			}
         }
 
         	/* volatile-random and allkeys-random policy */
@@ -477,7 +473,6 @@ int freeMemoryIfNeeded(void) {
         	if(bestkey){
         		db = server.db + bestdbid;
         		robj *keyobj = createStringObject(bestkey,sdslen(bestkey));
-        		serverLog(LL_DEBUG, "SELECTED BESTKEY : %s", (char *)keyobj->ptr);
         		propagateExpire(db,keyobj,server.lazyfree_lazy_eviction);
         		/* We compute the amount of memory freed by db*Delete() alone.
         		 * It is possible that actually the memory needed to propagate
@@ -493,28 +488,24 @@ int freeMemoryIfNeeded(void) {
         		if(server.tiering_enabled){
         			//Relational Model Eviction
         			//isPersisted = dbPersistOrClear(db, keyobj);
-        			if (victimKey != NULL) {
-        			 robj *victimKeyobj = createStringObject(victimKey, sdslen(victimKey));
-        			 isFlushed = dbClear_(db, victimKeyobj);
-        			 decrRefCount(victimKeyobj);
-        			}
         			isPersisted = dbPersist_(db, keyobj);
         		} else {
-
         			if(server.lazyfree_lazy_eviction){
         				dbAsyncDelete(db,keyobj);
         			} else {
         				dbSyncDelete(db,keyobj);
         			}
         		}
-        		latencyEndMonitor(eviction_latency);
+        	  latencyEndMonitor(eviction_latency);
         	  latencyAddSampleIfNeeded("eviction-del",eviction_latency);
         	  latencyRemoveNestedEvent(latency,eviction_latency);
+
         	  delta -= (long long) zmalloc_used_memory();
-        	  mem_freed += delta;
+         	  mem_freed += delta;
+
         	  server.stat_evictedkeys++;
         	  notifyKeyspaceEvent(NOTIFY_EVICTED, "evicted", keyobj, db->id);
-        	  if(!server.tiering_enabled){
+        	  if(!server.tiering_enabled) {
         		  decrRefCount(keyobj);
         	  }
         	  keys_freed++;
@@ -541,14 +532,32 @@ int freeMemoryIfNeeded(void) {
         		  }
         	  }
         	}
-        	 if (!keys_freed) {
+
+			if (victim != NULL) {
+				victimKey = dictGetKey(victim);
+				robj *victimKeyobj = createStringObject(victimKey,
+						sdslen(victimKey));
+				isFlushed = dbClear_(db, victimKeyobj);
+				decrRefCount(victimKeyobj);
+				serverLog(LL_DEBUG, "CLEAR VICTIM SUCCESS [rear: %d]",
+						db->FreeQueue->rear);
+			} else {
+				serverLog(LL_DEBUG, "CLEAR VICTIM is NULL [rear: %d]",
+						db->FreeQueue->rear);
+			}
+
+        	 if (!keys_freed && !server.tiering_enabled) {
         		 latencyEndMonitor(latency);
         		 latencyAddSampleIfNeeded("eviction-cycle",latency);
         		 goto cant_free; /* nothing to free... */
         	 }
-        	 if(isPersisted)
-        		 break;
-        }
+
+        	 if (isPersisted) break;
+        	 serverLog(LL_DEBUG,"clearkeys : %d , freed_key : %d, size : %d" , server.stat_clearkeys, freed_key, db->FreeQueue->size);
+        	 if ( server.stat_clearkeys - freed_key >= db->FreeQueue->size * 0.1 ) {
+        		 isClear = 1;
+        	 }
+
     }
 
     latencyEndMonitor(latency);
