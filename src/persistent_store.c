@@ -117,6 +117,12 @@ void setPersistentKey(persistent_store_t* ps, const void *key, const int keylen,
     }
 }
 
+void setPersistentKeyWithBatch(persistent_store_t* ps, const void *key, const int keylen, const void *val,
+		const int vallen, rocksdb_writebatch_t * writeBatch) {
+    serverLog(0, "Write to RocksDB[KEY : %s, VAL : %s]", (char *)key, (char *)val);
+	 rocksdb_writebatch_put_cf(writeBatch, ps->ps_cf_handles[PERSISTENT_STORE_CF_RW], (const char*)key, keylen, (const char*)val, vallen);
+}
+
 
 //TODO - Implement later
 void getPersistentKey(void){

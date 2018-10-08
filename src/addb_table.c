@@ -411,34 +411,44 @@ void fieldsAndValueCommand(client *c){
 
 }
 
+void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
+	serverLog(LL_DEBUG, "PREPARING WRITE FOR ROCKSDB");
+	dictIterator *di;
+	dictEntry *de;
+	char keystr[SDS_DATA_KEY_MAX];
+	char *err = NULL;
 
-void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal){
-	 serverLog(LL_DEBUG ,"PREPARING WRITE FOR ROCKSDB");
-    dictIterator *di;
-    dictEntry *de;
-    char keystr[SDS_DATA_KEY_MAX];
+	rocksdb_writebatch_t *writeBatch = rocksdb_writebatch_create();
 
- 	dict *hashdictObj = (dict *) targetVal->ptr;
- 	if (hashdictObj == NULL) assert(0);
+	dict *hashdictObj = (dict *) targetVal->ptr;
+	if (hashdictObj == NULL)
+		assert(0);
 
- 	di = dictGetSafeIterator(hashdictObj);
- 	if (di == NULL) assert(0);
- 	while((de = dictNext(di)) != NULL){
- 		sds field_key = dictGetKey(de);
- 		sds val = dictGetVal(de);
+	di = dictGetSafeIterator(hashdictObj);
+	if (di == NULL)
+		assert(0);
+	while ((de = dictNext(di)) != NULL) {
+		sds field_key = dictGetKey(de);
+		sds val = dictGetVal(de);
 
- 		sprintf(keystr, "%s:%s%s",keyobj->ptr,REL_MODEL_FIELD_PREFIX, field_key);
- 		sds rocksKey = sdsnew(keystr);
- 		robj *value = createStringObject(val, sdslen(val));
- 		setPersistentKey(db->persistent_store, rocksKey, sdslen(rocksKey), value->ptr, sdslen(value->ptr));
- 		sdsfree(rocksKey);
- 		decrRefCount(value);
- 	}
-   targetVal->location = LOCATION_PERSISTED;
- 	dictReleaseIterator(di);
+		sprintf(keystr, "%s:%s%s", keyobj->ptr, REL_MODEL_FIELD_PREFIX,
+				field_key);
+		sds rocksKey = sdsnew(keystr);
+		robj *value = createStringObject(val, sdslen(val));
+		setPersistentKeyWithBatch(db->persistent_store, rocksKey, sdslen(rocksKey),
+				value->ptr, sdslen(value->ptr), writeBatch);
+		sdsfree(rocksKey);
+		decrRefCount(value);
+	}
+	rocksdb_write(db->persistent_store->ps, db->persistent_store->ps_options->woptions, writeBatch, &err);
+
+	if (err) {
+		serverPanic("[PERSISTENT_STORE] putting a key failed");
+	}
+
+	targetVal->location = LOCATION_PERSISTED;
+	dictReleaseIterator(di);
 }
-
-
 
 void rocksdbkeyCommand(client *c){
     sds pattern = sdsnew(c->argv[1]->ptr);

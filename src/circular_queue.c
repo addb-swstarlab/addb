@@ -47,9 +47,9 @@ int enqueue(Queue *queue, dictEntry *entry) {
 		        }
 		        queue->buf =
 		                (dictEntry **)zrealloc(queue->buf, sizeof(dictEntry *) * newCapacity);
-		        queue->rear = 0;
 		        queue->front = queue->max - 1;
 		        queue->max = newCapacity;
+		        queue->rear = queue->rear % queue->max;
 
 		        serverLog(LL_DEBUG, "[EXTEND AFTER] queue->rear : %d, queue->front : %d, queue->max : %d",
 		                                queue->rear, queue->front, queue->max);
