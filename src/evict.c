@@ -394,7 +394,7 @@ int freeMemoryIfNeeded(void) {
     /* Check if we are over the memory usage limit. If we are not, no need
      * to subtract the slaves output buffers. We can just return ASAP. */
     mem_reported = zmalloc_used_memory();
-    if (mem_reported <= server.maxmemory * 8/10) return C_OK;
+    if (mem_reported <= server.maxmemory) return C_OK;
 
     /* Remove the size of slaves output buffers and AOF buffer from the
      * count of used memory. */
@@ -403,7 +403,7 @@ int freeMemoryIfNeeded(void) {
     mem_used = (mem_used > overhead) ? mem_used-overhead : 0;
 
     /* Check if we are still over the memory limit. */
-    if (mem_used <= server.maxmemory * 8/10) return C_OK;
+    if (mem_used <= server.maxmemory) return C_OK;
 
     /* Compute how much memory we need to free. */
     mem_tofree = mem_used - server.maxmemory;
@@ -417,7 +417,8 @@ int freeMemoryIfNeeded(void) {
     int index = 0;
     latencyStartMonitor(latency);
 // while (mem_freed < mem_tofree) {
-    while (!isClear) {
+ //   while (!isClear) {
+    while (mem_used > server.maxmemory) {
     	  serverLog(LL_DEBUG, "[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.8 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
     			  index++, server.maxmemory*8/10, server.maxmemory, mem_used, mem_tofree, mem_freed);
     	  serverLog(LL_DEBUG, "[FREE_MEMORY CALLED]- isFlushed : %d, isClear :%d, isPersisted :%d, isEnd : %d" ,
@@ -438,10 +439,16 @@ int freeMemoryIfNeeded(void) {
 			for (j = 0; j < server.dbnum; j++) {
 				db = server.db + j;
 
-				if (isFlushed || db->FreeQueue->size == db->FreeQueue->max - 1) {
+//				if (isFlushed || db->FreeQueue->size == db->FreeQueue->max - 1) {
+//					victim = chooseClearKeyFromQueue_(db->FreeQueue);
+//				}
+				if (!isEmpty(db->FreeQueue)) {
 					victim = chooseClearKeyFromQueue_(db->FreeQueue);
+				} else {
+				  serverLog(LL_DEBUG, "free queue empty");
 				}
-				if (!isFlushed) {
+//				if (!isFlushed) {
+				if (!isEmpty(db->EvictQueue)) {
 					de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
 					if (de != NULL) {
 						serverLog(LL_DEBUG,
@@ -450,11 +457,9 @@ int freeMemoryIfNeeded(void) {
 						bestkey = dictGetKey(de);
 						bestdbid = j;
 						break;
-					} else {
-						if(isEmpty(db->EvictQueue)) {
-							return C_OK;
-						}
 					}
+				} else {
+					serverLog(LL_DEBUG, "evict queue empty");
 				}
 			}
         }
@@ -481,7 +486,7 @@ int freeMemoryIfNeeded(void) {
         		}
         	}
         	/* Finally remove the selected key. */
-        	if(bestkey){
+        	if(bestkey) {
         		db = server.db + bestdbid;
         		robj *keyobj = createStringObject(bestkey,sdslen(bestkey));
         		propagateExpire(db,keyobj,server.lazyfree_lazy_eviction);
@@ -565,15 +570,16 @@ int freeMemoryIfNeeded(void) {
         		 goto cant_free; /* nothing to free... */
         	 }
 
-        	 serverLog(LL_DEBUG,"clearkeys : %d , freed_key : %d, size : %d, size * 0.1 : %d" ,
-        			 server.stat_clearkeys, freed_key, db->FreeQueue->size, db->FreeQueue->size/10);
+        	 serverLog(LL_DEBUG,"clearkeys : %d , freed_key : %d, size : %d, victim_free : %d" ,
+        			 server.stat_clearkeys, freed_key, db->FreeQueue->size, victim_free);
         	 //if ( isFlushed && (server.stat_clearkeys - freed_key >= db->FreeQueue->size/10)) {
-        	 if ( isFlushed && isEnd) {
-        		 isClear = 1;
-        	 }
-        	 if (isPersisted && !isFlushed) {
-        		 break;
-        	 }
+//        	 if ( isFlushed && isEnd) {
+//        		 isClear = 1;
+//        	 }
+//        	 if (isPersisted && !isFlushed) {
+//        		 break;
+//        	 }
+        	 mem_used = zmalloc_used_memory();
 
     }
 
