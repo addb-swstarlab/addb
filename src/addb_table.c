@@ -437,6 +437,8 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 		robj *value = createStringObject(val, sdslen(val));
 		setPersistentKeyWithBatch(db->persistent_store, rocksKey, sdslen(rocksKey),
 				value->ptr, sdslen(value->ptr), writeBatch);
+//		setPersistentKey(db->persistent_store, rocksKey,
+//				sdslen(rocksKey), value->ptr, sdslen(value->ptr));
 		sdsfree(rocksKey);
 		decrRefCount(value);
 	}
