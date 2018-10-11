@@ -660,7 +660,7 @@ int freeMemoryIfNeeded(void) {
 
 
     while (mem_used > server.maxmemory) {
-		serverLog(LL_VERBOSE,
+		serverLog(LL_DEBUG,
 				"[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.8 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
 				index++, server.maxmemory * 8 / 10, server.maxmemory, mem_used,
 				mem_tofree, mem_freed);
@@ -685,15 +685,15 @@ int freeMemoryIfNeeded(void) {
 					sdslen(victimKey));
 			isFlushed = dbClear_(db, victimKeyobj);
 			decrRefCount(victimKeyobj);
-			serverLog(LL_VERBOSE, "CLEAR VICTIM SUCCESS [rear: %d]",
+			serverLog(LL_DEBUG, "CLEAR VICTIM SUCCESS [rear: %d]",
 					db->FreeQueue->rear);
 			victim_free++;
 		} else {
-			serverLog(LL_VERBOSE, "CLEAR VICTIM is NULL [rear: %d]",
+			serverLog(LL_DEBUG, "CLEAR VICTIM is NULL [rear: %d]",
 					db->FreeQueue->rear);
 		}
 
-		serverLog(LL_VERBOSE,
+		serverLog(LL_DEBUG,
 				"clearkeys : %d , freed_key : %d, size : %d, victim_free : %d",
 				server.stat_clearkeys, freed_key, db->FreeQueue->size,
 				victim_free);

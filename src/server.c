@@ -3134,6 +3134,7 @@ sds genRedisInfoString(char *section) {
             "sync_partial_err:%lld\r\n"
             "expired_keys:%lld\r\n"
             "evicted_keys:%lld\r\n"
+        	  "clear_key:%lld\r\n"
             "keyspace_hits:%lld\r\n"
             "keyspace_misses:%lld\r\n"
             "pubsub_channels:%ld\r\n"
@@ -3158,6 +3159,7 @@ sds genRedisInfoString(char *section) {
             server.stat_sync_partial_err,
             server.stat_expiredkeys,
             server.stat_evictedkeys,
+			  server.stat_clearkeys,
             server.stat_keyspace_hits,
             server.stat_keyspace_misses,
             dictSize(server.pubsub_channels),

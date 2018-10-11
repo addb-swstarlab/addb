@@ -141,7 +141,7 @@ int dbPersist_(redisDb *db, robj *key) {
 			bioCreateBackgroundJob(BIO_TIERING, db, key, val);
 		} else { // for prototype
 			/*ToDO distinct with #define*/
-			serverLog(LL_DEBUG, "EVICT NOT RELMODEL");
+			serverLog(LL_VERBOSE, "EVICT NOT RELMODEL");
 			bioCreateBackgroundJob(BIO_TIERING, db, key,
 					getDecodedObject(dictGetVal(de)));
 		}
