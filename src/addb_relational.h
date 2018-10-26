@@ -38,6 +38,11 @@ static inline size_t getColumnVectorId(size_t rowId) {
     return ((rowId - 1) / server.columnvector_size + 1);
 }
 
+/* ADDB evaluate column vector ID */
+static inline size_t getColumnVectorIndex(size_t rowId) {
+    return (rowId - 1) % server.columnvector_size;
+}
+
 /* ADDB Create Partition Filter parameter*/
 static inline int _getOperatorType(char *operator) {
     if (strcmp(operator, "And") == 0) {
@@ -238,9 +243,9 @@ void freeScanParameter(ScanParameter *param);
 int populateScanParameter(redisDb *db, ScanParameter *scanParam);
 RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey);
 void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
-void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
-                         ColumnParameter *columnParam,
-                         RowGroupParameter rowGroupParam, Vector *data);
+void _cachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
+                 Vector *data, robj **cachedColumnVectorObjs,
+                 size_t *cachedColumnVectorIds);
 Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey);
 
 /*Partition Filter*/
