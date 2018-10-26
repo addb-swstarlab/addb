@@ -9,12 +9,11 @@ fi
 for port in 8000 8001 8002 8003 8004 8005
 do
 	ROWGROUPSIZE=$(cat ${CONF_DIR}/redis_tiering_${port}.conf | grep rowgroup_size)
-	sed "s/$ROWGROUPSIZE/rowgroup_size ${1}/" "${CONF_DIR}/redis_tiering_${port}.conf" >> "${CONF_DIR}/redis_tiering_${port}_new.conf"
-	if [ $? -eq 0 ]; then
-		mv ${CONF_DIR}/redis_tiering_${port}_new.conf ${CONF_DIR}/redis_tiering_${port}.conf
-	else
+	mv ${CONF_DIR}/redis_tiering_${port}.conf ${CONF_DIR}/redis_tiering_${port}.conf.old
+	sed "s/$ROWGROUPSIZE/rowgroup_size ${1}/" "${CONF_DIR}/redis_tiering_${port}.conf.old" >> "${CONF_DIR}/redis_tiering_${port}.conf"
+	if [ $? -ne 0 ]; then
 		echo "[ERROR] Cannot overwrite configuration file..."
-		echo "[ERROR] redis_tiering_${port}_new.conf to redis_tiering_${port}.conf"
+		echo "[ERROR] redis_tiering_${port}.conf.old to redis_tiering_${port}.conf"
 	fi
 done
 
