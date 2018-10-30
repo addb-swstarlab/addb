@@ -24,7 +24,7 @@ void fpWriteCommand(client *c){
     int fpWrite_result = C_OK;
     int i;
     long long insertedRow = 0;
-    bool Enroll_queue = false;
+    int Enroll_queue = 0;
     //struct redisClient *fakeClient = NULL;
 
     serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
@@ -68,7 +68,7 @@ void fpWriteCommand(client *c){
     if(row_number >= server.rowgroup_size){
     	rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
     	row_number = 0;
-    	Enroll_queue = true;
+    	Enroll_queue = 1;
     }
 
 
@@ -119,21 +119,27 @@ void fpWriteCommand(client *c){
     serverLog(LL_DEBUG,"FPWRITE COMMAND END");
 
     serverLog(LL_DEBUG,"DictEntry Registration in a circular queue START");
-    if(Enroll_queue == true){
+
+    if(dataKeyInfo->rowGroupId == 1){
+    	int enqueue_row = getRowNumberInfoAndSetRowNumberInfo(c->db, dataKeyInfo);
+
+    	if(enqueue_row == 1){
+    	  int firstrgid_result;
+    	            serverLog(LL_DEBUG,"Find First Rowgroup");
+    	            dictEntry *FirstRowgroupEntry = getCandidatedictEntry(c, dataKeyInfo);
+    	            if((firstrgid_result = enqueue(c->db->EvictQueue, FirstRowgroupEntry)) ==  0){
+    	            	serverLog(LL_WARNING, "Enqueue Fail FirstRowgroup dictEntry");
+    	            	serverAssert(0);
+    	            }
+    	}
+    }
+
+    if(Enroll_queue == 1){
 
     	int result;
 
-    	//Enroll First rowgroup
-    	if(dataKeyInfo->rowGroupId == 2){
-            serverLog(LL_DEBUG,"Find First Rowgroup");
-            dictEntry *FirstRowgroupEntry = getCandidatedictFirstEntry(c, dataKeyInfo);
-            if((result = enqueue(c->db->EvictQueue, FirstRowgroupEntry)) ==  0){
-            	serverLog(LL_WARNING, "Enqueue Fail FirstRowgroup dictEntry");
-            	serverAssert(0);
-            }
-    	}
     	//Enroll Another rowgroup
-    	serverLog(LL_DEBUG, "Enqueue another Rowgroup");
+    	serverLog(LL_DEBUG, "Enqueue Rowgroup");
     	dictEntry *CandidateRowgroupEntry = getCandidatedictEntry(c, dataKeyInfo);
     	if((result = enqueue(c->db->EvictQueue, CandidateRowgroupEntry)) ==  0){
     		serverLog(LL_WARNING, "Enqueue Fail CandidateRowgroup dictEntry");
