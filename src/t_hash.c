@@ -129,7 +129,6 @@ robj *lookupDictAndGetHashdictObj(client *c, robj *dataKey){
 
 	if(hashDict == NULL){
 		hashDict = createDataHashdictFordict();
-
 		dbAdd(c->db, dataKey, hashDict);
 	}
 	else {
