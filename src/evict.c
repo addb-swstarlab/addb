@@ -608,7 +608,7 @@ int freeMemoryIfNeeded(void) {
     /* Check if we are over the memory usage limit. If we are not, no need
      * to subtract the slaves output buffers. We can just return ASAP. */
     mem_reported = zmalloc_used_memory();
-    if (mem_reported <= server.maxmemory * 8/10) return C_OK;
+    if (mem_reported <= server.maxmemory * 9/10) return C_OK;
 
     /* Remove the size of slaves output buffers and AOF buffer from the
      * count of used memory. */
@@ -617,7 +617,7 @@ int freeMemoryIfNeeded(void) {
     mem_used = (mem_used > overhead) ? mem_used-overhead : 0;
 
     /* Check if we are still over the memory limit. */
-    if (mem_used <= server.maxmemory * 8/10) return C_OK;
+    if (mem_used <= server.maxmemory * 9/10) return C_OK;
 
     /* Compute how much memory we need to free. */
     mem_tofree = mem_used - server.maxmemory;
@@ -662,7 +662,7 @@ int freeMemoryIfNeeded(void) {
     while (mem_used > server.maxmemory) {
 		serverLog(LL_DEBUG,
 				"[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.8 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
-				index++, server.maxmemory * 8 / 10, server.maxmemory, mem_used,
+				index++, server.maxmemory * 9 / 10, server.maxmemory, mem_used,
 				mem_tofree, mem_freed);
 		serverLog(LL_DEBUG,
 				"[FREE_MEMORY CALLED]- isFlushed : %d, isClear :%d, isPersisted :%d, isEnd : %d",
@@ -694,7 +694,7 @@ int freeMemoryIfNeeded(void) {
 		}
 
 		serverLog(LL_DEBUG,
-				"clearkeys : %d , freed_key : %d, size : %d, victim_free : %d",
+				"clearkeys : %d , freed_key : %d, FreeQueue size : %d, victim_free : %d",
 				server.stat_clearkeys, freed_key, db->FreeQueue->size,
 				victim_free);
 		mem_used = zmalloc_used_memory();

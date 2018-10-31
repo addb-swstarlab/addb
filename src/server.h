@@ -601,7 +601,7 @@ typedef struct RedisModuleDigest {
 #define OBJ_SHARED_REFCOUNT INT_MAX
 typedef struct redisObject {
     unsigned type:3;
-    unsigned location:2;   /* ADDB - Data location : Memory or Persistent store */
+    volatile unsigned location:2;   /* ADDB - Data location : Memory or Persistent store */
                            /* 0 : REDIS_ONLY, 1 : FLUSH, 2 : PERSISTED */
                            /* TODO Need to change as an atomic variable */
     unsigned encoding:4;
