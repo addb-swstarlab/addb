@@ -73,7 +73,7 @@ void fpWriteCommand(client *c){
 
 
     robj * dataKeyString = generateDataKey(dataKeyInfo);
-    serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKeyString->ptr);
+    serverLog(LL_VERBOSE, "DATAKEY :  %s", (char *)dataKeyString->ptr);
 
     int idx =0;
     for(i = 5; i < c->argc; i++){
@@ -455,6 +455,7 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 	}
 
 	targetVal->location = LOCATION_PERSISTED;
+	rocksdb_writebatch_destroy(writeBatch);
 	dictReleaseIterator(di);
 }
 
