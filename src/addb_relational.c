@@ -333,7 +333,6 @@ int IncDecCount(redisDb *db, robj *key, robj *field, long long cnt){  // int fla
 
     o = lookupKeyWriteForMetadict(db,key);
     if(o == NULL){
-
     	o = createHashObject();  //ziplist object
     	dbAddForMetadict(db, key, o);
     }

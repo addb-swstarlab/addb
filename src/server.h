@@ -1491,7 +1491,7 @@ robj *createZiplistObject(void);
 robj *createSetObject(void);
 robj *createIntsetObject(void);
 robj *createHashObject(void);
-robj *createDataHashdcitFordict(void); /*addb*/
+robj *createDataHashdictFordict(void); /*addb*/
 robj *createZsetObject(void);
 robj *createZsetZiplistObject(void);
 robj *createModuleObject(moduleType *mt, void *value);

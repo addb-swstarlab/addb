@@ -183,7 +183,7 @@ robj *dupStringObject(const robj *o) {
 }
 
 /*addb Create HashdictObject For dict*/
-robj *createDataHashdcitFordict(void){
+robj *createDataHashdictFordict(void){
 	  dict *dict = NULL;
 	  dict = dictCreate(&hashDictType, NULL);
 	  assert(dict != NULL);
