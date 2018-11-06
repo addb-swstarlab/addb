@@ -308,7 +308,7 @@ void freeHashObject(robj *o) {
         break;
     /*addb*/
     case OBJ_ENCODING_REL:
-    	dictRelease((dict *)o->ptr);
+      	dictRelease((dict *)o->ptr);
     	  break;
     default:
         serverPanic("Unknown hash encoding type");

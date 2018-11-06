@@ -87,23 +87,28 @@ void *dequeue(Queue *queue) {
 }
 
 void *dequeueForClear(Queue *queue) {
-    dictEntry *retVal = NULL;
-    /* If it is empty, return null */
-    retVal = queue->buf[queue->rear];
-    if(retVal == NULL) {
-        serverLog(LL_VERBOSE, "dequeue : queue->rear : %d, queue->front : %d, queue->max : %d",
-                queue->rear, queue->front, queue->max);
-    	return NULL;
-    }
-    robj *obj = dictGetVal(retVal);
-    serverAssert(obj != NULL);
+	dictEntry *retVal = NULL;
 
-	if (obj->location == LOCATION_PERSISTED) {
-		queue->buf[queue->rear] = NULL;
-		queue->rear = (queue->rear + 1) % queue->max;
-		queue->size--;
+	retVal = queue->buf[queue->rear];
+
+	if (retVal == NULL) {
+		serverLog(LL_VERBOSE,
+				"dequeue : queue->rear : %d, queue->front : %d, queue->max : %d",
+				queue->rear, queue->front, queue->max);
+		serverAssert(0);
 	}
-    return retVal;
+
+	robj *obj = dictGetVal(retVal);
+	serverAssert(obj != NULL);
+
+	__sync_synchronize();
+	if(obj->location != LOCATION_PERSISTED) return NULL;
+
+	queue->buf[queue->rear] = NULL;
+	queue->rear = (queue->rear + 1) % queue->max;
+	queue->size--;
+
+	return retVal;
 }
 
 void *forceDequeue(Queue *queue) {
@@ -249,55 +254,22 @@ int checkQueueFordeQueue(int dbnum, Queue *queue){
 void *chooseClearKeyFromQueue_(Queue *queue) {
 	dictEntry *clearEntry = NULL;
 
-   if (isEmpty(queue)){
-		serverLog(LL_DEBUG,"[chooseClearKeyFromQueue_] : NO KEY TO FREE");
-		return NULL;
-	} else {
-		clearEntry = dequeueForClear(queue);
-		if (clearEntry == NULL) {
-			serverLog(LL_DEBUG,"[chooseClearKeyFromQueue_] : FREE QUEUE HAS NULL");
-			/* Because of Queue extension, there can exists null entry */
-			return NULL;
-		}
-		robj * clearobj = dictGetVal(clearEntry);
-		if (clearobj->location == LOCATION_REDIS_ONLY ) {
-			serverAssert(0);
-		} else if ( clearobj->location == LOCATION_FLUSH ) {
-			serverLog(LL_DEBUG,"[chooseClearKeyFromQueue_] : %s  [%d]: WAIT ROCKSDB FLUSH", dictGetKey(clearEntry), queue->rear);
-			return NULL;
-		} else if ( clearobj->location == LOCATION_PERSISTED ) {
-					/* determine victim to clean data structure to RocksDB,
-			 * because LOCATION_PERSISTED shows that tiering is end
-			 */
-			serverLog(LL_DEBUG, "[chooseClearKeyFromQueue_] : CLEAR CANDIDATE : %s,  rear : %d",
-					dictGetKey(clearEntry), queue->rear);
-			return clearEntry;
-		}
-	}
-	return NULL;
+	clearEntry = dequeueForClear(queue);
+	return clearEntry;
 }
 
 void *chooseBestKeyFromQueue_(Queue *queue, Queue *freequeue) {
-	dictEntry *bestEntryCandidate = NULL;
 	int result = 0;
-	serverLog(LL_DEBUG, "[chooseBestKeyFromQueue_] : front : %d, rear : %d, size : %d",
-			queue->front, queue->rear, queue->max);
+	dictEntry *bestEntryCandidate = NULL;
+	bestEntryCandidate = dequeue(queue);
 
-	if(isEmpty(queue)) {
-		/* no Entry to Clear */
-		return NULL;
-	} else {
-		bestEntryCandidate = dequeue(queue);
-		serverLog(LL_DEBUG, "[chooseBestKeyFromQueue_] : EVICT KEY CANDIDATE : %s" , dictGetKey(bestEntryCandidate));
-
-		robj * obj = dictGetVal(bestEntryCandidate);
-		if (obj->location == LOCATION_PERSISTED) {
-			serverAssert(0);
-		}
-		obj->location = LOCATION_FLUSH;
-		result = enqueue(freequeue, bestEntryCandidate);
-		return bestEntryCandidate;
+	robj * obj = dictGetVal(bestEntryCandidate);
+	if (obj->location != LOCATION_REDIS_ONLY) {
+		serverAssert(0);
 	}
-	serverAssert(0);
-	return NULL;
+
+  obj->location = LOCATION_FLUSH;
+	result = enqueue(freequeue, bestEntryCandidate);
+	return bestEntryCandidate;
+
 }

@@ -424,6 +424,7 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 	char keystr[SDS_DATA_KEY_MAX];
 	char *err = NULL;
 
+	serverAssert(targetVal->location == LOCATION_FLUSH);
 	rocksdb_writebatch_t *writeBatch = rocksdb_writebatch_create();
 
 	dict *hashdictObj = (dict *) targetVal->ptr;
@@ -454,9 +455,9 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 		serverPanic("[PERSISTENT_STORE] putting a key failed");
 	}
 
-	targetVal->location = LOCATION_PERSISTED;
 	rocksdb_writebatch_destroy(writeBatch);
 	dictReleaseIterator(di);
+
 }
 
 void rocksdbkeyCommand(client *c){

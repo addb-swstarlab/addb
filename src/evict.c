@@ -608,7 +608,7 @@ int freeMemoryIfNeeded(void) {
     /* Check if we are over the memory usage limit. If we are not, no need
      * to subtract the slaves output buffers. We can just return ASAP. */
     mem_reported = zmalloc_used_memory();
-    if (mem_reported <= server.maxmemory * 9/10) return C_OK;
+    if (mem_reported <= server.maxmemory * 6/10) return C_OK;
 
     /* Remove the size of slaves output buffers and AOF buffer from the
      * count of used memory. */
@@ -617,7 +617,7 @@ int freeMemoryIfNeeded(void) {
     mem_used = (mem_used > overhead) ? mem_used-overhead : 0;
 
     /* Check if we are still over the memory limit. */
-    if (mem_used <= server.maxmemory * 9/10) return C_OK;
+    if (mem_used <= server.maxmemory * 6/10) return C_OK;
 
     /* Compute how much memory we need to free. */
     mem_tofree = mem_used - server.maxmemory;
@@ -628,69 +628,69 @@ int freeMemoryIfNeeded(void) {
     if (server.maxmemory_policy == MAXMEMORY_NO_EVICTION)
         goto cant_free; /* We need to free memory, but policy forbids. */
 
-    int index = 0;
-    sds bestkey = NULL;
-    int bestdbid;
-    redisDb *db;
-    dictEntry *de;
 
-	for (int j = 0; j < server.dbnum; j++) {
-		db = server.db + j;
+  int index = 0;
+	sds bestkey = NULL;
+	int bestdbid;
+	redisDb *db;
+	dictEntry *de;
+	db = server.db;
+
 		if (!isEmpty(db->EvictQueue)) {
 			de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
 			if (de != NULL) {
-				serverLog(LL_DEBUG,
-						"[DB : %d] Success to choose Candidate Entry", j);
 				bestkey = dictGetKey(de);
-				bestdbid = j;
-				break;
+				robj *keyobj = createStringObject(bestkey, sdslen(bestkey));
+				isPersisted = dbPersist_(db, keyobj);
+				server.stat_evictedkeys++;
 			}
 		} else {
-			serverLog(LL_DEBUG, "evict queue empty");
+			serverLog(LL_VERBOSE, "evict queue empty");
 		}
-	}
-
-	if (bestkey) {
-		db = server.db + bestdbid;
-		robj *keyobj = createStringObject(bestkey, sdslen(bestkey));
-		isPersisted = dbPersist_(db, keyobj);
-		server.stat_evictedkeys++;
-		notifyKeyspaceEvent(NOTIFY_EVICTED, "evicted", keyobj, db->id);
-	}
-
 
     while (mem_used > server.maxmemory) {
 		serverLog(LL_DEBUG,
 				"[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.8 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
 				index++, server.maxmemory * 9 / 10, server.maxmemory, mem_used,
 				mem_tofree, mem_freed);
-		serverLog(LL_DEBUG,
-				"[FREE_MEMORY CALLED]- isFlushed : %d, isClear :%d, isPersisted :%d, isEnd : %d",
-				isFlushed, isClear, isPersisted, isEnd);
-
 
 		sds victimKey = NULL;
 		dictEntry *victim = NULL;
 
 		if (!isEmpty(db->FreeQueue)) {
 			victim = chooseClearKeyFromQueue_(db->FreeQueue);
+			/* Finally remove the selected key. */
+			if (victim != NULL) {
+				victimKey = dictGetKey(victim);
+				robj *victimKeyobj = createStringObject(victimKey,
+						sdslen(victimKey));
+				isFlushed = dbClear_(db, victimKeyobj);
+				decrRefCount(victimKeyobj);
+				serverLog(LL_DEBUG, "CLEAR VICTIM SUCCESS [rear: %d]",
+						db->FreeQueue->rear);
+				victim_free++;
+			}
 		} else {
-			serverLog(LL_DEBUG, "free queue empty");
-		}
-
-		/* Finally remove the selected key. */
-		if (victim != NULL) {
-			victimKey = dictGetKey(victim);
-			robj *victimKeyobj = createStringObject(victimKey,
-					sdslen(victimKey));
-			isFlushed = dbClear_(db, victimKeyobj);
-			decrRefCount(victimKeyobj);
-			serverLog(LL_DEBUG, "CLEAR VICTIM SUCCESS [rear: %d]",
-					db->FreeQueue->rear);
-			victim_free++;
-		} else {
-			serverLog(LL_DEBUG, "CLEAR VICTIM is NULL [rear: %d]",
-					db->FreeQueue->rear);
+			serverLog(LL_DEBUG, "[FREE QUEUE is Empty] : size = %d, rear = %d, front = %d, max =%d ",
+					db->FreeQueue->size, db->FreeQueue->rear, db->FreeQueue->front, db->FreeQueue->max);
+			serverLog(LL_DEBUG, "[EVICT QUEUE] : size = %d, rear = %d, front = %d, max =%d ",
+					db->EvictQueue->size, db->EvictQueue->rear, db->EvictQueue->front, db->EvictQueue->max);
+			serverLog(LL_DEBUG, "[Memory status] : maxmemory= %ld, used memory = %d", server.maxmemory, mem_used);
+			/* TODO need to check why freequeue is empty
+			 *  Maybe, Insert speed is much faster than tiering speed*/
+			dictEntry *di;
+			sds candidateKey = NULL;
+			if (!isEmpty(db->EvictQueue)) {
+				di = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
+				if (di != NULL) {
+					candidateKey = dictGetKey(di);
+					robj *candidatekeyobj = createStringObject(candidateKey, sdslen(candidateKey));
+					isPersisted = dbPersist_(db, candidatekeyobj);
+					server.stat_evictedkeys++;
+				}
+			} else {
+				serverLog(LL_VERBOSE, "evict queue empty");
+			}
 		}
 
 		serverLog(LL_DEBUG,
@@ -698,6 +698,10 @@ int freeMemoryIfNeeded(void) {
 				server.stat_clearkeys, freed_key, db->FreeQueue->size,
 				victim_free);
 		mem_used = zmalloc_used_memory();
+		if (server.aof_state != AOF_OFF) {
+			mem_used -= sdslen(server.aof_buf);
+			mem_used -= aofRewriteBufferSize();
+		}
 	}
 
     return C_OK;

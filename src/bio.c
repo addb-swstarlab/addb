@@ -209,6 +209,8 @@ void *bioProcessBackgroundJobs(void *arg) {
             } else {
             	persistKey(db, keyobj, valobj);
             }
+            valobj->location = LOCATION_PERSISTED;
+            __sync_synchronize();
             decrRefCount(keyobj);
             //decrRefCount(valobj);
         } else if (type == BIO_TIERED_FREE) {
