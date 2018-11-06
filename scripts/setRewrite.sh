@@ -1,21 +1,20 @@
 #!/bin/bash
 ADDB_DIR=/home/addb/addb-RR
 CONF_DIR=$ADDB_DIR/conf
-GREP1="grep maxmemory"
-GREP2="grep -v #"
-GREP3="grep -v policy"
-OPTIONNAME=maxmemory
-FILENAME=setMaxMem.sh
+GREP1="grep no-appendfsync-on-rewrite"
+OPTIONNAME="no-appendfsync-on-rewrite"
+FILENAME="setRewrite.sh"
 if [ -z $1 ]; then
-	echo "[ERROR] Please enter $OPTIONNAME size in first paramter"
-	echo "Ex) ./$FILENAME 5GB   => Set $OPTIONNAME 5GB"
+	echo "[ERROR] Please enter rewrite option (yes/no) in first paramter"
+	echo "Ex) ./$FILENAME yes   => Set $OPTIONAME yes"
 	exit 1;
 fi
+
 for port in 8000 8001 8002 8003 8004 8005
 do
-	MAXMEMORY=$(cat ${CONF_DIR}/redis_tiering_${port}.conf | $GREP1 | $GREP2 | $GREP3)
+	REWRITE=$(cat ${CONF_DIR}/redis_tiering_${port}.conf | grep "no-appendfsync-on-rewrite")
 	mv ${CONF_DIR}/redis_tiering_${port}.conf ${CONF_DIR}/redis_tiering_${port}.conf.old
-	sed "s/$MAXMEMORY/$OPTIONNAME ${1}/" "${CONF_DIR}/redis_tiering_${port}.conf.old" >> "${CONF_DIR}/redis_tiering_${port}.conf"
+	sed "s/$REWRITE/$OPTIONNAME ${1}/" "${CONF_DIR}/redis_tiering_${port}.conf.old" >> "${CONF_DIR}/redis_tiering_${port}.conf"
 	if [ $? -ne 0 ]; then
 		echo "[ERROR] Cannot overwrite configuration file..."
 		echo "[ERROR] redis_tiering_${port}.conf.old to redis_tiering_${port}.conf"
@@ -29,5 +28,5 @@ echo "Finally, check $OPTIONNAME"
 for port in 8000 8001 8002 8003 8004 8005
 do
 	echo "[redis_tiering_${port}.conf]"
-	echo $(cat ${CONF_DIR}/redis_tiering_${port}.conf | $GREP1 | $GREP2 | $GREP3 )
+	echo $(cat ${CONF_DIR}/redis_tiering_${port}.conf | $GREP1 )
 done
