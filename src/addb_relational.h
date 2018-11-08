@@ -33,6 +33,11 @@
 #define CONDITION_OP_TYPE_STRING_ENDS_WITH 12   // StringEndsWith
 #define CONDITION_OP_TYPE_STRING_STARTS_WITH 13 // StringStartsWith
 
+/* ADDB evaluate column vector ID */
+static inline size_t getColumnVectorId(size_t rowId) {
+    return ((rowId - 1) / server.columnvector_size + 1);
+}
+
 /* ADDB Create Partition Filter parameter*/
 static inline int _getOperatorType(char *operator) {
     if (strcmp(operator, "And") == 0) {
@@ -223,6 +228,7 @@ sds getDataFieldSds(int rowId, int columnId);
 
 /*Insert function*/
 void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj);
+void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal);
 
 /*Scan*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);
@@ -235,6 +241,7 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
 void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
                          ColumnParameter *columnParam,
                          RowGroupParameter rowGroupParam, Vector *data);
+Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey);
 
 /*Partition Filter*/
 bool validateStatements(const sds rawStatementsStr);

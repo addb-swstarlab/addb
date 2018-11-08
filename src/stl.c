@@ -2,6 +2,8 @@
 #include "zmalloc.h"
 #include "stl.h"
 #include "sds.h"
+#include "global.h"
+#include "assert.h"
 
 size_t _vectorGetDatumSize(Vector *v) {
     if (v->type == STL_TYPE_DEFAULT) {
@@ -223,3 +225,149 @@ int stackFreeDeep(Stack *s) {
     return vectorFreeDeep(&s->data);
 }
 
+char *VectorSerialize(robj *o){
+
+	Vector *v = (Vector *)o->ptr;
+	int v_type = v->type;
+	int v_count = v->count;
+
+		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
+				v_type, RELMODEL_VECTOR_COUNT_PREFIX, v_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
+
+		int i;
+		for(i=0; i < v_count; i++){
+			sds element = (sds)vectorGet(v,i);
+			serial_buf= sdscatsds(serial_buf, element);
+
+			if(i < (v_count -1)){
+				serial_buf = sdscat(serial_buf,RELMODEL_DELIMITER);
+			}
+		}
+		serial_buf = sdscat(serial_buf, VECTOR_DATA_SUFFIX);
+
+		serverLog(LL_DEBUG, "(char version)SERIALIZE VECTOR : %s", serial_buf);
+
+		char *string_buf = zmalloc(sizeof(char) * (sdslen(serial_buf) + 1));
+		memcpy(string_buf, serial_buf, sdslen(serial_buf));
+		string_buf[sdslen(serial_buf)] = '\0';
+		sdsfree(serial_buf);
+		return string_buf;
+
+}
+
+
+Vector *VectordeSerialize(char *VectorString){
+
+	assert(VectorString != NULL);
+	serverLog(LL_DEBUG, "DESERIALIZE : %s", VectorString);
+	char str_buf[1024];
+	char *token = NULL;
+	char *saveptr = NULL;
+	size_t size = strlen(VectorString) + 1;
+
+
+	memcpy(str_buf, VectorString, size);
+
+	if ((token = strtok_r(str_buf, RELMODEL_VECTOR_PREFIX, &saveptr)) == NULL){
+		//parsing the vector prefix
+		serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
+		serverAssert(0);
+	}
+
+	/*skip vector prefix ("V") */
+	if (strcasecmp(token, RELMODEL_VECTOR_PREFIX) == 0 ) {
+		// skip idxType field
+		strtok_r(NULL, RELMODEL_BRACE_PREFIX, &saveptr);
+	}
+
+
+	// parsing Vector type
+	if ((token = strtok_r(NULL, RELMODEL_VECTOR_TYPE_PREFIX, &saveptr)) == NULL){
+		serverLog(LL_WARNING, "Fatal:  Vector deSerialize broken Error: [%s]", str_buf);
+		serverAssert(0);
+	}
+
+	int vector_type = atoi(token);
+
+
+	//parsing Vector count
+	if ((token = strtok_r(NULL, RELMODEL_VECTOR_COUNT_PREFIX, &saveptr)) == NULL){
+		serverLog(LL_WARNING, "Fatal:  Vector deSerialize broken Error: [%s]", str_buf);
+		serverAssert(0);
+	}
+
+	int vector_count = atoi(token);
+
+	serverLog(LL_DEBUG, "vector type : %d, count : %d", vector_type, vector_count);
+
+	//create vector
+	Vector *v = zmalloc(sizeof(Vector));
+	vectorTypeInit(v, vector_type);
+	assert(v->size == 0);
+	assert(v->count == 0);
+
+	if(vector_count == 1){
+
+		if ((token = strtok_r(NULL, RELMODEL_VECTOR_DATA_PREFIX, &saveptr)) == NULL){
+			serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
+			serverAssert(0);
+		}
+
+		if((token = strtok_r(token, VECTOR_DATA_SUFFIX, saveptr)) == NULL){
+			serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
+			serverAssert(0);
+		}
+		serverLog(LL_DEBUG, "idx : %d, value : %s", vector_count-1, token);
+		vectorAdd(v, sdsnew(token));
+
+	}
+	else {
+		int i;
+
+		for(i=0; i < vector_count; i++){
+
+			if(i == 0){
+				if ((token = strtok_r(NULL, RELMODEL_VECTOR_DATA_PREFIX, &saveptr)) == NULL){
+					serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
+					serverAssert(0);
+				}
+
+				serverLog(LL_DEBUG, "idx : %d, value : %s", i, token);
+				vectorAdd(v, sdsnew(token));
+
+			}
+			else if(i == (vector_count -1)){
+				if ((token = strtok_r(NULL, VECTOR_DATA_SUFFIX, &saveptr)) == NULL){
+					serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
+					serverAssert(0);
+				}
+
+				serverLog(LL_DEBUG, "idx : %d, value : %s", i, token);
+				vectorAdd(v, sdsnew(token));
+
+			}
+			else {
+				//parsing Vector Data
+				if ((token = strtok_r(NULL, RELMODEL_DELIMITER, &saveptr)) == NULL){
+					serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
+					serverAssert(0);
+				}
+
+				serverLog(LL_DEBUG, "idx : %d, value : %s", i, token);
+				vectorAdd(v, sdsnew(token));
+
+			}
+		}
+	}
+	return v;
+
+}
+
+void CheckVectorsds(Vector *v){
+
+	size_t size= vectorCount(v);
+	for(size_t i =0; i< size; i++){
+		serverLog(LL_VERBOSE, "VECTOR CHECK SDS : [i : %zu, value : %s]", i, vectorGet(v, i));
+	}
+
+}

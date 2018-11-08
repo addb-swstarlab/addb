@@ -32,6 +32,7 @@
 #include "assert.h"
 #include <math.h>
 #include <ctype.h>
+#include "stl.h"
 
 #ifdef __CYGWIN__
 #define strtold(a,b) ((long double)strtod((a),(b)))
@@ -185,7 +186,7 @@ robj *dupStringObject(const robj *o) {
 /*addb Create HashdictObject For dict*/
 robj *createDataHashdictFordict(void){
 	  dict *dict = NULL;
-	  dict = dictCreate(&hashDictType, NULL);
+	  dict = dictCreate(&dbDictType, NULL);  //hashDictType
 	  assert(dict != NULL);
 	  robj *o = createObject(OBJ_HASH, dict);
 	  o->encoding = OBJ_ENCODING_REL;
@@ -322,6 +323,12 @@ void freeModuleObject(robj *o) {
     zfree(mv);
 }
 
+void freeVectorObject(robj *o){
+	  Vector *v = o->ptr;
+	vectorFreeDeep(v);
+	zfree(v);
+}
+
 void incrRefCount(robj *o) {
     if (o->refcount != OBJ_SHARED_REFCOUNT) o->refcount++;
 }
@@ -335,6 +342,7 @@ void decrRefCount(robj *o) {
         case OBJ_ZSET: freeZsetObject(o); break;
         case OBJ_HASH: freeHashObject(o); break;
         case OBJ_MODULE: freeModuleObject(o); break;
+        case OBJ_VECTOR: freeVectorObject(o); break;
         default: serverPanic("Unknown object type"); break;
         }
         zfree(o);

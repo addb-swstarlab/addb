@@ -460,7 +460,7 @@ typedef long long mstime_t; /* millisecond time type. */
 #define OBJ_HASH 4
 
 /*ADDB COLUMN VECTOR*/
-#define OBJ_VECTOR 5
+#define OBJ_VECTOR 6
 
 /* The "module" object type is a special one that signals that the object
  * is one directly managed by a Redis module. In this case the value points
@@ -1800,7 +1800,6 @@ int dbDelete(redisDb *db, robj *key);
 robj *dbUnshareStringValue(redisDb *db, robj *key, robj *o);
 /* ADDB */
 void persistKey(redisDb *db, robj *keyobj, robj *targetVal);
-void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal);
 
 #define EMPTYDB_NO_FLAGS 0      /* No flags. */
 #define EMPTYDB_ASYNC (1<<0)    /* Reclaim memory in another thread. */
@@ -2089,13 +2088,12 @@ int getGenericCommand(client *c);
 void metakeysCommand(client *c);
 void fieldsAndValueCommand(client *c);
 void rocksdbkeyCommand(client *c);
-void getRocksDBkeyAndValueCommand(client *c);
 void getQueueStatusCommand(client *c);
 void dequeueCommand(client *c);
-void getRearQueueCommand(client *c);
 void chooseBestKeyCommand(client *c);
 void queueEmptyCommand(client *c);
-
+void serializeCommand(client *c);
+void deserializeCommand(client *c);
 /*
  * 2018. 5. 11
  * kem2182@yonsei.ac.kr

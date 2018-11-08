@@ -59,5 +59,7 @@ int stackPush(Stack *s, void *datum);
 void *stackPop(Stack *s);
 int stackFree(Stack *s);
 int stackFreeDeep(Stack *s);
-
+char *VectorSerialize(robj *o);
+Vector *VectordeSerialize(char *VectorString);
+void CheckVectorsds(Vector *v);
 #endif

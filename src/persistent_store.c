@@ -109,7 +109,7 @@ persistent_store_t* createPersistentStore(int dbnum) {
 
 void setPersistentKey(persistent_store_t* ps, const void *key, const int keylen, const void *val, const int vallen) {
     char *err = NULL;
-    serverLog(1, "Write to RocksDB[KEY : %s, VAL : %s]", (char *)key, (char *)val);
+    serverLog(1, "Write to RocksDB[ KEY : %s, VAL : %s ]", (char *)key, (char *)val);
     rocksdb_put_cf(ps->ps, ps->ps_options->woptions, ps->ps_cf_handles[PERSISTENT_STORE_CF_RW],
     		(const char*)key, keylen, (const char*)val, vallen, &err);
     if(err) {
@@ -119,7 +119,7 @@ void setPersistentKey(persistent_store_t* ps, const void *key, const int keylen,
 
 void setPersistentKeyWithBatch(persistent_store_t* ps, const void *key, const int keylen, const void *val,
 		const int vallen, rocksdb_writebatch_t * writeBatch) {
-    serverLog(0, "Write to RocksDB[KEY : %s, VAL : %s]", (char *)key, (char *)val);
+    serverLog(1, "WriteBatch to RocksDB[ KEY : %s, VAL : %s ]", (char *)key, (char *)val);
 	 rocksdb_writebatch_put_cf(writeBatch, ps->ps_cf_handles[PERSISTENT_STORE_CF_RW], (const char*)key, keylen, (const char*)val, vallen);
 }
 

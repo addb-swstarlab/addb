@@ -3,6 +3,7 @@
 #include "util.h"
 #include <math.h>
 #include <assert.h>
+#include "stl.h"
 
 /*
  * 2018.3.23
@@ -519,6 +520,34 @@ sds getDataFieldSds(int rowId, int columnId) {
     return sdsnew(dataField);
 }
 
+int checkEnqueue(client *c, robj *dataKeyString){
+	assert(dataKeyString != NULL);
+
+	robj *dataHashdictObj = NULL;
+	if( (dataHashdictObj = lookupDictForcheckEnqueue(c, dataKeyString)) == NULL ){
+
+		serverLog(LL_VERBOSE, "CHECK ENQUEUE FUNC ERROR - HASHDICT NULL");
+		serverAssert(0);
+	}
+	else {
+		serverLog(LL_VERBOSE, "CHECK ENQUEUE HASHOBJ EXIST");
+		dict *hashDict = (dict *)dataHashdictObj->ptr;
+		dictEntry *de = NULL;
+		robj *dataField = getDataField(1, 1);
+
+		if((de = dictFind(hashDict, dataField->ptr)) == NULL){
+
+			serverLog(LL_VERBOSE, "EVICTION occurs before ROWGROUP is full [KEY : %s]", (char *)dataKeyString->ptr);
+			return 1;
+		}
+		else {
+			serverLog(LL_VERBOSE, "NORMAL");
+			return 0;
+		}
+	}
+
+}
+
 /*addb Data Insertion func*/
 
 void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj){
@@ -539,19 +568,93 @@ void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, r
 
 	if((de = dictFind(hashDict, dataField->ptr)) == NULL){
 
-		int ret = dictAdd(hashDict, sdsdup(dataField->ptr), sdsdup(valueObj->ptr));
 
-		if(!ret){
-			serverLog(LL_DEBUG, "DATA INSERTION SUCCESS. dataKey : %s, dataField : %s, value :%s"
+			//create vector
+        Vector *v = zmalloc(sizeof(Vector));
+        vectorTypeInit(v, STL_TYPE_SDS);
+        assert(v->size == 0);
+        assert(v->count == 0);
+
+        vectorAdd(v, sdsdup(valueObj->ptr));
+        robj *columnVectorObj = createObject(OBJ_VECTOR, v);
+
+        int ret = dictAdd(hashDict,sdsdup(dataField->ptr),  columnVectorObj);
+
+        if(!ret){
+        				serverLog(LL_DEBUG, "Create New Vector & DATA INSERTION SUCCESS. dataKey : %s, dataField : %s, value :%s"
+        						, (char *)dataKeyString->ptr, (char*)dataField->ptr, (char *)valueObj->ptr);
+        }
+        else {
+        				serverLog(LL_WARNING, "Create New Vector & DATA INSERTION FAIL");
+        				serverPanic("Create New Vector & DATA INSERTION ERROR in insertKVpairToRelational");
+        }
+	}
+	else {
+
+		//get vector object & append value
+ 		robj *VectorObj = dictGetVal(de);
+ 		assert(VectorObj->type ==OBJ_VECTOR);
+ 		Vector *v = (Vector *)VectorObj->ptr;
+ 		vectorAdd(v, sdsdup(valueObj->ptr));
+
+ 		int number = v->count;
+ 		//check append result
+ 		if(!strcmp(vectorGet(v, number-1), (sds)valueObj->ptr)){
+			serverLog(LL_DEBUG, "Append Existed Vector & DATA INSERTION SUCCESS. dataKey : %s, dataField : %s, value :%s"
 					, (char *)dataKeyString->ptr, (char*)dataField->ptr, (char *)valueObj->ptr);
 		}
 		else {
-			serverLog(LL_WARNING, "DATA INSERTION FAIL");
-			serverPanic("DATA INSERTION ERROR in insertKVpairToRelational");
+		  serverLog(LL_WARNING, "Append Vector & DATA INSERTION FAIL");
+			serverPanic("Append Vector & DATA INSERTION ERROR in insertKVpairToRelational");
 		}
 	}
 	notifyKeyspaceEvent(NOTIFY_HASH,"hset", dataKeyString,c->db->id);
 	server.dirty++;
+
+}
+
+void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
+	serverLog(LL_DEBUG, "PREPARING WRITE FOR ROCKSDB");
+	dictIterator *di;
+	dictEntry *de;
+	char keystr[SDS_DATA_KEY_MAX];
+	char *err = NULL;
+
+	rocksdb_writebatch_t *writeBatch = rocksdb_writebatch_create();
+
+	dict *hashdictObj = (dict *) targetVal->ptr;
+	if (hashdictObj == NULL)
+		assert(0);
+
+	di = dictGetSafeIterator(hashdictObj);
+	if (di == NULL)
+		assert(0);
+	while ((de = dictNext(di)) != NULL) {
+		sds field_key = dictGetKey(de);
+		robj *vectorObj = dictGetVal(de);
+
+		sprintf(keystr, "%s:%s%s", keyobj->ptr, REL_MODEL_FIELD_PREFIX,
+				field_key);
+		sds rocksKey = sdsnew(keystr);
+		//robj *value = createStringObject(val, sdslen(val));
+		char *SerializeString = VectorSerialize(vectorObj);
+		
+  	serverLog(LL_VERBOSE, "SERIALIZE Serial_val RESULT : %s", SerializeString);
+		setPersistentKeyWithBatch(db->persistent_store, rocksKey, sdslen(rocksKey),
+				SerializeString, strlen(SerializeString), writeBatch);
+//		setPersistentKey(db->persistent_store, rocksKey,
+//				sdslen(rocksKey), SerializeString, strlen(SerializeString));
+		sdsfree(rocksKey);
+		zfree(SerializeString);
+	}
+	rocksdb_write(db->persistent_store->ps, db->persistent_store->ps_options->woptions, writeBatch, &err);
+
+	if (err) {
+		serverPanic("[PERSISTENT_STORE] putting a key failed");
+	}
+
+	rocksdb_writebatch_destroy(writeBatch);
+	dictReleaseIterator(di);
 
 }
 
@@ -725,6 +828,30 @@ void scanDataFromRocksDB(redisDb *db, NewDataKeyInfo *dataKeyInfo,
             sdsfree(dataRocksKey);
         }
     }
+}
+
+Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey) {
+    char *err;
+    size_t valueLen = 0;
+    char *value;
+    value = rocksdb_get_cf(
+            db->persistent_store->ps,
+            db->persistent_store->ps_options->roptions,
+            db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW],
+            dataRocksKey, sdslen(dataRocksKey), &valueLen, &err);
+
+    if (value == NULL) {
+        serverLog(
+                LL_DEBUG,
+                "[DEBUG][scanDataFromRocksDB] Key: %s, value is not exist.",
+                dataRocksKey);
+        sdsfree(dataRocksKey);
+        return NULL;
+    }
+
+    Vector *vector = VectordeSerialize(value);
+    rocksdb_free(value);
+    return vector;
 }
 
 // TODO(totoro): Implements validateStatements function by regex.

@@ -568,17 +568,21 @@ void flushallCommand(client *c) {
     signalFlushedDb(-1);
     server.dirty += emptyDb(-1,flags,NULL);
     addReply(c,shared.ok);
-    if (server.rdb_child_pid != -1) {
-        kill(server.rdb_child_pid,SIGUSR1);
-        rdbRemoveTempFile(server.rdb_child_pid);
-    }
-    if (server.saveparamslen > 0) {
-        /* Normally rdbSave() will reset dirty, but we don't want this here
-         * as otherwise FLUSHALL will not be replicated nor put into the AOF. */
-        int saved_dirty = server.dirty;
-        rdbSave(server.rdb_filename,NULL);
-        server.dirty = saved_dirty;
-    }
+
+    /*
+     * leak check -hshs1103
+     */
+//    if (server.rdb_child_pid != -1) {
+//        kill(server.rdb_child_pid,SIGUSR1);
+//        rdbRemoveTempFile(server.rdb_child_pid);
+//    }
+//    if (server.saveparamslen > 0) {
+//        /* Normally rdbSave() will reset dirty, but we don't want this here
+//         * as otherwise FLUSHALL will not be replicated nor put into the AOF. */
+//        int saved_dirty = server.dirty;
+//        rdbSave(server.rdb_filename,NULL);
+//        server.dirty = saved_dirty;
+//    }
     server.dirty++;
 }
 

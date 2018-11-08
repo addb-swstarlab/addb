@@ -273,3 +273,17 @@ void *chooseBestKeyFromQueue_(Queue *queue, Queue *freequeue) {
 	return bestEntryCandidate;
 
 }
+
+void *RearEntry(Queue *queue){
+    dictEntry *retVal = NULL;
+
+    retVal = queue->buf[queue->rear];
+    if(retVal != NULL){
+    	serverLog(LL_VERBOSE, "FORCE ENTRY NOT NULL");
+    		return retVal;
+    }
+    else {
+    	serverLog(LL_VERBOSE, "FORCE ENTRY NULL");
+    	return NULL;
+    }
+}

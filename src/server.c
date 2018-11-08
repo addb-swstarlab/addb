@@ -329,14 +329,14 @@ struct redisCommand redisCommandTable[] = {
     {"testsdslocation",testSdsLocationCommand,-1,"r",0,NULL,1,1,1,0,0},
     {"testvectorinterface",testVectorInterfaceCommand,-1,"r",0,NULL,1,1,1,0,0},
     {"teststackinterface",testStackInterfaceCommand,-1,"r",0,NULL,1,1,1,0,0},
-    {"fields", fieldsAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
+    {"fields", fieldsAndValueCommand, 4, "rS",0,NULL,0,0,0,0,0,0,0},
     {"rockskey", rocksdbkeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
-    {"rockskv", getRocksDBkeyAndValueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
 	{"queuestatus", getQueueStatusCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
 	{"dequeueentry", dequeueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
-	{"queuerear", getRearQueueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
 	{"evictbestkey", chooseBestKeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
 	{"emptyqueue", queueEmptyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+	{"cvserial", serializeCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
+	{"cvdeserial", deserializeCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
 
 
 

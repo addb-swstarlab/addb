@@ -138,6 +138,22 @@ robj *lookupDictAndGetHashdictObj(client *c, robj *dataKey){
 	return hashDict;
 }
 
+/*addb lookup dict And get Hashdict
+ * If Hashdict is NULL, then create and return*/
+robj *lookupDictForcheckEnqueue(client *c, robj *dataKey){
+
+	robj *hashDict = lookupKeyWrite(c->db, dataKey);
+
+	if(hashDict == NULL){
+		return NULL;
+	}
+	else {
+		assert(hashDict->type == OBJ_HASH);
+	}
+
+	return hashDict;
+}
+
 
 /* Get the value from a hash table encoded hash, identified by field.
  * Returns NULL when the field cannot be found, otherwise the SDS value

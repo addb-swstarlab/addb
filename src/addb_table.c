@@ -11,12 +11,28 @@
 #include "circular_queue.h"
 
 /*ADDB*/
-/*fpWrite parameter list
- * arg1 : dataKeyInfo
- * arg2 : partitionInfo
- * arg3 : filter index column
- * arg4 : */
-
+/*
+ * fpWriteCommand
+ *  Write relation data to ADDB.
+ * --- Parameters ---
+ *  arg1:  dataKeyInfo
+ *  arg2:  partitionInfo
+ *  arg3:  Number of columns
+ *  arg4:  Filter index column (Not used now)
+ *  arg5~: Column Data
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      dataKeyInfo:        D:{100:1:2}
+ *      partitionInfo:      1:2
+ *      NumberOfColumns:    4
+ *      FilterIndexColumn:  0
+ *      Column Data:        1 1 1 1
+ *  Command:
+ *      redis-cli> FPWRITE D:{100:1:2} 1:2 4 0 1 1 1 1
+ *  Results:
+ *      redis-cli> OK
+ */
 void fpWriteCommand(client *c){
 
     serverLog(LL_DEBUG,"FPWRITE COMMAND START");
@@ -85,9 +101,10 @@ void fpWriteCommand(client *c){
     	//Create field Info
     	int row_idx = row_number + (idx / column_number) + 1;
     	int column_idx = (idx % column_number) + 1;
+    	int columnvector_idx = ((row_idx -1) / server.columnvector_size + 1);
      assert(column_idx <= MAX_COLUMN_NUMBER);
 
-    	robj *dataField = getDataField(row_idx, column_idx);
+    	robj *dataField = getDataField(column_idx, columnvector_idx);
      serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
      assert(dataField != NULL);
 
@@ -113,24 +130,27 @@ void fpWriteCommand(client *c){
     insertedRow /= column_number;
     incRowNumber(c->db, dataKeyInfo, insertedRow);
 
-    /*TODO - filter*/
-    /*TODO - eviction insert*/
-
     serverLog(LL_DEBUG,"FPWRITE COMMAND END");
 
     serverLog(LL_DEBUG,"DictEntry Registration in a circular queue START");
 
+    int force_enqueue =0;
+
+    /*Enqueue Entry*/
     if(dataKeyInfo->rowGroupId == 1){
     	int enqueue_row = getRowNumberInfoAndSetRowNumberInfo(c->db, dataKeyInfo);
 
     	if(enqueue_row == 1){
-    	  int firstrgid_result;
+    	  if(row_number == 0 ){
+    		int firstrgid_result;
     	            serverLog(LL_DEBUG,"Find First Rowgroup");
     	            dictEntry *FirstRowgroupEntry = getCandidatedictEntry(c, dataKeyInfo);
     	            if((firstrgid_result = enqueue(c->db->EvictQueue, FirstRowgroupEntry)) ==  0){
     	            	serverLog(LL_WARNING, "Enqueue Fail FirstRowgroup dictEntry");
     	            	serverAssert(0);
     	            }
+    	            force_enqueue = 1;
+    	  }
     	}
     }
 
@@ -145,7 +165,9 @@ void fpWriteCommand(client *c){
     		serverLog(LL_WARNING, "Enqueue Fail CandidateRowgroup dictEntry");
     		serverAssert(0);
     	}
+    	force_enqueue = 1;
     }
+
     decrRefCount(dataKeyString);
     zfree(dataKeyInfo);
     addReply(c, shared.ok);
@@ -379,16 +401,50 @@ void metakeysCommand(client *c){
     vectorFree(&metakeys);
 }
 
+
 /*Lookup the value list of field and field in dict*/
+/*
+ * fieldsAndValueCommand
+ * Get key, value for the Dict.
+ * --- Parameters ---
+ *  arg1: fields
+ *  arg2: DataKey
+ *  arg3: column_id
+ *  arg4: columnVector_id
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *
+ *          tableId: "100"
+ *          partitionInfoId: "2:1"
+ *          rowgroup: 1
+ *          column_id: 1
+ *          columnVector_id: 1
+ *      MetaField Key: CURRENT_RGID(= 1)
+ *  Command:
+ *      redis-cli> fields D:{100:2:1}:G:1 1 1
+ *  Results:
+ *      Find Case
+ *          redis-cli>
+ *          1) "field : 1:1, value : 1"
+ *          2) "field : 1:1, value : 2"
+ *          3) "field : 1:1, value : 3"
+ *      Non-exist Case
+ *          redis-cli> (nil)
+ */
 void fieldsAndValueCommand(client *c){
 
-    dictIterator *di;
-    dictEntry *de;
     sds pattern = sdsnew(c->argv[1]->ptr);
+    int column = atoi(c->argv[2]->ptr);
+    int vector_id = atoi(c->argv[3]->ptr);
+    
 
     robj *hashdict = lookupSDSKeyFordict(c->db, pattern);
-
+    
+    dictEntry *de;
+    
     if(hashdict == NULL){
+    	sdsfree(pattern);
     	 addReply(c, shared.nullbulk);
     }
     else {
@@ -398,68 +454,54 @@ void fieldsAndValueCommand(client *c){
      	void *replylen = addDeferredMultiBulkLength(c);
 
      	dict *hashdictObj = (dict *) hashdict->ptr;
-     	di = dictGetSafeIterator(hashdictObj);
-     	while((de = dictNext(di)) != NULL){
+     	robj *dataField = getDataField(column, vector_id);
 
-     		sds key = dictGetKey(de);
-     		sds val = dictGetVal(de);
-     		sprintf(str_buf, "field : %s, value : %s", key, val);
-     		addReplyBulkCString(c, str_buf);
-     		numkeys++;
-
-     		serverLog(LL_VERBOSE ,"key : %s , val : %s" , key,  val);
+    	if((de = dictFind(hashdictObj, dataField->ptr)) != NULL){
+    	  sds key = dictGetKey(de);
+     		robj *obj = dictGetVal(de);
+     		Vector *v = (Vector *)obj->ptr;
+     		int number = v->count;
+     		int j=0;
+     		for(j=0; j < number; j++){
+     			sprintf(str_buf, "field : %s, value : %s", key, (sds)vectorGet(v, j));
+     			addReplyBulkCString(c, str_buf);
+     			numkeys++;
+     		}
+     }
+    	else {
+    		serverLog(LL_VERBOSE ,"Cant find vector");
+    		addReply(c, shared.err);
 
      }
      	sdsfree(pattern);
-     	dictReleaseIterator(di);
+     	decrRefCount(dataField);
      	setDeferredMultiBulkLength(c, replylen, numkeys);
     }
 
 }
 
-void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
-	serverLog(LL_DEBUG, "PREPARING WRITE FOR ROCKSDB");
-	dictIterator *di;
-	dictEntry *de;
-	char keystr[SDS_DATA_KEY_MAX];
-	char *err = NULL;
-
-	serverAssert(targetVal->location == LOCATION_FLUSH);
-	rocksdb_writebatch_t *writeBatch = rocksdb_writebatch_create();
-
-	dict *hashdictObj = (dict *) targetVal->ptr;
-	if (hashdictObj == NULL)
-		assert(0);
-
-	di = dictGetSafeIterator(hashdictObj);
-	if (di == NULL)
-		assert(0);
-	while ((de = dictNext(di)) != NULL) {
-		sds field_key = dictGetKey(de);
-		sds val = dictGetVal(de);
-
-		sprintf(keystr, "%s:%s%s", keyobj->ptr, REL_MODEL_FIELD_PREFIX,
-				field_key);
-		sds rocksKey = sdsnew(keystr);
-		robj *value = createStringObject(val, sdslen(val));
-		setPersistentKeyWithBatch(db->persistent_store, rocksKey, sdslen(rocksKey),
-				value->ptr, sdslen(value->ptr), writeBatch);
-//		setPersistentKey(db->persistent_store, rocksKey,
-//				sdslen(rocksKey), value->ptr, sdslen(value->ptr));
-		sdsfree(rocksKey);
-		decrRefCount(value);
-	}
-	rocksdb_write(db->persistent_store->ps, db->persistent_store->ps_options->woptions, writeBatch, &err);
-
-	if (err) {
-		serverPanic("[PERSISTENT_STORE] putting a key failed");
-	}
-
-	rocksdb_writebatch_destroy(writeBatch);
-	dictReleaseIterator(di);
-
-}
-
+/*
+ * rocksdbkeyCommand
+ * Command to write redis data into rocksdb
+ * Find redis data. if data existed, then write into rocksdb
+ * Please check log file
+ * --- Parameters ---
+ *  arg1: rockskey
+ *  arg2: DataKey
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *
+ *          tableId: "100"
+ *          partitionInfoId: "2:1"
+ *          rowgroup: 1
+ *  Command:
+ *      redis-cli> rockskey D:{100:2:1}:G:1
+ *  Results:
+ *      Find Case
+ *          redis-cli>
+ *          OK
+ */
 void rocksdbkeyCommand(client *c){
     sds pattern = sdsnew(c->argv[1]->ptr);
     robj *key = createStringObject(pattern, sdslen(pattern));
@@ -470,36 +512,35 @@ void rocksdbkeyCommand(client *c){
     addReply(c, shared.ok);
 }
 
-void getRocksDBkeyAndValueCommand(client *c){
-
-	sds pattern = sdsnew(c->argv[1]->ptr);
-
-	  char* err = NULL;
-	  size_t val_len;
-	  char* val;
-	  val = rocksdb_get_cf(c->db->persistent_store->ps, c->db->persistent_store->ps_options->roptions,
-			  c->db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW], pattern, sdslen(pattern), &val_len, &err);
-
-	  if(val == NULL){
-		  rocksdb_free(val);
-		  serverLog(LL_VERBOSE, "ROCKSDB KEY-VALUE NOT EXIST");
-			sdsfree(pattern);
-			addReply(c, shared.err);
-	  }
-	  else {
-		  robj *value = NULL;
-		  value = createStringObject(val, val_len);
-		  rocksdb_free(val);
-		  serverLog(LL_VERBOSE, "ROCKSDB KEY : %s , VALUE : %s", pattern, (char *)value->ptr);
-			sdsfree(pattern);
-			decrRefCount(value);
-			addReply(c, shared.ok);
-
-	  }
-
-}
-
-
+/*
+ * getQueueStatusCommand
+ * Lookup dictEntry currently registered in Queue.
+ * --- Parameters ---
+ *  arg1: queuestatus
+ *  arg2: *
+ *
+ * --- Usage Examples ---
+ *  Command:
+ *      redis-cli> queuestatus *
+ *  Results:
+ *      Find Case
+ *          redis-cli>
+ *           1) "[Rear : 0, Front : 2, idx : 0]DataKey : D:{100:2:1}:G:1 Field : 3:2 ]"
+ *           2) "[Rear : 0, Front : 2, idx : 0]DataKey : D:{100:2:1}:G:1 Field : 2:2 ]"
+ *           3) "[Rear : 0, Front : 2, idx : 0]DataKey : D:{100:2:1}:G:1 Field : 1:1 ]"
+ *           4) "[Rear : 0, Front : 2, idx : 0]DataKey : D:{100:2:1}:G:1 Field : 2:1 ]"
+ *           5) "[Rear : 0, Front : 2, idx : 0]DataKey : D:{100:2:1}:G:1 Field : 4:1 ]"
+ *           6) "[Rear : 0, Front : 2, idx : 0]DataKey : D:{100:2:1}:G:1 Field : 4:2 ]"
+ *           7) "[Rear : 0, Front : 2, idx : 0]DataKey : D:{100:2:1}:G:1 Field : 1:2 ]"
+ *           8) "[Rear : 0, Front : 2, idx : 0]DataKey : D:{100:2:1}:G:1 Field : 3:1 ]"
+ *           9) "[Rear : 0, Front : 2, idx : 1]DataKey : D:{100:2:1}:G:2 Field : 3:2 ]"
+ *          10) "[Rear : 0, Front : 2, idx : 1]DataKey : D:{100:2:1}:G:2 Field : 2:2 ]"
+ *
+ *      Empty Case
+ *          redis-cli>
+ *          1) "Queue is empty, front : 0, rear : 0"
+ *
+ */
 void getQueueStatusCommand(client *c){
  	char str_buf[1024];
 	if(c->db->EvictQueue->front == c->db->EvictQueue->rear){
@@ -534,11 +575,10 @@ void getQueueStatusCommand(client *c){
 		    dictEntry *de2;
 		    while((de2 = dictNext(di)) != NULL){
 		    	sds field_key = dictGetKey(de2);
-		    	sds val = dictGetVal(de2);
-		    	serverLog(LL_DEBUG, "GET QUEUE DataKey : %s Field : %s, Value : %s ", key ,field_key, val);
-		    	sprintf(str_buf, "[Rear : %d, Front : %d, idx : %d]DataKey : %s Field : %s, Value : %s ]",
-		    			c->db->EvictQueue->rear, c->db->EvictQueue->front ,idx,key,field_key, val);
-	     		addReplyBulkCString(c, str_buf);
+		    	serverLog(LL_DEBUG, "GET QUEUE DataKey : %s Field : %s", key ,field_key);
+		    	sprintf(str_buf, "[Rear : %d, Front : %d, idx : %d]DataKey : %s Field : %s ]",
+		    			c->db->EvictQueue->rear, c->db->EvictQueue->front ,idx,key,field_key);	     	
+		    	addReplyBulkCString(c, str_buf);
 	     		numkeys++;
 		    }
 		    idx++;
@@ -548,6 +588,26 @@ void getQueueStatusCommand(client *c){
 	}
 }
 
+/*
+ * dequeueCommand
+ * Command for checking dequeue operation
+ * --- Parameters ---
+ *  arg1: dequeueentry
+ *  arg2: *
+ *
+ * --- Usage Examples ---
+ *  Command:
+ *      redis-cli> dequeueentry *
+ *  Results:
+ *      Success Case
+ *          redis-cli>
+ *          OK
+ *
+ *      Fail Case
+ *          redis-cli>
+ *          ERR
+ *
+ */
 void dequeueCommand(client *c){
 	dictEntry *de = dequeue(c->db->EvictQueue);
 	if(de == NULL){
@@ -558,49 +618,34 @@ void dequeueCommand(client *c){
 		}
 }
 
-void getRearQueueCommand(client *c){
 
- 	char str_buf[1024];
-
-
-	dictEntry *de = c->db->EvictQueue->buf[c->db->EvictQueue->rear];
-	serverLog(LL_DEBUG, "FRONT : %d, REAR : %d", c->db->EvictQueue->front, c->db->EvictQueue->rear);
-
-	if(de == NULL){
-	 	unsigned long numkeys = 0;
-	 	void *replylen = addDeferredMultiBulkLength(c);
-     	sprintf(str_buf, "Rear Entry is NULL");
-     addReplyBulkCString(c, str_buf);
-     numkeys++;
-     setDeferredMultiBulkLength(c, replylen, numkeys);
-	}
-	else {
-	 	unsigned long numkeys = 0;
-	 	void *replylen = addDeferredMultiBulkLength(c);
-
-		    dictIterator *di;
-		    sds key = dictGetKey(de);
-		    robj *value = dictGetVal(de);
-		    dict *hashdict = (dict *)value->ptr;
-		    di = dictGetSafeIterator(hashdict);
-		    dictEntry *de2;
-		    while((de2 = dictNext(di)) != NULL){
-		    	sds field_key = dictGetKey(de2);
-		    	sds val = dictGetVal(de2);
-		    	serverLog(LL_DEBUG, "GET QUEUE Rear DataKey : %s Field : %s, Value : %s ", key ,field_key, val);
-		    	sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s, Value : %s ]",
-		    			c->db->EvictQueue->rear,key,field_key, val);
-		 		addReplyBulkCString(c, str_buf);
-		 		numkeys++;
-		    }
-		 	dictReleaseIterator(di);
-		 	setDeferredMultiBulkLength(c, replylen, numkeys);
-
-	}
-}
-
-
-
+/*
+ * chooseBestKeyCommand
+ * Command to check chooseBestKeyFromQueue function
+ * --- Parameters ---
+ *  arg1: evictbestkey
+ *  arg2: *
+ *
+ * --- Usage Examples ---
+ *  Command:
+ *      redis-cli> evictbestkey *
+ *  Results:
+ *      Success Case
+ *          redis-cli>
+ *          1) "[Rear : 0]DataKey : D:{100:2:1}:G:1 Field : 2:2 ]"
+ *          2) "[Rear : 0]DataKey : D:{100:2:1}:G:1 Field : 4:2 ]"
+ *          3) "[Rear : 0]DataKey : D:{100:2:1}:G:1 Field : 3:2 ]"
+ *          4) "[Rear : 0]DataKey : D:{100:2:1}:G:1 Field : 3:1 ]"
+ *          5) "[Rear : 0]DataKey : D:{100:2:1}:G:1 Field : 1:2 ]"
+ *          6) "[Rear : 0]DataKey : D:{100:2:1}:G:1 Field : 2:1 ]"
+ *          7) "[Rear : 0]DataKey : D:{100:2:1}:G:1 Field : 4:1 ]"
+ *          8) "[Rear : 0]DataKey : D:{100:2:1}:G:1 Field : 1:1 ]"
+ *
+ *      Empty Case
+ *          redis-cli>
+ *          1) "Queue is empty, front : 0, rear : 0"
+ *
+ */
 void chooseBestKeyCommand(client *c){
 
 	char str_buf[1024];
@@ -629,10 +674,9 @@ void chooseBestKeyCommand(client *c){
 
 		    while((de2 = dictNext(di)) != NULL){
 		    	sds field_key = dictGetKey(de2);
-		    	sds val = dictGetVal(de2);
-		    	serverLog(LL_DEBUG, "BestKey From Queue DataKey : %s Field : %s, Value : %s ", key ,field_key, val);
-		    	sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s, Value : %s ]",
-		    			c->db->EvictQueue->rear,key,field_key, val);
+		    	serverLog(LL_DEBUG, "BestKey From Queue DataKey : %s Field : %s", key ,field_key);
+		    	sprintf(str_buf, "[Rear : %d]DataKey : %s Field : %s ]",
+		    			c->db->EvictQueue->rear,key,field_key);
 		 		addReplyBulkCString(c, str_buf);
 		 		numkeys++;
 		    }
@@ -642,6 +686,22 @@ void chooseBestKeyCommand(client *c){
 	}
 }
 
+/*
+ * queueEmptyCommand
+ * Command to check initializeQueue function
+ * --- Parameters ---
+ *  arg1: emptyqueue
+ *  arg2: *
+ *
+ * --- Usage Examples ---
+ *  Command:
+ *      redis-cli> emptyqueue *
+ *  Results:
+ *      Success Case
+ *          redis-cli>
+ *          OK
+ *
+ */
 void queueEmptyCommand(client *c){
 	int j =0;
 
@@ -653,3 +713,175 @@ void queueEmptyCommand(client *c){
    }
 	addReply(c, shared.ok);
 }
+
+
+
+/*
+ * serializeCommand
+ * Serialize test command to save the value(Vector) in redis to rocksdb
+ * --- Parameters ---
+ *  arg1: cvserial
+ *  arg2: DataKey
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *
+ *          tableId: "100"
+ *          partitionInfoId: "2:1"
+ *          rowgroup: 1
+ *          field: "1:1" to "column_id:columnVector_id"
+ *          value: 1,2,3...
+ *  Command:
+ *      redis-cli> cvserial D:{100:2:1}:G:1
+ *  Results:
+ *      Success Case
+ *          redis-cli>
+ *          1) "Datakey : D:{100:2:1}:G:1, Field : 4:2, SerializeVector : V:{T:1:N:3}:D:[4:5:6]"
+ *          2) "Datakey : D:{100:2:1}:G:1, Field : 2:1, SerializeVector : V:{T:1:N:3}:D:[1:2:3]"
+ *          3) "Datakey : D:{100:2:1}:G:1, Field : 1:1, SerializeVector : V:{T:1:N:3}:D:[1:2:3]"
+ *          4) "Datakey : D:{100:2:1}:G:1, Field : 1:2, SerializeVector : V:{T:1:N:3}:D:[4:5:6]"
+ *          5) "Datakey : D:{100:2:1}:G:1, Field : 2:2, SerializeVector : V:{T:1:N:3}:D:[4:5:6]"
+ *          6) "Datakey : D:{100:2:1}:G:1, Field : 4:1, SerializeVector : V:{T:1:N:3}:D:[1:2:3]"
+ *          7) "Datakey : D:{100:2:1}:G:1, Field : 3:2, SerializeVector : V:{T:1:N:3}:D:[4:5:6]"
+ *          8) "Datakey : D:{100:2:1}:G:1, Field : 3:1, SerializeVector : V:{T:1:N:3}:D:[1:2:3]"
+ *
+ *      Non-exist Case
+ *          redis-cli>
+ *          (nil)
+ */
+void serializeCommand(client *c){
+
+	  sds pattern = sdsnew(c->argv[1]->ptr);
+
+    robj *hashdict = lookupSDSKeyFordict(c->db, pattern);
+
+
+    dictEntry *de;
+
+    if(hashdict == NULL){
+    	 addReply(c, shared.nullbulk);
+    }
+    else {
+
+     	char str_buf[1024];
+     	unsigned long numkeys = 0;
+     	void *replylen = addDeferredMultiBulkLength(c);
+
+     	dict *hashdictObj = (dict *) hashdict->ptr;
+     	dictIterator *di;
+     	di = dictGetSafeIterator(hashdictObj);
+
+     	while((de = dictNext(di)) != NULL){
+
+     		sds key = dictGetKey(de);
+     		robj *vectorObj = dictGetVal(de);
+     		Vector *v = (Vector *)vectorObj->ptr;
+     		int vector_type = v->type;
+     		int vector_count = v->count;
+     		int i=0;
+
+     		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
+     				vector_type, RELMODEL_VECTOR_COUNT_PREFIX, vector_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
+     		for(i=0; i< vector_count; i++){
+     			sds element = (sds) vectorGet(v, i);
+     			serial_buf = sdscatsds(serial_buf, element);
+     			if (i < vector_count -1) {
+     				serial_buf =  sdscat(serial_buf, RELMODEL_DELIMITER);
+     			}
+     		}
+     	  serial_buf =  sdscat(serial_buf, VECTOR_DATA_SUFFIX);
+     		sprintf(str_buf, "Datakey : %s, Field : %s, SerializeVector : %s",
+     				pattern, key, serial_buf);
+     		addReplyBulkCString(c, str_buf);
+     		numkeys++;
+
+     		serverLog(LL_VERBOSE, "DATAKEY : %s , Field : %s, serial_string : %s",
+     				pattern, key, serial_buf);
+
+
+     	}
+
+
+     	sdsfree(pattern);
+     	decrRefCount(pattern);
+     	setDeferredMultiBulkLength(c, replylen, numkeys);
+    }
+}
+
+/*
+ * deserializeCommand
+ * deSerialize test command to check the operation to deserialize data which is stored in rocksdb
+ * and make it a vector
+ * --- Parameters ---
+ *  arg1: cvdeserial
+ *  arg2: RocksdbDataKey
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *
+ *          tableId: "100"
+ *          partitionInfoId: "2:1"
+ *          rowgroup: 1
+ *          field: "1:1" to "column_id:columnVector_id"
+ *          serialized data: V:{T:1:N:3}:D:[1:2:3]
+ *  Command:
+ *      redis-cli> cvdeserial D:{100:2:1}:G:1:F:1:1
+ *  Results:
+ *      Success Case
+ *          redis-cli>
+ *          1) "VECTOR[0], Value : 1"
+ *          2) "VECTOR[1], Value : 2"
+ *          3) "VECTOR[2], Value : 3"
+ *
+ *      Error Case
+ *          redis-cli>
+ *          ERR
+ */
+void deserializeCommand(client *c){
+
+	sds pattern = sdsnew(c->argv[1]->ptr);
+
+	  char* err = NULL;
+	  size_t val_len;
+	  char* val;
+	  val = rocksdb_get_cf(c->db->persistent_store->ps, c->db->persistent_store->ps_options->roptions,
+			  c->db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW], pattern, sdslen(pattern), &val_len, &err);
+
+	  if(val == NULL){
+		  rocksdb_free(val);
+		  serverLog(LL_VERBOSE, "ROCKSDB KEY-VALUE NOT EXIST");
+			sdsfree(pattern);
+			addReply(c, shared.err);
+	  }
+	  else {
+
+		  char str_buf[1024];
+		  unsigned long numkeys = 0;
+		  void *replylen = addDeferredMultiBulkLength(c);
+
+		  serverLog(LL_DEBUG, "VALUE STRING : %s", val);
+		  Vector *v = VectordeSerialize(val);
+		  int count = v->count;
+
+		  int i =0;
+		  for(i=0; i < count ; i++){
+
+			  sprintf(str_buf, "VECTOR[%d], Value : %s", i, vectorGet(v, i));
+	     		addReplyBulkCString(c, str_buf);
+	     		numkeys++;
+		  }
+
+		  rocksdb_free(val);
+		  sdsfree(pattern);
+			vectorFreeDeep(v);
+			zfree(v);
+		  setDeferredMultiBulkLength(c, replylen, numkeys);
+	  }
+
+}
+
+
+void deleteEntryCommand(client *c){
+
+}
+
