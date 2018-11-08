@@ -648,6 +648,13 @@ int freeMemoryIfNeeded(void) {
 			serverLog(LL_VERBOSE, "evict queue empty");
 		}
 
+//		if(mem_used > server.maxmemory) {
+//			serverLog(LL_VERBOSE, "[INFO] : MetaDict size : %d" ,
+//					zmalloc_size(db->Metadict) + (dictSize(db->Metadict) * sizeof(dictEntry)));
+//			serverLog(LL_VERBOSE, "[QUEUE] : EvictQueue : %d , FreeQueue : %d",
+//					db->EvictQueue->size, db->FreeQueue->size);
+//		}
+
     while (mem_used > server.maxmemory) {
 		serverLog(LL_DEBUG,
 				"[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.8 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
@@ -655,6 +662,7 @@ int freeMemoryIfNeeded(void) {
 				mem_tofree, mem_freed);
 
 		sds victimKey = NULL;
+		robj *victVal = NULL;
 		dictEntry *victim = NULL;
 
 		if (!isEmpty(db->FreeQueue)) {
@@ -662,6 +670,8 @@ int freeMemoryIfNeeded(void) {
 			/* Finally remove the selected key. */
 			if (victim != NULL) {
 				victimKey = dictGetKey(victim);
+				victVal = dictGetVal(victim);
+				serverAssert(victVal->location == LOCATION_PERSISTED);
 				robj *victimKeyobj = createStringObject(victimKey,
 						sdslen(victimKey));
 				isFlushed = dbClear_(db, victimKeyobj);
@@ -678,18 +688,21 @@ int freeMemoryIfNeeded(void) {
 			serverLog(LL_DEBUG, "[Memory status] : maxmemory= %ld, used memory = %d", server.maxmemory, mem_used);
 			/* TODO need to check why freequeue is empty
 			 *  Maybe, Insert speed is much faster than tiering speed*/
-			dictEntry *di;
-			sds candidateKey = NULL;
-			if (!isEmpty(db->EvictQueue)) {
-				di = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
-				if (di != NULL) {
-					candidateKey = dictGetKey(di);
-					robj *candidatekeyobj = createStringObject(candidateKey, sdslen(candidateKey));
-					isPersisted = dbPersist_(db, candidatekeyobj);
-					server.stat_evictedkeys++;
+			for (int i = 0; i < db->EvictQueue->size * 1/10; i++) {
+				dictEntry *di;
+				sds candidateKey = NULL;
+				if (!isEmpty(db->EvictQueue)) {
+					di = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
+					if (di != NULL) {
+						candidateKey = dictGetKey(di);
+						robj *candidatekeyobj = createStringObject(candidateKey,
+								sdslen(candidateKey));
+						isPersisted = dbPersist_(db, candidatekeyobj);
+						server.stat_evictedkeys++;
+					}
+				} else {
+					serverLog(LL_VERBOSE, "evict queue empty");
 				}
-			} else {
-				serverLog(LL_VERBOSE, "evict queue empty");
 			}
 		}
 
