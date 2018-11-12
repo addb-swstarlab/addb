@@ -114,3 +114,23 @@ echo "Enter AOF option (yes/no)  ex) yes"
 read AOF
 ./scripts/${FILENAME} $AOF
 echo
+
+## ColumnVector
+FILENAME="setColumnVector.sh"
+echo "8) Edit ${FILENAME}"
+mv scripts/${FILENAME} scripts/${FILENAME}.old
+OLD=$(cat scripts/${FILENAME}.old | grep ADDB_DIR | grep -v CONF_DIR)
+sed -e "s@$OLD@ADDB_DIR=${ADDB_DIR}@" "scripts/${FILENAME}.old"  >> "scripts/${FILENAME}"
+if [ $? -ne 0 ]; then
+	echo "[ERROR] Cannot overwrite configuration file"
+	mv scripts/${FILENAME}.old scripts/${FILENAME}
+else
+	chmod +x scripts/${FILENAME}
+	rm scripts/${FILENAME}.old
+fi
+echo "8-1) Run ${FILENAME}"
+echo "Enter Columm Vector Array size  ex) 100"
+read ColumnVector
+./scripts/${FILENAME} $ColumnVector
+echo
+

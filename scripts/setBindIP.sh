@@ -8,12 +8,9 @@ IFS=$'\n' res=(`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -E
 for port in 8000 8001 8002 8003 8004 8005
 do
 	BIND=$(cat ${CONF_DIR}/redis_tiering_${port}.conf | grep "bind " | grep -v "#")
-	mv ${CONF_DIR}/redis_tiering_${port}.conf ${CONF_DIR}/redis_tiering_${port}.conf.old
-	sed "s/$BIND/bind ${res[0]}/" "${CONF_DIR}/redis_tiering_${port}.conf.old" >> "${CONF_DIR}/redis_tiering_${port}.conf"
+	sed -i".old" "s/$BIND/bind ${res[0]}/" "${CONF_DIR}/redis_tiering_${port}.conf"
 	if [ $? -ne 0 ]; then
 		echo "[ERROR] Cannot overwrite configuration file..."
-		echo "[ERROR] redis_tiering_${port}.conf.old to redis_tiering_${port}.conf"
-		mv ${CONF_DIR}/redis_tiering_${port}.conf.old ${CONF_DIR}/redis_tiering_${port}.conf
 		exit 1 
 	fi
 done
