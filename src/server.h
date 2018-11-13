@@ -1771,7 +1771,7 @@ robj *lookupSDSKeyForMetadict(redisDb *db, sds key);
 robj *lookupKeyForMetadict(redisDb *db, robj *key, int flags);
 robj *lookupSDSKeyFordict(redisDb *db, sds key);
 
-robj *lookupDictAndGetHashdictObj(client *c, robj *dataKey);
+robj *lookupDictAndGetHashdictObj(client *c, robj *dataKey, int* init);
 
 robj *lookupKeyReadOrReply(client *c, robj *key, robj *reply);
 robj *lookupAllKeyReadOrReply(client *c, robj *key, robj *reply);

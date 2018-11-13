@@ -222,7 +222,7 @@ robj *getDataField(int row, int column);
 sds getDataFieldSds(int rowId, int columnId);
 
 /*Insert function*/
-void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj);
+int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj);
 
 /*Scan*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);

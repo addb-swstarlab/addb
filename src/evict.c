@@ -636,24 +636,36 @@ int freeMemoryIfNeeded(void) {
 	dictEntry *de;
 	db = server.db;
 
-		if (!isEmpty(db->EvictQueue)) {
-			de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
-			if (de != NULL) {
-				bestkey = dictGetKey(de);
-				robj *keyobj = createStringObject(bestkey, sdslen(bestkey));
-				isPersisted = dbPersist_(db, keyobj);
-				server.stat_evictedkeys++;
+		if (db->FreeQueue->size < DEFAULT_FREE_QUEUE_SIZE-1) {
+	  	if (!isEmpty(db->EvictQueue)) {
+				de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
+				if (de != NULL) {
+					bestkey = dictGetKey(de);
+					robj *keyobj = createStringObject(bestkey, sdslen(bestkey));
+					//serverLog(LL_VERBOSE, "evicted = %s" , bestkey);
+					isPersisted = dbPersist_(db, keyobj);
+					server.stat_evictedkeys++;
+				}
+			} else {
+				serverLog(LL_VERBOSE, "evict queue empty");
 			}
-		} else {
-			serverLog(LL_VERBOSE, "evict queue empty");
 		}
-
-//		if(mem_used > server.maxmemory) {
-//			serverLog(LL_VERBOSE, "[INFO] : MetaDict size : %d" ,
-//					zmalloc_size(db->Metadict) + (dictSize(db->Metadict) * sizeof(dictEntry)));
-//			serverLog(LL_VERBOSE, "[QUEUE] : EvictQueue : %d , FreeQueue : %d",
-//					db->EvictQueue->size, db->FreeQueue->size);
+//		if (db->EvictQueue->size == 0 && db->FreeQueue->size > 1000000) {
+//			dictEntry * de;
+//			serverLog(LL_VERBOSE, "if constraint");
+//			while ((de = dequeue(db->FreeQueue)) != NULL) {
+//				robj * debug = dictGetVal(de);
+//				serverLog(LL_VERBOSE,"FreeQueue member location = %d", debug->location);
+//			}
+//			serverAssert(0);
 //		}
+
+		if(mem_used > server.maxmemory) {
+			serverLog(LL_VERBOSE, "[INFO] : MetaDict size : %d" ,
+					zmalloc_size(db->Metadict) + (dictSize(db->Metadict) * sizeof(dictEntry)));
+			serverLog(LL_VERBOSE, "[QUEUE] : EvictQueue : %d , FreeQueue : %d",
+					db->EvictQueue->size, db->FreeQueue->size);
+		}
 
     while (mem_used > server.maxmemory) {
 		serverLog(LL_DEBUG,
@@ -674,18 +686,25 @@ int freeMemoryIfNeeded(void) {
 				serverAssert(victVal->location == LOCATION_PERSISTED);
 				robj *victimKeyobj = createStringObject(victimKey,
 						sdslen(victimKey));
+				//serverLog(LL_VERBOSE, "freed = %s" , victimKey);
 				isFlushed = dbClear_(db, victimKeyobj);
+				if (isFlushed) {
+					serverLog(LL_VERBOSE,"CLEAR FAIL : FreeQueue->size : %d", db->FreeQueue->size);
+					serverAssert(0);
+				}
 				decrRefCount(victimKeyobj);
 				serverLog(LL_DEBUG, "CLEAR VICTIM SUCCESS [rear: %d]",
 						db->FreeQueue->rear);
 				victim_free++;
+			} else {
+				serverLog(LL_VERBOSE, "MayBe flush error victim is NULL");
 			}
 		} else {
 			serverLog(LL_DEBUG, "[FREE QUEUE is Empty] : size = %d, rear = %d, front = %d, max =%d ",
 					db->FreeQueue->size, db->FreeQueue->rear, db->FreeQueue->front, db->FreeQueue->max);
 			serverLog(LL_DEBUG, "[EVICT QUEUE] : size = %d, rear = %d, front = %d, max =%d ",
 					db->EvictQueue->size, db->EvictQueue->rear, db->EvictQueue->front, db->EvictQueue->max);
-			serverLog(LL_DEBUG, "[Memory status] : maxmemory= %ld, used memory = %d", server.maxmemory, mem_used);
+			serverLog(LL_VERBOSE, "[Memory status] : maxmemory= %ld, used memory = %d", server.maxmemory, mem_used);
 			/* TODO need to check why freequeue is empty
 			 *  Maybe, Insert speed is much faster than tiering speed*/
 			for (int i = 0; i < db->EvictQueue->size * 1/10; i++) {

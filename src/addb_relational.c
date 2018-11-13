@@ -521,14 +521,15 @@ sds getDataFieldSds(int rowId, int columnId) {
 
 /*addb Data Insertion func*/
 
-void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj){
+int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj){
 
 	assert(dataKeyString != NULL);
 	assert(dataField != NULL);
 
 	robj *dataHashdictObj = NULL;
+	int init = 0;
 
-	if( (dataHashdictObj = lookupDictAndGetHashdictObj(c,dataKeyString)) == NULL ){
+	if( (dataHashdictObj = lookupDictAndGetHashdictObj(c,dataKeyString, &init)) == NULL ){
 
 		serverLog(LL_WARNING, "Can't Find dataHashdict in dict, Because of Creation Error");
 		serverPanic("insertKVpairToRelational ERROR");
@@ -552,6 +553,7 @@ void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, r
 	}
 	notifyKeyspaceEvent(NOTIFY_HASH,"hset", dataKeyString,c->db->id);
 	server.dirty++;
+	return init;
 
 }
 

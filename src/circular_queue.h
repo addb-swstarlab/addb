@@ -12,7 +12,7 @@
 #include <stdlib.h>
 
 #define DEFAULT_ARRAY_QUEUE_SIZE 100000
-#define DEFAULT_FREE_QUEUE_SIZE 100000
+#define DEFAULT_FREE_QUEUE_SIZE 1000
 
 typedef struct _arrayQueue {
     int32_t rear;
