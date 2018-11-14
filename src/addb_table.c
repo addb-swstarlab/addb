@@ -114,7 +114,7 @@ void fpWriteCommand(client *c){
         	valueObj = shared.nullValue;
 
 
-     serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
+     serverLog(LL_VERBOSE, "insertKVpairToRelational key : %s, field : %s, value : %s",
         		(char *)dataKeyString->ptr, (char *)dataField->ptr, (char *)valueObj->ptr);
 
         /*insert data into dict with Relational model*/
@@ -134,8 +134,6 @@ void fpWriteCommand(client *c){
 
     serverLog(LL_DEBUG,"DictEntry Registration in a circular queue START");
 
-    int force_enqueue =0;
-
     /*Enqueue Entry*/
     if(dataKeyInfo->rowGroupId == 1){
     	int enqueue_row = getRowNumberInfoAndSetRowNumberInfo(c->db, dataKeyInfo);
@@ -149,7 +147,6 @@ void fpWriteCommand(client *c){
     	            	serverLog(LL_WARNING, "Enqueue Fail FirstRowgroup dictEntry");
     	            	serverAssert(0);
     	            }
-    	            force_enqueue = 1;
     	  }
     	}
     }
@@ -165,7 +162,6 @@ void fpWriteCommand(client *c){
     		serverLog(LL_WARNING, "Enqueue Fail CandidateRowgroup dictEntry");
     		serverAssert(0);
     	}
-    	force_enqueue = 1;
     }
 
     decrRefCount(dataKeyString);
@@ -444,7 +440,6 @@ void fieldsAndValueCommand(client *c){
     dictEntry *de;
     
     if(hashdict == NULL){
-    	sdsfree(pattern);
     	 addReply(c, shared.nullbulk);
     }
     else {
@@ -470,8 +465,6 @@ void fieldsAndValueCommand(client *c){
      }
     	else {
     		serverLog(LL_VERBOSE ,"Cant find vector");
-    		addReply(c, shared.err);
-
      }
      	sdsfree(pattern);
      	decrRefCount(dataField);
