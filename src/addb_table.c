@@ -84,11 +84,12 @@ void fpWriteCommand(client *c){
 			//serverLog(LL_VERBOSE, "DATAKEYtest :  %d", val->location);
 
 			__sync_synchronize();
-			if (val->location != LOCATION_REDIS_ONLY) {
+			if (val->location != LOCATION_REDIS_ONLY && !Enroll_queue) {
 				rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
-		    incRowNumber(c->db, dataKeyInfo, 0);
+//		    incRowNumber(c->db, dataKeyInfo, 0);
 				decrRefCount(dataKeyString);
 				dataKeyString = generateDataKey(dataKeyInfo);
+				row_number = 0;
 				//serverLog(LL_VERBOSE, "DATAKEY2 :  %s, rowGroupId : %d  rowgroupId : %d",
 				//		(char *) dataKeyString->ptr, rowGroupId, dataKeyInfo->rowGroupId);
 			}

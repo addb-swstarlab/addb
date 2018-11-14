@@ -608,7 +608,7 @@ int freeMemoryIfNeeded(void) {
     /* Check if we are over the memory usage limit. If we are not, no need
      * to subtract the slaves output buffers. We can just return ASAP. */
     mem_reported = zmalloc_used_memory();
-    if (mem_reported <= server.maxmemory * 6/10) return C_OK;
+    if (mem_reported <= server.maxmemory * 8/10) return C_OK;
 
     /* Remove the size of slaves output buffers and AOF buffer from the
      * count of used memory. */
@@ -617,7 +617,7 @@ int freeMemoryIfNeeded(void) {
     mem_used = (mem_used > overhead) ? mem_used-overhead : 0;
 
     /* Check if we are still over the memory limit. */
-    if (mem_used <= server.maxmemory * 6/10) return C_OK;
+    if (mem_used <= server.maxmemory * 8/10) return C_OK;
 
     /* Compute how much memory we need to free. */
     mem_tofree = mem_used - server.maxmemory;
@@ -660,12 +660,12 @@ int freeMemoryIfNeeded(void) {
 //			serverAssert(0);
 //		}
 
-		if(mem_used > server.maxmemory) {
-			serverLog(LL_VERBOSE, "[INFO] : MetaDict size : %d" ,
-					zmalloc_size(db->Metadict) + (dictSize(db->Metadict) * sizeof(dictEntry)));
-			serverLog(LL_VERBOSE, "[QUEUE] : EvictQueue : %d , FreeQueue : %d",
-					db->EvictQueue->size, db->FreeQueue->size);
-		}
+//		if(mem_used > server.maxmemory) {
+//			serverLog(LL_VERBOSE, "[INFO] : MetaDict size : %d" ,
+//					zmalloc_size(db->Metadict) + (dictSize(db->Metadict) * sizeof(dictEntry)));
+//			serverLog(LL_VERBOSE, "[QUEUE] : EvictQueue : %d , FreeQueue : %d",
+//					db->EvictQueue->size, db->FreeQueue->size);
+//		}
 
     while (mem_used > server.maxmemory) {
 		serverLog(LL_DEBUG,
@@ -697,7 +697,7 @@ int freeMemoryIfNeeded(void) {
 						db->FreeQueue->rear);
 				victim_free++;
 			} else {
-				serverLog(LL_VERBOSE, "MayBe flush error victim is NULL");
+				serverLog(LL_DEBUG, "MayBe flush error victim is NULL");
 			}
 		} else {
 			serverLog(LL_DEBUG, "[FREE QUEUE is Empty] : size = %d, rear = %d, front = %d, max =%d ",
