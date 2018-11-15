@@ -550,14 +550,15 @@ int checkEnqueue(client *c, robj *dataKeyString){
 
 /*addb Data Insertion func*/
 
-void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj){
+int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj){
 
 	assert(dataKeyString != NULL);
 	assert(dataField != NULL);
 
 	robj *dataHashdictObj = NULL;
+	int init = 0;
 
-	if( (dataHashdictObj = lookupDictAndGetHashdictObj(c,dataKeyString)) == NULL ){
+	if( (dataHashdictObj = lookupDictAndGetHashdictObj(c,dataKeyString, &init)) == NULL ){
 
 		serverLog(LL_WARNING, "Can't Find dataHashdict in dict, Because of Creation Error");
 		serverPanic("insertKVpairToRelational ERROR");
@@ -610,6 +611,7 @@ void insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, r
 	}
 	notifyKeyspaceEvent(NOTIFY_HASH,"hset", dataKeyString,c->db->id);
 	server.dirty++;
+	return init;
 
 }
 
@@ -639,7 +641,7 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 		//robj *value = createStringObject(val, sdslen(val));
 		char *SerializeString = VectorSerialize(vectorObj);
 		
-  	serverLog(LL_VERBOSE, "SERIALIZE Serial_val RESULT : %s", SerializeString);
+  	serverLog(LL_DEBUG, "SERIALIZE Serial_val RESULT : %s", SerializeString);
 		setPersistentKeyWithBatch(db->persistent_store, rocksKey, sdslen(rocksKey),
 				SerializeString, strlen(SerializeString), writeBatch);
 //		setPersistentKey(db->persistent_store, rocksKey,
@@ -650,6 +652,7 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 	rocksdb_write(db->persistent_store->ps, db->persistent_store->ps_options->woptions, writeBatch, &err);
 
 	if (err) {
+		serverLog(LL_VERBOSE, "RocksDB err");
 		serverPanic("[PERSISTENT_STORE] putting a key failed");
 	}
 

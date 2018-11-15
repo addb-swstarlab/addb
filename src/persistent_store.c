@@ -18,14 +18,21 @@ void createPersistentStoreOptions(persistent_store_t *ps) {
     ps_options->woptions = rocksdb_writeoptions_create();
     ps_options->coptions = rocksdb_compactoptions_create();
     ps_options->cache = rocksdb_cache_create_lru(100000);
+    rocksdb_options_set_info_log_level(ps_options, 2);
 
     rocksdb_options_set_create_if_missing(ps_options->options, 1);
     rocksdb_options_set_create_missing_column_families(ps_options->options, 1);
-    rocksdb_options_set_info_log(ps_options->options, NULL);
-    rocksdb_options_set_write_buffer_size(ps_options->options, 100000);
+    
+    rocksdb_options_optimize_level_style_compaction(ps_options->options, 64*4*1024*1024);
+    //rocksdb_options_set_info_log(ps_options->options, NULL);
+    //rocksdb_options_set_write_buffer_size(ps_options->options, 100000);
     rocksdb_options_set_paranoid_checks(ps_options->options, 1);
-    rocksdb_options_set_max_open_files(ps_options->options, 10);
-    rocksdb_options_set_base_background_compactions(ps_options->options, 1);
+    rocksdb_options_set_max_open_files(ps_options->options, -1);
+    rocksdb_options_increase_parallelism(ps_options->options, 4);
+    rocksdb_options_set_max_background_compactions(ps_options->options, 2);
+    rocksdb_options_set_max_background_flushes(ps_options->options, 2);
+    rocksdb_options_set_min_write_buffer_number_to_merge(ps_options->options, 1);
+    //rocksdb_options_set_base_background_compactions(ps_options->options, 1);
     ps_options->table_options = rocksdb_block_based_options_create();
     rocksdb_block_based_options_set_block_cache(ps_options->table_options, ps_options->cache);
     rocksdb_options_set_block_based_table_factory(ps_options->options, ps_options->table_options);
@@ -109,7 +116,7 @@ persistent_store_t* createPersistentStore(int dbnum) {
 
 void setPersistentKey(persistent_store_t* ps, const void *key, const int keylen, const void *val, const int vallen) {
     char *err = NULL;
-    serverLog(1, "Write to RocksDB[ KEY : %s, VAL : %s ]", (char *)key, (char *)val);
+    serverLog(0, "Write to RocksDB[ KEY : %s, VAL : %s ]", (char *)key, (char *)val);
     rocksdb_put_cf(ps->ps, ps->ps_options->woptions, ps->ps_cf_handles[PERSISTENT_STORE_CF_RW],
     		(const char*)key, keylen, (const char*)val, vallen, &err);
     if(err) {
@@ -119,7 +126,7 @@ void setPersistentKey(persistent_store_t* ps, const void *key, const int keylen,
 
 void setPersistentKeyWithBatch(persistent_store_t* ps, const void *key, const int keylen, const void *val,
 		const int vallen, rocksdb_writebatch_t * writeBatch) {
-    serverLog(1, "WriteBatch to RocksDB[ KEY : %s, VAL : %s ]", (char *)key, (char *)val);
+    serverLog(0, "WriteBatch to RocksDB[ KEY : %s, VAL : %s ]", (char *)key, (char *)val);
 	 rocksdb_writebatch_put_cf(writeBatch, ps->ps_cf_handles[PERSISTENT_STORE_CF_RW], (const char*)key, keylen, (const char*)val, vallen);
 }
 

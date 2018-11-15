@@ -123,13 +123,14 @@ int hashTypeGetFromZiplistWithrobj(robj *o, robj *field,
 
 /*addb lookup dict And get Hashdict
  * If Hashdict is NULL, then create and return*/
-robj *lookupDictAndGetHashdictObj(client *c, robj *dataKey){
+robj *lookupDictAndGetHashdictObj(client *c, robj *dataKey, int *init){
 
 	robj *hashDict = lookupKeyWrite(c->db, dataKey);
 
 	if(hashDict == NULL){
 		hashDict = createDataHashdictFordict();
 		dbAdd(c->db, dataKey, hashDict);
+		*init = 1;
 	}
 	else {
 		assert(hashDict->type == OBJ_HASH);

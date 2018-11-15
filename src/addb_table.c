@@ -75,6 +75,7 @@ void fpWriteCommand(client *c){
     /*get rownumber info from Metadict*/
     int row_number = getRowNumberInfoAndSetRowNumberInfo(c->db, dataKeyInfo);
     serverLog(LL_DEBUG, "rowNumber = %d", row_number);
+    int prev_row = row_number;
 
     /*set rowNumber Info to Metadict*/
     if(row_number == 0 ){
@@ -88,10 +89,30 @@ void fpWriteCommand(client *c){
     }
 
 
-    robj * dataKeyString = generateDataKey(dataKeyInfo);
-    serverLog(LL_DEBUG, "DATAKEY :  %s", (char *)dataKeyString->ptr);
+    robj *dataKeyString = NULL;
+    dataKeyString = generateDataKey(dataKeyInfo);
+    //serverLog(LL_VERBOSE, "DATAKEY1 :  %s", (char *) dataKeyString->ptr);
+
+    dictEntry *entryDict = dictFind(c->db->dict, dataKeyString->ptr);
+    		if (entryDict != NULL) {
+    			robj * val = dictGetVal(entryDict);
+    			//serverLog(LL_VERBOSE, "DATAKEYtest :  %d", val->location);
+
+    			__sync_synchronize();
+    			if (val->location != LOCATION_REDIS_ONLY &&  !Enroll_queue) {
+    				rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
+    		   // incRowNumber(c->db, dataKeyInfo, 0);
+    				decrRefCount(dataKeyString);
+    				dataKeyString = generateDataKey(dataKeyInfo);
+    				row_number = 0;
+    				//serverLog(LL_VERBOSE, "DATAKEY2 :  %s, rowGroupId : %d  rowgroupId : %d",
+    				//		(char *) dataKeyString->ptr, rowGroupId, dataKeyInfo->rowGroupId);
+    			}
+    		}
+
 
     int idx =0;
+    int init =0;
     for(i = 5; i < c->argc; i++){
 
     	   /*TODO - pk column check & ROW MAX LIMIT, COLUMN MAX LIMIT, */
@@ -114,16 +135,19 @@ void fpWriteCommand(client *c){
         	valueObj = shared.nullValue;
 
 
-     serverLog(LL_VERBOSE, "insertKVpairToRelational key : %s, field : %s, value : %s",
+     serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
         		(char *)dataKeyString->ptr, (char *)dataField->ptr, (char *)valueObj->ptr);
 
-        /*insert data into dict with Relational model*/
-     insertKVpairToRelational(c, dataKeyString, dataField, valueObj);
+     /*insert data into dict with Relational model*/
+     init = insertKVpairToRelational(c, dataKeyString, dataField, valueObj);
 
-        idx++;
-        insertedRow++;
-        decrRefCount(dataField);
-        decrRefCount(valueObj);
+     if(init)
+    	 Enroll_queue++;
+
+     idx++;
+     insertedRow++;
+     decrRefCount(dataField);
+     decrRefCount(valueObj);
     }
 
     /*addb update row number info*/
@@ -135,31 +159,9 @@ void fpWriteCommand(client *c){
     serverLog(LL_DEBUG,"DictEntry Registration in a circular queue START");
 
     /*Enqueue Entry*/
-    if(dataKeyInfo->rowGroupId == 1){
-    	int enqueue_row = getRowNumberInfoAndSetRowNumberInfo(c->db, dataKeyInfo);
-
-    	if(enqueue_row == 1){
-    	  if(row_number == 0 ){
-    		int firstrgid_result;
-    	            serverLog(LL_DEBUG,"Find First Rowgroup");
-    	            dictEntry *FirstRowgroupEntry = getCandidatedictEntry(c, dataKeyInfo);
-    	            if((firstrgid_result = enqueue(c->db->EvictQueue, FirstRowgroupEntry)) ==  0){
-    	            	serverLog(LL_WARNING, "Enqueue Fail FirstRowgroup dictEntry");
-    	            	serverAssert(0);
-    	            }
-    	  }
-    	}
-    }
-
-    if(Enroll_queue == 1){
-
-    	int result;
-
-    	//Enroll Another rowgroup
-    	serverLog(LL_DEBUG, "Enqueue Rowgroup");
-    	dictEntry *CandidateRowgroupEntry = getCandidatedictEntry(c, dataKeyInfo);
-    	if((result = enqueue(c->db->EvictQueue, CandidateRowgroupEntry)) ==  0){
-    		serverLog(LL_WARNING, "Enqueue Fail CandidateRowgroup dictEntry");
+    if(Enroll_queue){
+    	if(enqueue(c->db->EvictQueue, dictFind(c->db->dict, dataKeyString->ptr)) == 0) {
+    		serverLog(LL_VERBOSE, "Enqueue queue : %d --- prev_row : %d --- String : %s " ,Enroll_queue, prev_row, dataKeyString->ptr);
     		serverAssert(0);
     	}
     }

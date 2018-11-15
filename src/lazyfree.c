@@ -151,32 +151,13 @@ int dbPersist_(redisDb *db, robj *key) {
 }
 
 int dbClear_(redisDb *db, robj *key) {
-	/* If the value is composed of a few allocations, to free in a lazy way
-	 * is actually just slower... So under a certain limit we just free
-	 * the object synchronously. */
-	dictEntry *de = dictFind(db->dict, key->ptr);
-
-	if (de) {
-		robj *val = dictGetVal(de);
-		if (val->location != LOCATION_PERSISTED) serverAssert(0);
-		/* Deleting an entry from the expires dict will not free the sds of
-		 * the key, because it is shared with the main dictionary. */
-//		if (dictSize(db->expires) > 0)
-//			dictDelete(db->expires, key->ptr);
-		serverLog(LL_DEBUG, "DELETE PERSISTED ENTRY KEY : %s  value info : %d, %d, %d, %d",
-				(char *) key->ptr, val->location, val->refcount, val->type, val->encoding);
-		int result = dictDelete(db->dict,key->ptr);
-//		if (result) {
-//		serverLog(LL_VERBOSE, "free result = ERR");
-//		} else {
-//			serverLog(LL_VERBOSE, "free result = SUCCESS");
-//		}
-//		dictEntry *entry = dictUnlink(db->dict, key->ptr);
-//		bioCreateBackgroundJob(BIO_TIERED_FREE, entry, NULL, NULL);
-//			bioCreateBackgroundJob(BIO_TIERING, entry, BIO_TIERED_FREE, NULL);
-		return OK;
+	if(server.cluster_enabled){
+		robj *delKeyObj = createStringObject(key->ptr, sdslen(key->ptr));
+		slotToKeyDel(delKeyObj);
+		decrRefCount(delKeyObj);
 	}
-	return FAIL;
+	int result =dictDelete(db->dict, key->ptr);
+	return result;
 }
 
 /* Empty a Redis DB asynchronously. What the function does actually is to
