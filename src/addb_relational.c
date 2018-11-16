@@ -855,11 +855,11 @@ void _cachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
             Vector *columnVector =
                 (Vector *) cachedColumnVectorObjs[k]->ptr;
             serverLog(LL_VERBOSE, "ColumnVector Pointer: %p", columnVector);
-            for (size_t l = 0; l < vectorCount(columnVector); ++l) {
-                serverLog(
-                    LL_VERBOSE, "ColumnVector[%zu]: [%s]", l,
-                    vectorGet(columnVector, l));
-            }
+            // for (size_t l = 0; l < vectorCount(columnVector); ++l) {
+            //     serverLog(
+            //         LL_VERBOSE, "ColumnVector[%zu]: [%s]", l,
+            //         vectorGet(columnVector, l));
+            // }
             sds value = vectorGet(columnVector, getColumnVectorIndex(rowId));
             vectorAdd(data, sdsdup(value));
         }
