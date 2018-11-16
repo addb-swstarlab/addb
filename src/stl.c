@@ -255,16 +255,14 @@ char *VectorSerialize(robj *o){
 
 }
 
-
 Vector *VectordeSerialize(char *VectorString){
-
+	serverLog(LL_VERBOSE, "DESERIALIZE : %s", VectorString);
 	assert(VectorString != NULL);
-	serverLog(LL_DEBUG, "DESERIALIZE : %s", VectorString);
+    serverLog(LL_VERBOSE, "Pass assert");
 	char str_buf[1024];
 	char *token = NULL;
 	char *saveptr = NULL;
 	size_t size = strlen(VectorString) + 1;
-
 
 	memcpy(str_buf, VectorString, size);
 
@@ -298,12 +296,12 @@ Vector *VectordeSerialize(char *VectorString){
 
 	int vector_count = atoi(token);
 
-	serverLog(LL_DEBUG, "vector type : %d, count : %d", vector_type, vector_count);
+	serverLog(LL_VERBOSE, "vector type : %d, count : %d", vector_type, vector_count);
 
 	//create vector
 	Vector *v = zmalloc(sizeof(Vector));
-	vectorTypeInit(v, vector_type);
-	assert(v->size == 0);
+    vectorTypeInitWithSize(v, vector_type, vector_count);
+	assert(v->size == vector_count);
 	assert(v->count == 0);
 
 	if(vector_count == 1){
@@ -317,50 +315,184 @@ Vector *VectordeSerialize(char *VectorString){
 			serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
 			serverAssert(0);
 		}
-		serverLog(LL_DEBUG, "idx : %d, value : %s", vector_count-1, token);
+		serverLog(LL_VERBOSE, "idx : %d, value : %s", vector_count-1, token);
 		vectorAdd(v, sdsnew(token));
-
+        serverLog(LL_VERBOSE, "Vector deserialize finished");
+        return v;
 	}
-	else {
-		int i;
 
-		for(i=0; i < vector_count; i++){
+    int i;
 
-			if(i == 0){
-				if ((token = strtok_r(NULL, RELMODEL_VECTOR_DATA_PREFIX, &saveptr)) == NULL){
-					serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
-					serverAssert(0);
-				}
+    for(i=0; i < vector_count; i++){
+        if (i == (vector_count - 1)) {
+            serverLog(LL_VERBOSE, "Final round");
+        }
+        serverLog(LL_VERBOSE, "[%d] remain: %s", i, saveptr);
+        if(i == 0){
+            if ((token = strtok_r(NULL, RELMODEL_VECTOR_DATA_PREFIX, &saveptr)) == NULL){
+                serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
+                serverAssert(0);
+            }
 
-				serverLog(LL_DEBUG, "idx : %d, value : %s", i, token);
-				vectorAdd(v, sdsnew(token));
+            serverLog(LL_VERBOSE, "idx : %d, value : %s", i, token);
+            vectorAdd(v, sdsnew(token));
 
-			}
-			else if(i == (vector_count -1)){
-				if ((token = strtok_r(NULL, VECTOR_DATA_SUFFIX, &saveptr)) == NULL){
-					serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
-					serverAssert(0);
-				}
+        }
+        else if(i == (vector_count -1)){
+            if ((token = strtok_r(NULL, VECTOR_DATA_SUFFIX, &saveptr)) == NULL){
+                serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
+                serverAssert(0);
+            }
 
-				serverLog(LL_DEBUG, "idx : %d, value : %s", i, token);
-				vectorAdd(v, sdsnew(token));
+            serverLog(LL_VERBOSE, "idx : %d, value : %s", i, token);
+            vectorAdd(v, sdsnew(token));
 
-			}
-			else {
-				//parsing Vector Data
-				if ((token = strtok_r(NULL, RELMODEL_DELIMITER, &saveptr)) == NULL){
-					serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
-					serverAssert(0);
-				}
+        }
+        else {
+            //parsing Vector Data
+            if ((token = strtok_r(NULL, RELMODEL_DELIMITER, &saveptr)) == NULL){
+                serverLog(LL_WARNING, "Fatal: Vector deSerialize broken Error: [%s]", str_buf);
+                serverAssert(0);
+            }
 
-				serverLog(LL_DEBUG, "idx : %d, value : %s", i, token);
-				vectorAdd(v, sdsnew(token));
+            serverLog(LL_VERBOSE, "idx : %d, value : %s", i, token);
+            vectorAdd(v, sdsnew(token));
 
-			}
-		}
-	}
+        }
+    }
+
+    serverLog(LL_VERBOSE, "Vector deserialize finished");
 	return v;
+}
 
+int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
+	if (rawRocksDBVector == NULL) {
+        return C_ERR;
+    }
+
+	char *token = NULL;
+	char *saveptr = NULL;
+    int vector_type = -1;
+    int vector_count = -1;
+
+    token = strtok_r(rawRocksDBVector, RELMODEL_VECTOR_PREFIX, &saveptr);
+	if (token == NULL) {
+		//parsing the vector prefix
+		serverLog(
+            LL_WARNING,
+            "Fatal: Vector deSerialize broken Error: [%s]",
+            rawRocksDBVector);
+		return C_ERR;
+	}
+
+	/*skip vector prefix ("V") */
+	if (strcmp(token, RELMODEL_VECTOR_PREFIX) == 0) {
+		// skip idxType field
+		strtok_r(NULL, RELMODEL_BRACE_PREFIX, &saveptr);
+	}
+
+	// parsing Vector type
+    token = strtok_r(NULL, RELMODEL_VECTOR_TYPE_PREFIX, &saveptr);
+	if (token == NULL) {
+		serverLog(
+            LL_WARNING,
+            "Fatal:  Vector deSerialize broken Error: [%s]",
+            rawRocksDBVector);
+		return C_ERR;
+	}
+
+	vector_type = atoi(token);
+	//parsing Vector count
+    token = strtok_r(NULL, RELMODEL_VECTOR_COUNT_PREFIX, &saveptr);
+	if (token == NULL) {
+		serverLog(
+            LL_WARNING,
+            "Fatal:  Vector deSerialize broken Error: [%s]",
+            rawRocksDBVector);
+		return C_ERR;
+	}
+
+	vector_count = atoi(token);
+	serverLog(LL_VERBOSE, "vector type : %d, count : %d", vector_type, vector_count);
+
+	//create vector
+    *result = zmalloc(sizeof(Vector));
+    vectorTypeInitWithSize(*result, vector_type, vector_count);
+
+	if (vector_count == 1) {
+        token = strtok_r(NULL, RELMODEL_VECTOR_DATA_PREFIX, &saveptr);
+		if (token == NULL) {
+			serverLog(
+                LL_WARNING,
+                "Fatal: Vector deSerialize broken Error: [%s]",
+                rawRocksDBVector);
+            return C_ERR;
+		}
+
+        token = strtok_r(token, VECTOR_DATA_SUFFIX, saveptr);
+		if (token == NULL) {
+			serverLog(
+                LL_WARNING,
+                "Fatal: Vector deSerialize broken Error: [%s]",
+                rawRocksDBVector);
+			return C_ERR;
+		}
+		serverLog(LL_VERBOSE, "idx : %d, value : %s", vector_count - 1, token);
+		vectorAdd(*result, sdsnew(token));
+        serverLog(LL_VERBOSE, "Vector deserialize finished");
+        return C_OK;
+	}
+
+    int last_index = vector_count - 1;
+    for (int i = 0; i < vector_count; i++) {
+        if (i == last_index) {
+            serverLog(LL_VERBOSE, "Final round");
+        }
+        serverLog(LL_VERBOSE, "[%d] remain: %s", i, saveptr);
+        if (i == 0) {
+            token = strtok_r(NULL, RELMODEL_VECTOR_DATA_PREFIX, &saveptr);
+            if (token == NULL) {
+                serverLog(
+                    LL_WARNING,
+                    "Fatal: Vector deSerialize broken Error: [%s]",
+                    rawRocksDBVector);
+                return C_ERR;
+            }
+
+            serverLog(LL_VERBOSE, "idx : %d, value : %s", i, token);
+            vectorAdd(*result, sdsnew(token));
+
+        } else if (i == last_index) {
+            token = strtok_r(NULL, VECTOR_DATA_SUFFIX, &saveptr);
+            if (token == NULL){
+                serverLog(
+                    LL_WARNING,
+                    "Fatal: Vector deSerialize broken Error: [%s]",
+                    rawRocksDBVector);
+                return C_ERR;
+            }
+
+            serverLog(LL_VERBOSE, "idx : %d, value : %s", i, token);
+            vectorAdd(*result, sdsnew(token));
+
+        } else {
+            //parsing Vector Data
+            token = strtok_r(NULL, RELMODEL_DELIMITER, &saveptr);
+            if (token == NULL) {
+                serverLog(
+                    LL_WARNING,
+                    "Fatal: Vector deSerialize broken Error: [%s]",
+                    rawRocksDBVector);
+                return C_ERR;
+            }
+
+            serverLog(LL_VERBOSE, "idx : %d, value : %s", i, token);
+            vectorAdd(*result, sdsnew(token));
+        }
+    }
+
+    serverLog(LL_VERBOSE, "Vector deserialize finished");
+	return C_OK;
 }
 
 void CheckVectorsds(Vector *v){
