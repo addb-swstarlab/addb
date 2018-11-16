@@ -74,11 +74,11 @@ void fpWriteCommand(client *c){
     }
 
 
-		robj * dataKeyString = NULL;
-		dataKeyString = generateDataKey(dataKeyInfo);
+		robj * check = generateDataKey(dataKeyInfo);
+
 		//serverLog(LL_VERBOSE, "DATAKEY1 :  %s", (char *) dataKeyString->ptr);
 
-		dictEntry *entryDict = dictFind(c->db->dict, dataKeyString->ptr);
+		dictEntry *entryDict = dictFind(c->db->dict, check->ptr);
 		if (entryDict != NULL) {
 			robj * val = dictGetVal(entryDict);
 			//serverLog(LL_VERBOSE, "DATAKEYtest :  %d", val->location);
@@ -87,13 +87,15 @@ void fpWriteCommand(client *c){
 			if (val->location != LOCATION_REDIS_ONLY && !Enroll_queue) {
 				rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
 //		    incRowNumber(c->db, dataKeyInfo, 0);
-				decrRefCount(dataKeyString);
-				dataKeyString = generateDataKey(dataKeyInfo);
 				row_number = 0;
 				//serverLog(LL_VERBOSE, "DATAKEY2 :  %s, rowGroupId : %d  rowgroupId : %d",
 				//		(char *) dataKeyString->ptr, rowGroupId, dataKeyInfo->rowGroupId);
 			}
 		}
+		decrRefCount(check);
+		robj * dataKeyString = generateDataKey(dataKeyInfo);
+
+		if(rowGroupId > 100000) serverLog(LL_VERBOSE, "Too many RowGroupId");
 
 	  int init = 0;
     int idx = 0;
@@ -104,6 +106,8 @@ void fpWriteCommand(client *c){
     	robj *valueObj = getDecodedObject(c->argv[i]);
 
     	//Create field Info
+    	if(row_number < 0 || row_number > server.rowgroup_size)
+    		serverAssert(0);
     	int row_idx = row_number + (idx / column_number) + 1;
     	int column_idx = (idx % column_number) + 1;
      assert(column_idx <= MAX_COLUMN_NUMBER);

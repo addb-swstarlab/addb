@@ -673,8 +673,11 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
         }
 
         // Scan on Redis.
+        serverLog(LL_VERBOSE, "[DEBUG][scanDataFromADDB] Scan on Redis");
         robj *hashDictObj = rowGroupParams[i].dictObj;
         dict *hashDict = (dict *) hashDictObj->ptr;
+        serverLog(LL_VERBOSE, "[DEBUG][scanDataFromADDB] hashDictObj: %p, hashDictObj->ptr: %p", hashDictObj, hashDict);
+        serverLog(LL_VERBOSE, "[DEBUG][scanDataFromADDB] hashDictObj->location: %d", hashDictObj->location);
         for (size_t j = 0; j < rowGroupParams[i].rowCount; ++j) {
             size_t rowId = j + 1;
             for (size_t k = 0; k < columnParam->columnCount; ++k) {
@@ -682,8 +685,14 @@ void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
                                                    k);
                 // Data field key (Row & Column pair)
                 // Ex) "1:2"
+                serverLog(LL_VERBOSE, "[DEBUG][scanDataFromADDB] rowCount : %d, rowId : %d, columnId : %d ",
+                		rowGroupParams[i].rowCount, rowId, columnId);
                 sds dataFieldKey = getDataFieldSds(rowId, columnId);
+                if (hashDict == NULL) {
+                			serverLog(LL_VERBOSE, "[DEBUG][scanDataFromADDB][FATAL] hashDict must not be NULL...");
+									}
                 dictEntry *entry = dictFind(hashDict, dataFieldKey);
+                serverLog(LL_VERBOSE, "[DEBUG][scanDataFromADDB] Break Point after dictFind.");
                 sds value = dictGetVal(entry);
                 vectorAdd(data, (void *) value);
                 sdsfree(dataFieldKey);
