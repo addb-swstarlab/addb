@@ -156,7 +156,7 @@ int dbClear_(redisDb *db, robj *key) {
 		slotToKeyDel(delKeyObj);
 		decrRefCount(delKeyObj);
 	}
-	int result =dictDelete(db->dict, key->ptr);
+	int result = dictDelete(db->dict, key->ptr);
 	return result;
 }
 

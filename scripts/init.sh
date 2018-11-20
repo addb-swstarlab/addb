@@ -1,8 +1,5 @@
 #!/bin/bash
 
-echo "Check own"
-sudo chown -R addb:addb dir/*
-
 mkdir -p dir
 mkdir -p dir/log
 mkdir -p dir/run

@@ -22,17 +22,16 @@ void createPersistentStoreOptions(persistent_store_t *ps) {
 
     rocksdb_options_set_create_if_missing(ps_options->options, 1);
     rocksdb_options_set_create_missing_column_families(ps_options->options, 1);
-    
+
     rocksdb_options_optimize_level_style_compaction(ps_options->options, 64*4*1024*1024);
-    //rocksdb_options_set_info_log(ps_options->options, NULL);
     //rocksdb_options_set_write_buffer_size(ps_options->options, 100000);
     rocksdb_options_set_paranoid_checks(ps_options->options, 1);
     rocksdb_options_set_max_open_files(ps_options->options, -1);
-    rocksdb_options_increase_parallelism(ps_options->options, 4);
+    rocksdb_options_increase_parallelism(ps_options->options, 4);	//2 for flush thread, max 2 for compaction threads
     rocksdb_options_set_max_background_compactions(ps_options->options, 2);
-    rocksdb_options_set_max_background_flushes(ps_options->options, 2);
+    rocksdb_options_set_max_background_flushes(ps_options->options,2);
     rocksdb_options_set_min_write_buffer_number_to_merge(ps_options->options, 1);
-    //rocksdb_options_set_base_background_compactions(ps_options->options, 1);
+    //rocksdb_options_set_base_background_compactions(ps_options->options, 3);
     ps_options->table_options = rocksdb_block_based_options_create();
     rocksdb_block_based_options_set_block_cache(ps_options->table_options, ps_options->cache);
     rocksdb_options_set_block_based_table_factory(ps_options->options, ps_options->table_options);

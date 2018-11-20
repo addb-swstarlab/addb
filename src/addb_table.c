@@ -41,6 +41,7 @@ void fpWriteCommand(client *c){
     int i;
     long long insertedRow = 0;
     int Enroll_queue = 0;
+
     //struct redisClient *fakeClient = NULL;
 
     serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
@@ -127,6 +128,8 @@ void fpWriteCommand(client *c){
     	robj *valueObj = getDecodedObject(c->argv[i]);
 
     	//Create field Info
+    	if(row_number < 0 || row_number > server.rowgroup_size)
+    		serverAssert(0);
     	int row_idx = row_number + (idx / column_number) + 1;
     	int column_idx = (idx % column_number) + 1;
     	int columnvector_idx = ((row_idx -1) / server.columnvector_size + 1);
