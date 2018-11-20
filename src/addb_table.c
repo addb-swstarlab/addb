@@ -98,8 +98,8 @@ void fpWriteCommand(client *c){
     			robj * val = dictGetVal(entryDict);
     			//serverLog(LL_VERBOSE, "DATAKEYtest :  %d", val->location);
 
-    			__sync_synchronize();
-    			if (val->location != LOCATION_REDIS_ONLY &&  !Enroll_queue) {
+        // __sync_synchronize();
+        if (val->location != LOCATION_REDIS_ONLY && !Enroll_queue) {
     				rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
     		   // incRowNumber(c->db, dataKeyInfo, 0);
     				decrRefCount(dataKeyString);
@@ -108,7 +108,14 @@ void fpWriteCommand(client *c){
     				//serverLog(LL_VERBOSE, "DATAKEY2 :  %s, rowGroupId : %d  rowgroupId : %d",
     				//		(char *) dataKeyString->ptr, rowGroupId, dataKeyInfo->rowGroupId);
     			}
-    		}
+    } else if (entryDict == NULL && row_number != 0 && !Enroll_queue) {
+        rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
+        // incRowNumber(c->db, dataKeyInfo, 0);
+        decrRefCount(dataKeyString);
+        dataKeyString = generateDataKey(dataKeyInfo);
+        serverLog(LL_VERBOSE, "[FPWRITE] ENTRY_DICT_NULL... %s", dataKeyString->ptr);
+        row_number = 0;
+    }
 
 
     int idx =0;
@@ -235,7 +242,8 @@ void fpScanCommand(client *c) {
     /*Load data from Redis or RocksDB*/
     Vector data;
     vectorTypeInit(&data, STL_TYPE_SDS);
-    scanDataFromADDB(c->db, scanParam, &data);
+    legacyScanDataFromADDB(c->db, scanParam, &data);
+    // scanDataFromADDB(c->db, scanParam, &data);
 
     /*Scan data to client*/
     void *replylen = addDeferredMultiBulkLength(c);

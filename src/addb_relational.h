@@ -247,6 +247,12 @@ void _cachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
                  Vector *data, robj **cachedColumnVectorObjs,
                  size_t *cachedColumnVectorIds);
 Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey);
+// Legacy Functions
+void legacyScanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
+void _legacyCachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
+                       Vector *data);
+void _legacyCachedScanOnRocksDB(redisDb *db, size_t rowGroupId,
+                                ScanParameter *scanParam, Vector *data);
 
 /*Partition Filter*/
 bool validateStatements(const sds rawStatementsStr);

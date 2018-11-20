@@ -102,6 +102,7 @@ void *dequeueForClear(Queue *queue) {
 	serverAssert(obj != NULL);
 
 	__sync_synchronize();
+	serverAssert(obj->location != LOCATION_REDIS_ONLY);
 	if(obj->location != LOCATION_PERSISTED) return NULL;
 
 	queue->buf[queue->rear] = NULL;

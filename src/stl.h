@@ -44,6 +44,7 @@ void *vectorPop(Vector *v);
 int vectorFreeDatum(Vector *v, void *datum);
 int vectorFree(Vector *v);
 int vectorFreeDeep(Vector *v);
+sds vectorToSds(Vector *v);
 
 /* Stack */
 /* Implemented by using Vector */

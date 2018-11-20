@@ -194,6 +194,18 @@ int vectorFreeDeep(Vector *v) {
     return C_OK;
 }
 
+sds vectorToSds(Vector *v) {
+    sds vectorSds = sdsempty();
+    for(int i = 0; i < vectorCount(v); ++i) {
+        vectorSds = sdscatsds(vectorSds, vectorGet(v, i));
+        if (i == vectorCount(v) - 1) {
+            break;
+        }
+        vectorSds = sdscat(vectorSds, " ");
+    }
+    return vectorSds;
+}
+
 void stackInit(Stack *s) {
     s->type = STL_TYPE_DEFAULT;
     vectorInit(&s->data);

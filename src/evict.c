@@ -629,7 +629,6 @@ int freeMemoryIfNeeded(void) {
         goto cant_free; /* We need to free memory, but policy forbids. */
 
 
-  int index = 0;
 	sds bestkey = NULL;
 	int bestdbid;
 	redisDb *db;
@@ -667,6 +666,7 @@ int freeMemoryIfNeeded(void) {
 							db->EvictQueue->size, db->FreeQueue->size);
 				}
 
+    int index = 0;
     while (mem_used > server.maxmemory) {
 		serverLog(LL_DEBUG,
 				"[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.8 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
