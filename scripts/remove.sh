@@ -1,3 +1,4 @@
+#!/bin/bash
 rm -rf dir/ssd1/8000/*
 rm -rf dir/ssd1/8001/*
 rm -rf dir/ssd1/8002/*

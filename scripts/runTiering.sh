@@ -1,4 +1,5 @@
-source ../.bashrc
+#!/bin/bash
+source ~/.bashrc
 ./src/redis-server conf/redis_tiering_8000.conf
 ./src/redis-server conf/redis_tiering_8001.conf
 ./src/redis-server conf/redis_tiering_8002.conf

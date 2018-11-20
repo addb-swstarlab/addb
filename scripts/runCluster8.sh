@@ -1,4 +1,5 @@
-source ../.bashrc
+#!/bin/bash
+source ~/.bashrc
 ./src/redis-server conf/redis8000.conf
 ./src/redis-server conf/redis8001.conf
 ./src/redis-server conf/redis8002.conf
