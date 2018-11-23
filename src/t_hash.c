@@ -251,11 +251,17 @@ robj* hashTypeGetValueRObject(robj *o, robj *field) {
             	valueObj = createStringObjectFromLongLong(vll);
             }
     } else if (o->encoding == OBJ_ENCODING_HT) {
-        robj *aux =  hashTypeGetFromHashTable(o, field->ptr);
+    	   field = getDecodedObject(field);
+//       	serverLog(LL_WARNING, "filed type : %d   encoding : %d   %s" ,
+//       			field->type, field->encoding, field->ptr);
+        sds aux =  hashTypeGetFromHashTable(o, field->ptr);
 
-        if (aux  == 0){
-        	incrRefCount(aux);
-        	valueObj = aux;
+        decrRefCount(field);
+        if (aux  != NULL) {
+//        	aux = getDecodedObject(aux);
+        	//incrRefCount(aux);
+        	//serverLog(LL_WARNING, "aux type : %d   encoding : %d" , aux->type, aux->encoding);
+        	valueObj = createStringObject(aux, sdslen(aux));
         }
 
     } else {
@@ -428,19 +434,37 @@ int hashTypeSetWithNoFlags(robj *o, robj *field, robj *value){
 		decrRefCount(value);
 
 		/* Check if the ziplist needs to be converted to a hash table */
-		if (hashTypeLength(o) > server.hash_max_ziplist_entries)
+		if (hashTypeLength(o) > server.hash_max_ziplist_entries) {
+			serverLog(LL_WARNING, "[converted ziplist -> hash] : %ld", hashTypeLength(o));
 			hashTypeConvert(o, OBJ_ENCODING_HT);
-	} else if (o->encoding == OBJ_ENCODING_HT) {
-		if (dictReplace(o->ptr, field, value)) { /* Insert */
-			incrRefCount(field);
-		} else { /* Update */
-			update = 1;
 		}
-		incrRefCount(value);
+	} else if (o->encoding == OBJ_ENCODING_HT) {
+		field = getDecodedObject(field);
+		value = getDecodedObject(value);
+		sds fieldsds = sdsdup(field->ptr);
+		sds valuesds = sdsdup(value->ptr);
+		decrRefCount(field);
+		decrRefCount(value);
+//		serverLog(LL_WARNING, "filedsds : %s valuesds : %s", fieldsds, valuesds);
+
+//		sds fielddupsds = sdsdup(fieldsds);
+
+		if (!dictReplace(o->ptr, fieldsds, valuesds)) {
+			/* Update */
+//			serverLog(LL_WARNING, "update filedsds : %s valuesds : %s", fieldsds, valuesds);
+			update = 1;
+			sdsfree(fieldsds);
+		}//incrRefCount(value);
+
+//		dictEntry *de = dictFind(o->ptr, fielddupsds);
+//		serverLog(LL_WARNING, "dictEntry pointer: %p", de);
+//		sds val = dictGetVal(de);
+//		serverLog(LL_WARNING, "Founded key: %s, val: %s", fielddupsds, val);
+//		sdsfree(fielddupsds);
+
 	} else {
 		serverPanic("Unknown hash encoding");
 	}
-
     return update;
 }
 
@@ -791,8 +815,8 @@ void hincrbyfloatCommand(client *c) {
     char buf[256];
     int len = ld2string(buf,sizeof(buf),value,1);
     new = sdsnewlen(buf,len);
-    hashTypeSet(o,c->argv[2]->ptr,new,HASH_SET_TAKE_VALUE);
     addReplyBulkCBuffer(c,buf,len);
+    hashTypeSet(o,c->argv[2]->ptr,new,HASH_SET_TAKE_VALUE);
     signalModifiedKey(c->db,c->argv[1]);
     notifyKeyspaceEvent(NOTIFY_HASH,"hincrbyfloat",c->argv[1],c->db->id);
     server.dirty++;

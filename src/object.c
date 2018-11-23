@@ -195,6 +195,17 @@ robj *createDataHashdictFordict(void){
 
 }
 
+robj *createMetaHashdictFordict(void){
+	  dict *dict = NULL;
+	  dict = dictCreate(&hashDictType, NULL);  //hashDictType
+	  assert(dict != NULL);
+	  robj *o = createObject(OBJ_HASH, dict);
+	  //o->encoding = OBJ_ENCODING_REL;
+	  o->encoding = OBJ_ENCODING_HT;
+    return o;
+
+}
+
 robj *createQuicklistObject(void) {
     quicklist *l = quicklistCreate();
     robj *o = createObject(OBJ_LIST,l);

@@ -969,7 +969,8 @@ struct redisServer {
     long long stat_expiredkeys;     /* Number of expired keys */
     long long stat_evictedkeys;     /* Number of evicted keys (maxmemory) */
     /* addb */
-    long long stat_clearkeys;
+    long long stat_time_meta_update;
+    long long stat_time_data_insert;
     long long stat_keyspace_hits;   /* Number of successful lookups of keys */
     long long stat_keyspace_misses; /* Number of failed lookups of keys */
     long long stat_active_defrag_hits;      /* number of allocations moved */
@@ -1492,6 +1493,7 @@ robj *createSetObject(void);
 robj *createIntsetObject(void);
 robj *createHashObject(void);
 robj *createDataHashdictFordict(void); /*addb*/
+robj *createMetaHashdictFordict(void);
 robj *createZsetObject(void);
 robj *createZsetZiplistObject(void);
 robj *createModuleObject(moduleType *mt, void *value);

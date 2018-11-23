@@ -228,9 +228,9 @@ int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 
 
 int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
-
+	//int retVal, ret;
     if (metaHashdictObj == NULL) {
-        serverLog(LL_WARNING, "[lookupCompInfoForRowNumberInMeta] Meta dict is NULL...");
+        serverLog(LL_DEBUG, "[lookupCompInfoForRowNumberInMeta] Meta dict is NULL...");
         return 0;
     }
     robj *decodedField = getDecodedObject(metaField);
@@ -251,6 +251,40 @@ int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
     }
     decrRefCount(decodedField);
     return retVal;
+//	if (metaHashdictObj->encoding == OBJ_ENCODING_ZIPLIST) {
+//			unsigned char *vstr = NULL;
+//			unsigned int vlen = UINT_MAX;
+//			long long vll = LLONG_MAX;
+//
+//			ret = hashTypeGetFromZiplist(metaHashdictObj, metaField, &vstr, &vlen, &vll);
+//			if (ret < 0) {
+//				retVal = 0;
+//			} else {
+//				if (vstr) {
+//					//redisLog(REDIS_ERROR, "# of RowGroup should be integer");
+//					assert(0);
+//				} else {
+//					retVal = vll;
+//				}
+//			}
+//		} else if (metaHashdictObj->encoding == OBJ_ENCODING_HT) {
+//			robj *valObj;
+//
+//			ret = hashTypeGetFromHashTable(metaHashdictObj, metaField, &valObj);
+//			if (ret < 0) {
+//				retVal = 0;
+//			} else {
+//				if (!sdsEncodedObject(valObj)) {
+//					retVal = (int) (long) valObj->ptr;
+//
+//				} else {
+//					retVal= atoi((char * ) valObj->ptr);
+//				}
+//			}
+//		} else {
+//			assert(0);
+//		}
+//	return retVal;
 }
 
 int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
@@ -269,6 +303,46 @@ int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
     }
     decrRefCount(decodedField);
     return retVal;
+
+//	int retVal, ret;
+//    if (metaHashdictObj == NULL) {
+//        serverLog(LL_DEBUG, "[lookupCompInfoForRowNumberInMeta] Meta dict is NULL...");
+//        return 0;
+//    }
+//	if (metaHashdictObj->encoding == OBJ_ENCODING_ZIPLIST) {
+//			unsigned char *vstr = NULL;
+//			unsigned int vlen = UINT_MAX;
+//			long long vll = LLONG_MAX;
+//
+//			ret = hashTypeGetFromZiplist(metaHashdictObj, metaField, &vstr, &vlen, &vll);
+//			if (ret < 0) {
+//				retVal = 0;
+//			} else {
+//				if (vstr) {
+//					//redisLog(REDIS_ERROR, "# of RowGroup should be integer");
+//					assert(0);
+//				} else {
+//					retVal = vll;
+//				}
+//			}
+//		} else if (metaHashdictObj->encoding == OBJ_ENCODING_HT) {
+//			robj *valObj;
+//
+//			ret = hashTypeGetFromHashTable(metaHashdictObj, metaField, &valObj);
+//			if (ret < 0) {
+//				retVal = 0;
+//			} else {
+//				if (!sdsEncodedObject(valObj)) {
+//					retVal = (int) (long) valObj->ptr;
+//
+//				} else {
+//					retVal= atoi((char * ) valObj->ptr);
+//				}
+//			}
+//		} else {
+//			assert(0);
+//		}
+//	return retVal;
 }
 
 
@@ -338,7 +412,8 @@ int IncDecCount(redisDb *db, robj *key, robj *field, long long cnt){  // int fla
 
     o = lookupKeyWriteForMetadict(db,key);
     if(o == NULL){
-    	o = createHashObject();  //ziplist object
+    //	o = createHashObject();  //ziplist object
+    	o = createMetaHashdictFordict();
     	dbAddForMetadict(db, key, o);
     }
     else{

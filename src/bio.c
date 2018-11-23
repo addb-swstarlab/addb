@@ -223,8 +223,6 @@ void *bioProcessBackgroundJobs(void *arg) {
             sdsfree(key);
             decrRefCount(val);
             zfree(de);
-            server.stat_clearkeys++;
-
         } else {
             serverPanic("Wrong job type in bioProcessBackgroundJobs().");
         }

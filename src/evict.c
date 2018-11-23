@@ -590,7 +590,7 @@ size_t freeMemoryGetNotCountedMemory(void) {
 //}
 
 int freeMemoryIfNeeded(void) {
-    size_t mem_reported, mem_used, mem_tofree, mem_freed, freed_key;
+    size_t mem_reported, mem_used, mem_tofree, mem_freed;
     mstime_t latency, eviction_latency;
     long long delta;
     int slaves = listLength(server.slaves);
@@ -622,7 +622,7 @@ int freeMemoryIfNeeded(void) {
     /* Compute how much memory we need to free. */
     mem_tofree = mem_used - server.maxmemory;
     mem_freed = 0;
-    freed_key = server.stat_clearkeys;
+
 
 
     if (server.maxmemory_policy == MAXMEMORY_NO_EVICTION)
@@ -723,10 +723,6 @@ int freeMemoryIfNeeded(void) {
 			}
 		}
 
-		serverLog(LL_DEBUG,
-				"clearkeys : %d , freed_key : %d, FreeQueue size : %d, victim_free : %d",
-				server.stat_clearkeys, freed_key, db->FreeQueue->size,
-				victim_free);
 		mem_used = zmalloc_used_memory();
 		if (server.aof_state != AOF_OFF) {
 			mem_used -= sdslen(server.aof_buf);

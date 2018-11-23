@@ -41,12 +41,15 @@ void fpWriteCommand(client *c){
     int i;
     long long insertedRow = 0;
     int Enroll_queue = 0;
+    //long long meta_start = 0;
+    //long long insert_start = 0;
 
     //struct redisClient *fakeClient = NULL;
 
     serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
             (char *) c->argv[1]->ptr,(char *) c->argv[2]->ptr, (char *) c->argv[3]->ptr , (char *) c->argv[4]->ptr);
 
+    //meta_start = ustime();
     /*parsing dataInfo*/
     NewDataKeyInfo *dataKeyInfo = parsingDataKeyInfo((sds)c->argv[1]->ptr);
 
@@ -89,35 +92,37 @@ void fpWriteCommand(client *c){
     	Enroll_queue = 1;
     }
 
+		robj *dataKeyString = NULL;
+		dataKeyString = generateDataKey(dataKeyInfo);
+		//serverLog(LL_VERBOSE, "DATAKEY1 :  %s", (char *) dataKeyString->ptr);
 
-    robj *dataKeyString = NULL;
-    dataKeyString = generateDataKey(dataKeyInfo);
-    //serverLog(LL_VERBOSE, "DATAKEY1 :  %s", (char *) dataKeyString->ptr);
+		dictEntry *entryDict = dictFind(c->db->dict, dataKeyString->ptr);
+		if (entryDict != NULL) {
+			robj * val = dictGetVal(entryDict);
+			//serverLog(LL_VERBOSE, "DATAKEYtest :  %d", val->location);
 
-    dictEntry *entryDict = dictFind(c->db->dict, dataKeyString->ptr);
-    		if (entryDict != NULL) {
-    			robj * val = dictGetVal(entryDict);
-    			//serverLog(LL_VERBOSE, "DATAKEYtest :  %d", val->location);
+			// __sync_synchronize();
+			if (val->location != LOCATION_REDIS_ONLY && !Enroll_queue) {
+				rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
+				// incRowNumber(c->db, dataKeyInfo, 0);
+				decrRefCount(dataKeyString);
+				dataKeyString = generateDataKey(dataKeyInfo);
+				row_number = 0;
+				//serverLog(LL_VERBOSE, "DATAKEY2 :  %s, rowGroupId : %d  rowgroupId : %d",
+				//		(char *) dataKeyString->ptr, rowGroupId, dataKeyInfo->rowGroupId);
+			}
+		} else if (entryDict == NULL && row_number != 0 && !Enroll_queue) {
+			rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
+			// incRowNumber(c->db, dataKeyInfo, 0);
+			decrRefCount(dataKeyString);
+			dataKeyString = generateDataKey(dataKeyInfo);
+			serverLog(LL_VERBOSE, "[FPWRITE] ENTRY_DICT_NULL... %s",
+					dataKeyString->ptr);
+			row_number = 0;
+		}
+//		server.stat_time_meta_update += ustime() - meta_start;
 
-        // __sync_synchronize();
-        if (val->location != LOCATION_REDIS_ONLY && !Enroll_queue) {
-    				rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
-    		   // incRowNumber(c->db, dataKeyInfo, 0);
-    				decrRefCount(dataKeyString);
-    				dataKeyString = generateDataKey(dataKeyInfo);
-    				row_number = 0;
-    				//serverLog(LL_VERBOSE, "DATAKEY2 :  %s, rowGroupId : %d  rowgroupId : %d",
-    				//		(char *) dataKeyString->ptr, rowGroupId, dataKeyInfo->rowGroupId);
-    			}
-    } else if (entryDict == NULL && row_number != 0 && !Enroll_queue) {
-        rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
-        // incRowNumber(c->db, dataKeyInfo, 0);
-        decrRefCount(dataKeyString);
-        dataKeyString = generateDataKey(dataKeyInfo);
-        serverLog(LL_VERBOSE, "[FPWRITE] ENTRY_DICT_NULL... %s", dataKeyString->ptr);
-        row_number = 0;
-    }
-
+		//insert_start = ustime();
 
     int idx =0;
     int init =0;
@@ -159,6 +164,7 @@ void fpWriteCommand(client *c){
      decrRefCount(dataField);
      decrRefCount(valueObj);
     }
+    //server.stat_time_data_insert += ustime() - insert_start;
 
     /*addb update row number info*/
     insertedRow /= column_number;

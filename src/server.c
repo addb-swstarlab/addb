@@ -1806,7 +1806,8 @@ void resetServerStats(void) {
     server.stat_numconnections = 0;
     server.stat_expiredkeys = 0;
     server.stat_evictedkeys = 0;
-    server.stat_clearkeys = 0;
+    server.stat_time_meta_update = 0;
+    server.stat_time_data_insert = 0;
     server.stat_keyspace_misses = 0;
     server.stat_keyspace_hits = 0;
     server.stat_active_defrag_hits = 0;
@@ -3134,7 +3135,8 @@ sds genRedisInfoString(char *section) {
             "sync_partial_err:%lld\r\n"
             "expired_keys:%lld\r\n"
             "evicted_keys:%lld\r\n"
-        	  "clear_key:%lld\r\n"
+        		 "meta time:%lld\r\n"
+          	 "insert time:%lld\r\n"
             "keyspace_hits:%lld\r\n"
             "keyspace_misses:%lld\r\n"
             "pubsub_channels:%ld\r\n"
@@ -3159,7 +3161,8 @@ sds genRedisInfoString(char *section) {
             server.stat_sync_partial_err,
             server.stat_expiredkeys,
             server.stat_evictedkeys,
-			  server.stat_clearkeys,
+			      server.stat_time_meta_update,
+				     server.stat_time_data_insert,
             server.stat_keyspace_hits,
             server.stat_keyspace_misses,
             dictSize(server.pubsub_channels),
