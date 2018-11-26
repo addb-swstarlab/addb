@@ -248,26 +248,32 @@ void fpScanCommand(client *c) {
     int totalDataCount = populateScanParameter(c->db, scanParam);
     serverLog(LL_DEBUG, "total data count: %d", totalDataCount);
 
-    /*Load data from Redis or RocksDB*/
-    Vector data;
-    vectorTypeInit(&data, STL_TYPE_SDS);
-    legacyScanDataFromADDB(c->db, scanParam, &data);
-    // scanDataFromADDB(c->db, scanParam, &data);
-
-    /*Scan data to client*/
+    /*Non-Vector response version*/
     void *replylen = addDeferredMultiBulkLength(c);
-    size_t numreplies = 0;
-    serverLog(LL_DEBUG, "Loaded data from ADDB...");
-    for (size_t i = 0; i < vectorCount(&data); ++i) {
-        sds datum = sdsdup((sds) vectorGet(&data, i));
-        // serverLog(LL_DEBUG, "i: %zu, value: %s", i, datum);
-        addReplyBulkSds(c, datum);
-        numreplies++;
-    }
-
-    freeScanParameter(scanParam);
-    vectorFreeDeep(&data);
+    size_t numreplies = scanDataFromADDB_non_vector(c, c->db, scanParam);
     setDeferredMultiBulkLength(c, replylen, numreplies);
+
+    /*Vector response version*/
+    /*Load data from Redis or RocksDB*/
+    // Vector data;
+    // vectorTypeInit(&data, STL_TYPE_SDS);
+    // legacyScanDataFromADDB(c->db, scanParam, &data);
+    // // scanDataFromADDB(c->db, scanParam, &data);
+
+    // /*Scan data to client*/
+    // void *replylen = addDeferredMultiBulkLength(c);
+    // size_t numreplies = 0;
+    // serverLog(LL_DEBUG, "Loaded data from ADDB...");
+    // for (size_t i = 0; i < vectorCount(&data); ++i) {
+    //     sds datum = sdsdup((sds) vectorGet(&data, i));
+    //     // serverLog(LL_DEBUG, "i: %zu, value: %s", i, datum);
+    //     addReplyBulkSds(c, datum);
+    //     numreplies++;
+    // }
+
+    // freeScanParameter(scanParam);
+    // vectorFreeDeep(&data);
+    // setDeferredMultiBulkLength(c, replylen, numreplies);
 }
 
 void _addReplyMetakeysResults(client *c, Vector *metakeys) {
