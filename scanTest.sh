@@ -3,16 +3,18 @@
 #               PARTITION_COUNT=${PARTITION_COUNT} \
 #               COLUMN_COUNT=${COLUMN_COUNT} \
 #               SCAN_LOOK_UP_COLUMNS=${SCAN_LOOK_UP_COLUMNS} \
-#               ITERATION_COUNT=${ITERATION_COUNT}
+#               INSERT_ITER_CNT=${INSERT_ITER_CNT} \
+#               SCAN_ITER_CNT=${SCAN_ITER_CNT}
 
 # Example
-# ./scanTest.sh TABLE_ID=100 RANDOM_PARTITION=yes PARTITION_COUNT=100 COLUMN_COUNT=4 SCAN_LOOK_UP_COLUMNS="1,2,3" ITERATION_COUNT=200
+# ./scanTest.sh TABLE_ID=100 RANDOM_PARTITION=yes PARTITION_COUNT=100 COLUMN_COUNT=4 SCAN_LOOK_UP_COLUMNS="1,2,3" INSERT_ITER_CNT=200 SCAN_ITER_CNT=30
 #   TABLE_ID=100
 #   RANDOM_PARTITION=yes
 #   PARTITION_COUNT=100
 #   COLUMN_COUNT=4
 #   SCAN_LOOK_UP_COLUMNS="1,2,3"
-#   ITERATION_COUNT=200
+#   INSERT_ITER_CNT=200
+#   SCAN_ITER_CNT=30
 
 # Parses arguments...
 for ARGUMENT in "$@"
@@ -25,7 +27,8 @@ do
     PARTITION_COUNT)      PARTITION_COUNT=${VALUE} ;;
     COLUMN_COUNT)         COLUMN_COUNT=${VALUE} ;;
     SCAN_LOOK_UP_COLUMNS) SCAN_LOOK_UP_COLUMNS=${VALUE} ;;
-    ITERATION_COUNT)      ITERATION_COUNT=${VALUE} ;;
+    INSERT_ITER_CNT)      INSERT_ITER_CNT=${VALUE} ;;
+    SCAN_ITER_CNT)        SCAN_ITER_CNT=${VALUE} ;;
     *)
   esac
 done
@@ -35,7 +38,8 @@ echo "RANDOM_PARTITION:     $RANDOM_PARTITION"
 echo "PARTITION_COUNT:      $PARTITION_COUNT"
 echo "COLUMN_COUNT:         $COLUMN_COUNT"
 echo "SCAN_LOOK_UP_COLUMNS: $SCAN_LOOK_UP_COLUMNS"
-echo "ITERATION_COUNT:      $ITERATION_COUNT"
+echo "INSERT_ITER_CNT:      $INSERT_ITER_CNT"
+echo "SCAN_ITER_CNT:        $SCAN_ITER_CNT"
 
 # Randomizes collecting partitions
 PARTITIONS=()
@@ -53,7 +57,7 @@ fi
 
 # Varaible counter
 counter=1
-for i in $(seq 1 $ITERATION_COUNT); do
+for i in $(seq 1 $INSERT_ITER_CNT); do
   values=$counter
   if [ $COLUMN_COUNT -ge 2 ]
   then
@@ -68,7 +72,13 @@ for i in $(seq 1 $ITERATION_COUNT); do
   $CMD
 done
 
-SCAN_PARTITION=${PARTITIONS[$RANDOM % $PARTITION_COUNT]}
-CMD="./src/redis-cli fpscan D:{$TABLE_ID:$SCAN_PARTITION} $SCAN_LOOK_UP_COLUMNS"
-echo $CMD
-$CMD
+# CMD="./src/redis-cli metakeys M:{100:*} 3*2*EqualTo:2*2*EqualTo:Or:1*2*EqualTo:0*2*EqualTo:Or:Or:$"
+# echo $CMD
+# $CMD
+
+for i in $(seq 1 $SCAN_ITER_CNT); do
+  SCAN_PARTITION=${PARTITIONS[$RANDOM % $PARTITION_COUNT]}
+  CMD="./src/redis-cli fpscan D:{$TABLE_ID:$SCAN_PARTITION} $SCAN_LOOK_UP_COLUMNS"
+  echo $CMD
+  $CMD
+done

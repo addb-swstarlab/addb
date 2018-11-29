@@ -34,7 +34,7 @@
 #define CONDITION_OP_TYPE_STRING_STARTS_WITH 13 // StringStartsWith
 
 /* ADDB evaluate column vector ID */
-static inline size_t getColumnVectorId(size_t rowId) {
+static inline int getColumnVectorId(size_t rowId) {
     return ((rowId - 1) / server.columnvector_size + 1);
 }
 
@@ -245,7 +245,7 @@ RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey);
 void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
 void _cachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
                  Vector *data, robj **cachedColumnVectorObjs,
-                 size_t *cachedColumnVectorIds);
+                 int *cachedColumnVectorIds);
 Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey);
 // Legacy Functions
 void legacyScanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);

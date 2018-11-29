@@ -449,7 +449,7 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
                 rawRocksDBVector);
 			return C_ERR;
 		}
-		serverLog(LL_VERBOSE, "idx : %d, value : %s", vector_count - 1, token);
+		serverLog(LL_DEBUG, "idx : %d, value : %s", vector_count - 1, token);
 		vectorAdd(*result, sdsnew(token));
         serverLog(LL_VERBOSE, "Vector deserialize finished");
         return C_OK;
@@ -458,9 +458,9 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
     int last_index = vector_count - 1;
     for (int i = 0; i < vector_count; i++) {
         if (i == last_index) {
-            serverLog(LL_VERBOSE, "Final round");
+            serverLog(LL_DEBUG, "Final round");
         }
-        serverLog(LL_VERBOSE, "[%d] remain: %s", i, saveptr);
+        serverLog(LL_DEBUG, "[%d] remain: %s", i, saveptr);
         if (i == 0) {
             token = strtok_r(NULL, RELMODEL_VECTOR_DATA_PREFIX, &saveptr);
             if (token == NULL) {
@@ -471,7 +471,7 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
                 return C_ERR;
             }
 
-            serverLog(LL_VERBOSE, "idx : %d, value : %s", i, token);
+            serverLog(LL_DEBUG, "idx : %d, value : %s", i, token);
             vectorAdd(*result, sdsnew(token));
 
         } else if (i == last_index) {
@@ -484,7 +484,7 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
                 return C_ERR;
             }
 
-            serverLog(LL_VERBOSE, "idx : %d, value : %s", i, token);
+            serverLog(LL_DEBUG, "idx : %d, value : %s", i, token);
             vectorAdd(*result, sdsnew(token));
 
         } else {
@@ -498,7 +498,7 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
                 return C_ERR;
             }
 
-            serverLog(LL_VERBOSE, "idx : %d, value : %s", i, token);
+            serverLog(LL_DEBUG, "idx : %d, value : %s", i, token);
             vectorAdd(*result, sdsnew(token));
         }
     }
