@@ -208,7 +208,9 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	}
 
 	robj *metaField = shared.integers[0];
+    serverLog(LL_VERBOSE, "getRowGroupInfoAndSetRowGroupInfo: Call lookupCompInfoForMeta, Size[%zu]", zmalloc_used_memory());
 	rowgroup = lookupCompInfoForMeta(metaHashdictObj, metaField);
+    serverLog(LL_VERBOSE, "getRowGroupInfoAndSetRowGroupInfo: Finish lookupCompInfoForMeta, Size[%zu]", zmalloc_used_memory());
 	dataKeyInfo->rowGroupId = rowgroup;
     sdsfree(metaKey);
 	return rowgroup;
@@ -250,7 +252,9 @@ int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
         retVal = atoi((char *) ret->ptr);
     }
     decrRefCount(decodedField);
+    decrRefCount(ret);
     return retVal;
+
 //	if (metaHashdictObj->encoding == OBJ_ENCODING_ZIPLIST) {
 //			unsigned char *vstr = NULL;
 //			unsigned int vlen = UINT_MAX;
@@ -288,20 +292,20 @@ int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
 }
 
 int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
-
     if (metaHashdictObj == NULL){
         return 0;
     }
     robj *decodedField = getDecodedObject(metaField);
     int retVal = 0;
     robj *ret = hashTypeGetValueObject(metaHashdictObj, (sds) decodedField->ptr);
+    decrRefCount(decodedField);
 
     if (!sdsEncodedObject(ret)) {
         retVal = (int) (long) ret->ptr;
     } else {
         retVal = atoi((char *) ret->ptr);
     }
-    decrRefCount(decodedField);
+    decrRefCount(ret);
     return retVal;
 
 //	int retVal, ret;
