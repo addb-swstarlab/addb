@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# ADDB Redis-RocksDB
+HOST_LIST=( cluster01 cluster05 cluster06 cluster07 cluster09 cluster13 cluster16 )
+PORT_LIST=( 8000 8001 8002 8003 8004 8005 )
+#PORT_LIST_1=${PORT_LIST[@]:0:${#PORT_LIST[@]}/2} # First half
+#PORT_LIST_2=${PORT_LIST[@]:${#PORT_LIST[@]}/2:${#PORT_LIST[@]}/2+1}  # Remaining
+PORT_LIST_1=( 8000 8001 8002 )
+PORT_LIST_2=( 8003 8004 8005 )
+NODE_LIST=( 0 1 2 3 4 5 )
+
+## CONSTANT
+REDIS_SERVER=redis-server
+CONF_PREFIX=redis_tiering
+
+## Get IP
+IFS=$'\n' res=(`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'`)
+IP=${res[0]}
+
+## Directory
+CONF_DIR=${ADDB_HOME}/conf
+SCRIPT_DIR=${ADDB_HOME}/scripts
+LOG_DIR=${ADDB_HOME}/dir/log
+RUN_DIR=${ADDB_HOME}/dir/run
+DATA_DIR_1=${ADDB_HOME}/dir/ssd1
+DATA_DIR_2=${ADDB_HOME}/dir/ssd2
+
+ROCKSDB_DATA_DIR="0:default"
+
