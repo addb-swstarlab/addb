@@ -1,12 +1,12 @@
 #!/bin/bash
 
+# Please set host/port info
 # ADDB Redis-RocksDB
-HOST_LIST=( cluster01 cluster05 cluster06 cluster07 cluster09 cluster13 cluster16 )
-PORT_LIST=( 8000 8001 8002 8003 8004 8005 )
-#PORT_LIST_1=${PORT_LIST[@]:0:${#PORT_LIST[@]}/2} # First half
-#PORT_LIST_2=${PORT_LIST[@]:${#PORT_LIST[@]}/2:${#PORT_LIST[@]}/2+1}  # Remaining
-PORT_LIST_1=( 8000 8001 8002 )
-PORT_LIST_2=( 8003 8004 8005 )
+HOST_LIST=( )
+HOST_IP_LIST=( ) # for creating redis cluster
+PORT_LIST=( )
+PORT_LIST_1=( )  # for storing data separately
+PORT_LIST_2=( )
 NODE_LIST=( 0 1 2 3 4 5 )
 
 ## CONSTANT

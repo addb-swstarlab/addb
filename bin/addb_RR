@@ -286,16 +286,15 @@ function CleanData() {
 # -create
 function CreateCluster() {
 	echo -e "\n## ADDB Redis - Create cluster"
-	cd ${ADDB_HOME}
-	command="./src/redis-trib.rb create"
-	for host in ${HOST_LIST[@]}
+	command="ruby ${ADDB_HOME}/src/redis-trib.rb create"
+	for host in ${HOST_IP_LIST[@]}
 	do
 		for port in ${PORT_LIST[@]}
 		do
 			command="${command} ${host}:${port}"
 		done
 	done	
-	${command}
+	eval $command
 }
 
 # -command
