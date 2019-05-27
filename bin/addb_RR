@@ -256,7 +256,7 @@ function WatchServer() {
 		content+=" du -h ${DATA_DIR_2}/${port}/${ROCKSDB_DATA_DIR};"
 	done
 	#content+="./scripts/clusterCommand8.sh dbsize"
-	content+="./addb_RR -command dbsize"
+	content+="addb_RR -command dbsize"
 	watch -d -n 1 "${content}"
 }
 #	-kill
