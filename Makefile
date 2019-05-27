@@ -7,5 +7,6 @@ default: all
 
 install:
 	cd src && $(MAKE) $@
+	cp bin/addb_RR /usr/bin
 
 .PHONY: install
