@@ -315,6 +315,12 @@ function ResetCluster() {
 	ClusterCommand cluster reset hard
 }
 
+# -reset
+function ClusterInfo() {
+	echo -e "\n## ADDB Redis - show cluster info"
+	ClusterCommand cluster info
+}
+
 # Helper
 function Helper() {
 	echo -e "\n## ADDB Redis Controller Helper "
@@ -362,6 +368,8 @@ addb_RR [ -help ]
     := reset redis cluster
 	[ -command ]
     := execute command for each redis instance
+	[ -info ]
+    := show cluster information by 'cluster info' command
 "
 }
 
@@ -430,6 +438,9 @@ function main() {
 		-reset)
 			ResetCluster
 			;;
+		-info)
+			ClusterInfo
+			;;
 		*)
 			echo -e "\n# ADDB Redis Controller "
 			echo "[Invalid argument error]"
@@ -460,6 +471,7 @@ addb_spark [ -help ]
             [ -create ]
             [ -reset ]
             [ -command ]  
+            [ -info ]  
 
 "
 			;;
