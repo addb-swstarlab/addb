@@ -1238,6 +1238,7 @@ struct redisServer {
     /*ADDB Relational*/
     int rowgroup_size;
     int columnvector_size;
+    int batch_tiering_size;
 };
 
 typedef struct pubsubPattern {

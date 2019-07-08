@@ -9,4 +9,9 @@ install:
 	cd src && $(MAKE) $@
 	cp bin/addb_RR /usr/bin
 
-.PHONY: install
+clearlogs:
+	rm -r *\:default
+	rm -r *.aof
+	rm -r *.rdb
+
+.PHONY: install clearlogs
