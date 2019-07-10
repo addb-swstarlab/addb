@@ -1824,6 +1824,7 @@ int dbAsyncDelete(redisDb *db, robj *key);
 int dbPersistOrClear(redisDb *db, robj *key);
 int dbPersist_(redisDb *db, robj *key);
 int dbClear_(redisDb *db, robj *key);
+void dbPersistBatch_(redisDb *db, quicklist *evict_keys);
 void emptyDbAsync(redisDb *db);
 void slotToKeyFlushAsync(void);
 size_t lazyfreeGetPendingObjectsCount(void);

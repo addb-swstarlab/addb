@@ -213,6 +213,15 @@ void *bioProcessBackgroundJobs(void *arg) {
             __sync_synchronize();
             decrRefCount(keyobj);
             //decrRefCount(valobj);
+        } else if (type == BIO_BATCH_TIERING) {
+            /* ADDB
+             * Batch Tiering */
+            redisDb *db = (redisDb *) job->arg1;
+            quicklist *evict_keys = (quicklist *) job->arg2;
+            prepareBatchWriteToRocksDB(db, evict_keys);
+            // TODO(totoro): If __sync_synchronize() is meaningless, remove this line.
+            __sync_synchronize();
+            quicklistRelease(evict_keys);
         } else if (type == BIO_TIERED_FREE) {
             /* ADDB */
             dictEntry *de = (dictEntry *)job->arg1;

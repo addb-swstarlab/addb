@@ -41,4 +41,5 @@ void bioKillThreads(void);
 #define BIO_LAZY_FREE     2 /* Deferred objects freeing. */
 #define BIO_TIERING       3 /* Deferred data insertion to RocksDB */
 #define BIO_TIERED_FREE   4
-#define BIO_NUM_OPS       5
+#define BIO_BATCH_TIERING 5 /* Deferred data batch insertion to RocksDB */
+#define BIO_NUM_OPS       6

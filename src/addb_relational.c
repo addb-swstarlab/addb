@@ -725,14 +725,16 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 		char *SerializeString = VectorSerialize(vectorObj);
 
   	serverLog(LL_DEBUG, "SERIALIZE Serial_val RESULT : %s", SerializeString);
-		setPersistentKeyWithBatch(db->persistent_store, rocksKey, sdslen(rocksKey),
-				SerializeString, strlen(SerializeString) + 1, writeBatch);
+		setPersistentKeyWithBatch(db->persistent_store, rocksKey,
+                                  sdslen(rocksKey), SerializeString,
+                                  strlen(SerializeString) + 1, writeBatch);
 //		setPersistentKey(db->persistent_store, rocksKey,
 //				sdslen(rocksKey), SerializeString, strlen(SerializeString));
 		sdsfree(rocksKey);
 		zfree(SerializeString);
 	}
-	rocksdb_write(db->persistent_store->ps, db->persistent_store->ps_options->woptions, writeBatch, &err);
+	rocksdb_write(db->persistent_store->ps, db->persistent_store->ps_options->woptions, writeBatch,
+                  &err);
 
 	if (err) {
 		serverLog(LL_VERBOSE, "RocksDB err");
@@ -741,7 +743,66 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 
 	rocksdb_writebatch_destroy(writeBatch);
 	dictReleaseIterator(di);
+}
 
+void prepareBatchWriteToRocksDB(redisDb *db, quicklist *evict_keys) {
+    serverLog(LL_DEBUG, "PREPARING BATCH WRITE FOR ROCKSDB");
+	char keystr[SDS_DATA_KEY_MAX];
+	char *err = NULL;
+
+	rocksdb_writebatch_t *writeBatch = rocksdb_writebatch_create();
+
+    // Insert evict relations to RocksDB WriteBatch.
+    while (quicklistCount(evict_keys) > 0) {
+        unsigned char *data = NULL;
+        unsigned int size = 0;
+        long long slong = -123456789;
+        quicklistPop(evict_keys, QUICKLIST_HEAD, &data, &size, &slong);
+
+        sds key = sdsnewlen(data, size);
+        zfree(data);
+
+        dictEntry *relation_entry = dictFind(db->dict, key);
+        if (relation_entry == NULL) {
+            continue;
+        }
+        robj *relation_val = dictGetVal(relation_entry);
+        dict *relation = (dict *) relation_val->ptr;
+        if (relation == NULL) {
+            assert(0);
+        }
+        dictIterator *di = dictGetSafeIterator(relation);
+        dictEntry *de = NULL;
+        while ((de = dictNext(di)) != NULL) {
+            sds field_key = dictGetKey(de);
+            robj *vector_obj = dictGetVal(de);
+
+            sprintf(keystr, "%s:%s%s", key, REL_MODEL_FIELD_PREFIX, field_key);
+            sds rockskey = sdsnew(keystr);
+            char *serialized_vector_obj = VectorSerialize(vector_obj);
+
+            serverLog(LL_DEBUG, "SERIALIZE Serial_val RESULT : %s",
+                      serialized_vector_obj);
+            setPersistentKeyWithBatch(db->persistent_store, rockskey,
+                                      sdslen(rockskey), serialized_vector_obj,
+                                      strlen(serialized_vector_obj) + 1,
+                                      writeBatch);
+            sdsfree(rockskey);
+            zfree(serialized_vector_obj);
+        }
+        dictReleaseIterator(di);
+        sdsfree(key);
+        relation_val->location = LOCATION_PERSISTED;
+    }
+    rocksdb_write(db->persistent_store->ps,
+                  db->persistent_store->ps_options->woptions, writeBatch, &err);
+
+	if (err) {
+		serverLog(LL_VERBOSE, "RocksDB err");
+		serverPanic("[PERSISTENT_STORE] putting a key failed");
+	}
+
+	rocksdb_writebatch_destroy(writeBatch);
 }
 
 

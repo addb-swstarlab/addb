@@ -151,13 +151,19 @@ int dbPersist_(redisDb *db, robj *key) {
 }
 
 int dbClear_(redisDb *db, robj *key) {
-	if(server.cluster_enabled){
+	if (server.cluster_enabled) {
 		robj *delKeyObj = createStringObject(key->ptr, sdslen(key->ptr));
 		slotToKeyDel(delKeyObj);
 		decrRefCount(delKeyObj);
 	}
 	int result = dictDelete(db->dict, key->ptr);
 	return result;
+}
+
+/* ADDB
+ * Batch Tiering */
+void dbPersistBatch_(redisDb *db, quicklist *evict_keys) {
+    bioCreateBackgroundJob(BIO_BATCH_TIERING, db, evict_keys, NULL);
 }
 
 /* Empty a Redis DB asynchronously. What the function does actually is to
