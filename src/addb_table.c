@@ -140,7 +140,7 @@ void fpWriteCommand(client *c){
     	int columnvector_idx = ((row_idx -1) / server.columnvector_size + 1);
      assert(column_idx <= MAX_COLUMN_NUMBER);
 
-    	robj *dataField = getDataField(column_idx, columnvector_idx);
+    	robj *dataField = getDataField(columnvector_idx, column_idx);
      serverLog(LL_DEBUG, "DATAFIELD KEY = %s", (char *)dataField->ptr);
      assert(dataField != NULL);
 
@@ -440,8 +440,8 @@ void metakeysCommand(client *c){
  *          tableId: "100"
  *          partitionInfoId: "2:1"
  *          rowgroup: 1
- *          column_id: 1
  *          columnVector_id: 1
+ *          column_id: 1
  *      MetaField Key: CURRENT_RGID(= 1)
  *  Command:
  *      redis-cli> fields D:{100:2:1}:G:1 1 1
@@ -457,9 +457,8 @@ void metakeysCommand(client *c){
 void fieldsAndValueCommand(client *c){
 
     sds pattern = sdsnew(c->argv[1]->ptr);
-    int column = atoi(c->argv[2]->ptr);
-    int vector_id = atoi(c->argv[3]->ptr);
-    
+    int vector_id = atoi(c->argv[2]->ptr);
+    int column = atoi(c->argv[3]->ptr);
 
     robj *hashdict = lookupSDSKeyFordict(c->db, pattern);
     
@@ -475,7 +474,7 @@ void fieldsAndValueCommand(client *c){
      	void *replylen = addDeferredMultiBulkLength(c);
 
      	dict *hashdictObj = (dict *) hashdict->ptr;
-     	robj *dataField = getDataField(column, vector_id);
+     	robj *dataField = getDataField(vector_id, column);
 
     	if((de = dictFind(hashdictObj, dataField->ptr)) != NULL){
     	  sds key = dictGetKey(de);

@@ -900,7 +900,7 @@ void _legacyCachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
                 // Redis Column Vector
                 // Redis Key, which is DataField key (Row & Column pair)
                 // Ex) "1:2"
-                sds dataKey = getDataFieldSds(columnId, columnVectorId);
+                sds dataKey = getDataFieldSds(columnVectorId, columnId);
                 robj *hashDictObj = rowGroupParam->dictObj;
                 dict *hashDict = (dict *) hashDictObj->ptr;
                 dictEntry *entry = dictFind(hashDict, dataKey);
@@ -990,7 +990,7 @@ void _legacyCachedScanOnRocksDB(redisDb *db, size_t rowGroupId,
                 // RocksDB Key, which is Rocks key
                 // Ex) ""
                 sds dataKey = generateDataRocksKeySds(
-                    scanParam->dataKeyInfo, columnId, columnVectorId);
+                    scanParam->dataKeyInfo, columnVectorId, columnId);
                 Vector *vector = getColumnVectorFromRocksDB(db, dataKey);
                 cachedColumnVectorIds[k] = columnVectorId;
                 cachedColumnVectorObjs[k] = vector;
@@ -1107,7 +1107,7 @@ size_t _cachedScan_non_vector(client *c, redisDb *db, size_t rowGroupId,
                 // Redis Column Vector
                 // Redis Key, which is DataField key (Row & Column pair)
                 // Ex) "1:2"
-                sds dataKey = getDataFieldSds(columnId, columnVectorId);
+                sds dataKey = getDataFieldSds(columnVectorId, columnId);
                 robj *hashDictObj = rowGroupParam->dictObj;
                 dict *hashDict = (dict *) hashDictObj->ptr;
                 dictEntry *entry = dictFind(hashDict, dataKey);
@@ -1210,7 +1210,7 @@ size_t _cachedScanOnRocksDB_non_vector(client *c, redisDb *db,
                 // RocksDB Key, which is Rocks key
                 // Ex) ""
                 sds dataKey = generateDataRocksKeySds(
-                    scanParam->dataKeyInfo, columnId, columnVectorId);
+                    scanParam->dataKeyInfo, columnVectorId, columnId);
                 Vector *vector = getColumnVectorFromRocksDB(db, dataKey);
                 cachedColumnVectorIds[k] = columnVectorId;
                 cachedColumnVectorObjs[k] = vector;
@@ -1313,11 +1313,11 @@ void _cachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
                 // RocksDB Key, which is Rocks key
                 // Ex) ""
                 dataKey = generateDataRocksKeySds(
-                    scanParam->dataKeyInfo, columnId, columnVectorId);
+                    scanParam->dataKeyInfo, columnVectorId, columnId);
             } else {
                 // Redis Key, which is DataField key (Row & Column pair)
                 // Ex) "1:2"
-                dataKey = getDataFieldSds(columnId, columnVectorId);
+                dataKey = getDataFieldSds(columnVectorId, columnId);
             }
 
             // Caching column vector.
