@@ -435,8 +435,12 @@ int hashTypeSetWithNoFlags(robj *o, robj *field, robj *value){
 
 		/* Check if the ziplist needs to be converted to a hash table */
 		if (hashTypeLength(o) > server.hash_max_ziplist_entries) {
-			serverLog(LL_WARNING, "[converted ziplist -> hash] : %ld", hashTypeLength(o));
+			serverLog(LL_WARNING, "[Before converted ziplist[ENC: %d] -> hash] : %ld", (int)o->encoding, hashTypeLength(o));
 			hashTypeConvert(o, OBJ_ENCODING_HT);
+			serverLog(LL_WARNING, "[After converted ziplist[ENC: %d] -> hash] : %ld", (int)o->encoding, hashTypeLength(o));
+		}
+		else {
+			serverLog(LL_WARNING, "[maintained ziplist[ENC: %d]] : %ld", (int)o->encoding,hashTypeLength(o));
 		}
 	} else if (o->encoding == OBJ_ENCODING_HT) {
 		field = getDecodedObject(field);
