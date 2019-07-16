@@ -240,7 +240,7 @@ int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
     robj *ret = hashTypeGetValueObject(metaHashdictObj, (sds) decodedField->ptr);
     if (ret == NULL) {
         serverLog(
-            LL_WARNING,
+            LL_DEBUG,
             "[lookupCompInfoForRowNumberInMeta] Field[%s] is not exist on Metadict...",
             (sds) decodedField->ptr);
         decrRefCount(decodedField);
