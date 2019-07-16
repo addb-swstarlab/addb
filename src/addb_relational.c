@@ -745,29 +745,23 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 	dictReleaseIterator(di);
 }
 
-void prepareBatchWriteToRocksDB(redisDb *db, quicklist *evict_keys) {
+void prepareBatchWriteToRocksDB(redisDb *db, Vector *evict_keys,
+                                Vector *evict_relations) {
     serverLog(LL_DEBUG, "PREPARING BATCH WRITE FOR ROCKSDB");
 	char keystr[SDS_DATA_KEY_MAX];
 	char *err = NULL;
 
+    serverAssert(vectorCount(evict_keys) == vectorCount(evict_relations));
+
 	rocksdb_writebatch_t *writeBatch = rocksdb_writebatch_create();
-    quicklistIter *iter = quicklistGetIterator(evict_keys, AL_START_HEAD);
-    quicklistEntry entry;
+    size_t num_evict_relations = vectorCount(evict_relations);
 
     // Insert evict relations to RocksDB WriteBatch.
-    while (quicklistNext(iter, &entry)) {
-        if (!entry.value) {
-            continue;
-        }
-        sds key = sdsnewlen(entry.value, entry.sz);
-
-        dictEntry *relation_entry = dictFind(db->dict, key);
-        if (relation_entry == NULL) {
-            continue;
-        }
-        robj *relation_val = dictGetVal(relation_entry);
+    for (size_t i = 0; i < num_evict_relations; ++i) {
+        sds key = (sds) vectorGet(evict_keys, i);
+        robj *relation_val = (robj *) vectorGet(evict_relations, i);
         dict *relation = (dict *) relation_val->ptr;
-        if (relation == NULL) {
+        if (key == NULL || relation == NULL) {
             assert(0);
         }
         dictIterator *di = dictGetSafeIterator(relation);
@@ -790,7 +784,6 @@ void prepareBatchWriteToRocksDB(redisDb *db, quicklist *evict_keys) {
             zfree(serialized_vector_obj);
         }
         dictReleaseIterator(di);
-        sdsfree(key);
     }
 
     // Batch Write to RocksDB
@@ -798,22 +791,11 @@ void prepareBatchWriteToRocksDB(redisDb *db, quicklist *evict_keys) {
                   db->persistent_store->ps_options->woptions, writeBatch, &err);
 
     // Set 'LOCATION_PERSISTED' on Relation robj.
-    quicklistReleaseIterator(iter);
-    iter = quicklistGetIterator(evict_keys, AL_START_HEAD);
-    while (quicklistNext(iter, &entry)) {
-        if (!entry.value) {
-            continue;
-        }
-        sds key = sdsnewlen(entry.value, entry.sz);
-
-        dictEntry *relation_entry = dictFind(db->dict, key);
-        if (relation_entry == NULL) {
-            continue;
-        }
-        robj *relation_val = dictGetVal(relation_entry);
+    for (size_t i = 0; i < num_evict_relations; ++i) {
+        robj *relation_val = (robj *) vectorGet(evict_relations, i);
+        __sync_synchronize();
         relation_val->location = LOCATION_PERSISTED;
     }
-    quicklistReleaseIterator(iter);
 
 	if (err) {
 		serverLog(LL_VERBOSE, "RocksDB err");

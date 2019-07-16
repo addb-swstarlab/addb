@@ -34,7 +34,7 @@
 #include "bio.h"
 #include "atomicvar.h"
 #include "circular_queue.h"
-#include "quicklist.h"
+#include "stl.h"
 
 /* ----------------------------------------------------------------------------
  * Data structures
@@ -590,19 +590,21 @@ size_t freeMemoryGetNotCountedMemory(void) {
 //    return C_ERR;
 //}
 
-void _batchTiering(redisDb *db, quicklist *evict_keys) {
+void _batchTiering(redisDb *db, Vector *evict_keys, Vector *evict_relations) {
     int count = server.batch_tiering_size;
     while (!isEmpty(db->EvictQueue) && count > 0) {
         dictEntry *de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
         if (de == NULL) {
             continue;
         }
-        sds bestkey = dictGetKey(de);
-        quicklistPushTail(evict_keys, bestkey, sdslen(bestkey));
+        sds key = (sds) dictGetKey(de);
+        robj *relation = (robj *) dictGetVal(de);
+        vectorAdd(evict_keys, (void *) key);
+        vectorAdd(evict_relations, (void *) relation);
         count--;
     }
-    dbPersistBatch_(db, evict_keys);
-    server.stat_evictedkeys += quicklistCount(evict_keys);
+    dbPersistBatch_(db, evict_keys, evict_relations);
+    server.stat_evictedkeys += vectorCount(evict_relations);
 }
 
 int freeMemoryIfNeeded(void) {
@@ -645,8 +647,9 @@ int freeMemoryIfNeeded(void) {
 	redisDb *db = server.db;
 
     if (db->FreeQueue->size < DEFAULT_FREE_QUEUE_SIZE-1) {
-        quicklist *evict_keys = quicklistCreate();
-        _batchTiering(db, evict_keys);
+        Vector *evict_keys = vectorCreate(STL_TYPE_SDS, INIT_VECTOR_SIZE);
+        Vector *evict_relations = vectorCreate(STL_TYPE_ROBJ, INIT_VECTOR_SIZE);
+        _batchTiering(db, evict_keys, evict_relations);
     }
     
     //		if (db->EvictQueue->size == 0 && db->FreeQueue->size > 1000000) {
@@ -709,8 +712,11 @@ int freeMemoryIfNeeded(void) {
 			 *      Maybe, Insert speed is much faster than tiering speed.
              *      We handle this issue by some workaround that force-evicts
              *      more relations to RocksDB. */
-            quicklist *force_evict_keys = quicklistCreate();
-			_batchTiering(db, force_evict_keys);
+            Vector *force_evict_keys = vectorCreate(STL_TYPE_SDS,
+                                                    INIT_VECTOR_SIZE);
+            Vector *force_evict_relations = vectorCreate(STL_TYPE_ROBJ,
+                                                         INIT_VECTOR_SIZE);
+			_batchTiering(db, force_evict_keys, force_evict_relations);
 		}
 
 		mem_used = zmalloc_used_memory();

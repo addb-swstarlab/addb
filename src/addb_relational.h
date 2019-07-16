@@ -9,7 +9,6 @@
 #include "server.h"
 #include "global.h"
 #include "stl.h"
-#include "quicklist.h"
 
 #define MAX_TMPBUF_SIZE 128
 #define SDS_DATA_KEY_MAX (sizeof(struct sdshdr) + DATA_KEY_MAX_SIZE)
@@ -235,7 +234,8 @@ sds getDataFieldSds(int rowId, int columnId);
 /*Insert function*/
 int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj);
 void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal);
-void prepareBatchWriteToRocksDB(redisDb *db, quicklist *evict_keys);
+void prepareBatchWriteToRocksDB(redisDb *db, Vector *evict_keys,
+                                Vector *evict_relations);
 
 /*Scan*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);

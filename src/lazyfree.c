@@ -2,6 +2,7 @@
 #include "bio.h"
 #include "atomicvar.h"
 #include "cluster.h"
+#include "stl.h"
 
 static size_t lazyfree_objects = 0;
 pthread_mutex_t lazyfree_objects_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -162,8 +163,8 @@ int dbClear_(redisDb *db, robj *key) {
 
 /* ADDB
  * Batch Tiering */
-void dbPersistBatch_(redisDb *db, quicklist *evict_keys) {
-    bioCreateBackgroundJob(BIO_BATCH_TIERING, db, evict_keys, NULL);
+void dbPersistBatch_(redisDb *db, Vector *evict_keys, Vector *evict_relations) {
+    bioCreateBackgroundJob(BIO_BATCH_TIERING, db, evict_keys, evict_relations);
 }
 
 /* Empty a Redis DB asynchronously. What the function does actually is to

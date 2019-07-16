@@ -68,6 +68,7 @@ typedef long long mstime_t; /* millisecond time type. */
 #include "quicklist.h"  /* Lists are encoded as linked lists of
                            N-elements flat arrays */
 #include "rax.h"     /* Radix tree */
+#include "stl.h"
 
 /* Following includes allow test functions to be called from Redis main() */
 #include "zipmap.h"
@@ -1827,7 +1828,7 @@ int dbAsyncDelete(redisDb *db, robj *key);
 int dbPersistOrClear(redisDb *db, robj *key);
 int dbPersist_(redisDb *db, robj *key);
 int dbClear_(redisDb *db, robj *key);
-void dbPersistBatch_(redisDb *db, quicklist *evict_keys);
+void dbPersistBatch_(redisDb *db, Vector *evict_keys, Vector *evict_relations);
 void emptyDbAsync(redisDb *db);
 void slotToKeyFlushAsync(void);
 size_t lazyfreeGetPendingObjectsCount(void);

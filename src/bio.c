@@ -60,6 +60,7 @@
 
 #include "server.h"
 #include "bio.h"
+#include "stl.h"
 
 static pthread_t bio_threads[BIO_NUM_OPS];
 static pthread_mutex_t bio_mutex[BIO_NUM_OPS];
@@ -217,11 +218,13 @@ void *bioProcessBackgroundJobs(void *arg) {
             /* ADDB
              * Batch Tiering */
             redisDb *db = (redisDb *) job->arg1;
-            quicklist *evict_keys = (quicklist *) job->arg2;
-            prepareBatchWriteToRocksDB(db, evict_keys);
+            Vector *evict_keys = (Vector *) job->arg2;
+            Vector *evict_relations = (Vector *) job->arg3;
+            prepareBatchWriteToRocksDB(db, evict_keys, evict_relations);
             // TODO(totoro): If __sync_synchronize() is meaningless, remove this line.
             __sync_synchronize();
-            quicklistRelease(evict_keys);
+            vectorFree(evict_keys);
+            vectorFree(evict_relations);
         } else if (type == BIO_TIERED_FREE) {
             /* ADDB */
             dictEntry *de = (dictEntry *)job->arg1;
