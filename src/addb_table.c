@@ -43,11 +43,11 @@ long long GetTimeDiff(unsigned int nFlag){
 	if(nFlag == 0){
 		retDiff = 0;
 		if(-1 == clock_gettime(CLOCK_MONOTONIC, &startTS))
-			printf("FAILED TO CALL CLOCK_GETTIME\N");
+			printf("FAILED TO CALL CLOCK_GETTIME\n");
 	}
 	else {
 		if(-1 == clock_gettime(CLOCK_MONOTONIC, &endTS))
-			printf("FAILED TO CALL CLOCK_GETTIME\N");
+			printf("FAILED TO CALL CLOCK_GETTIME\n");
 
 		retDiff = NANOS * (endTS.tv_sec - startTS.tv_sec) + (endTS.tv_nsec - startTS.tv_nsec);
 	}
