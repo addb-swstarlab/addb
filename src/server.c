@@ -1566,6 +1566,9 @@ void initServerConfig(void) {
     server.assert_line = 0;
     server.bug_report_start = 0;
     server.watchdog_period = 0;
+
+    /* ADDB Related */
+    server.batch_tiering_size = CONFIG_DEFAULT_BATCH_TIERING_SIZE;
 }
 
 extern char **environ;

@@ -165,6 +165,9 @@ typedef long long mstime_t; /* millisecond time type. */
 #define CONFIG_DEFAULT_DEFRAG_CYCLE_MIN 25 /* 25% CPU min (at lower threshold) */
 #define CONFIG_DEFAULT_DEFRAG_CYCLE_MAX 75 /* 75% CPU max (at upper threshold) */
 
+/* ADDB Related */
+#define CONFIG_DEFAULT_BATCH_TIERING_SIZE 1 /* Single tiering */
+
 #define ACTIVE_EXPIRE_CYCLE_LOOKUPS_PER_LOOP 20 /* Loopkups per loop. */
 #define ACTIVE_EXPIRE_CYCLE_FAST_DURATION 1000 /* Microseconds */
 #define ACTIVE_EXPIRE_CYCLE_SLOW_TIME_PERC 25 /* CPU max % for keys collection */

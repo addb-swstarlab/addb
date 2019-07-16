@@ -240,7 +240,7 @@ int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
     robj *ret = hashTypeGetValueObject(metaHashdictObj, (sds) decodedField->ptr);
     if (ret == NULL) {
         serverLog(
-            LL_WARNING,
+            LL_VERBOSE,
             "[lookupCompInfoForRowNumberInMeta] Field[%s] is not exist on Metadict...",
             (sds) decodedField->ptr);
         decrRefCount(decodedField);
@@ -751,16 +751,15 @@ void prepareBatchWriteToRocksDB(redisDb *db, quicklist *evict_keys) {
 	char *err = NULL;
 
 	rocksdb_writebatch_t *writeBatch = rocksdb_writebatch_create();
+    quicklistIter *iter = quicklistGetIterator(evict_keys, AL_START_HEAD);
+    quicklistEntry entry;
 
     // Insert evict relations to RocksDB WriteBatch.
-    while (quicklistCount(evict_keys) > 0) {
-        unsigned char *data = NULL;
-        unsigned int size = 0;
-        long long slong = -123456789;
-        quicklistPop(evict_keys, QUICKLIST_HEAD, &data, &size, &slong);
-
-        sds key = sdsnewlen(data, size);
-        zfree(data);
+    while (quicklistNext(iter, &entry)) {
+        if (!entry.value) {
+            continue;
+        }
+        sds key = sdsnewlen(entry.value, entry.sz);
 
         dictEntry *relation_entry = dictFind(db->dict, key);
         if (relation_entry == NULL) {
@@ -792,10 +791,29 @@ void prepareBatchWriteToRocksDB(redisDb *db, quicklist *evict_keys) {
         }
         dictReleaseIterator(di);
         sdsfree(key);
-        relation_val->location = LOCATION_PERSISTED;
     }
+
+    // Batch Write to RocksDB
     rocksdb_write(db->persistent_store->ps,
                   db->persistent_store->ps_options->woptions, writeBatch, &err);
+
+    // Set 'LOCATION_PERSISTED' on Relation robj.
+    quicklistReleaseIterator(iter);
+    iter = quicklistGetIterator(evict_keys, AL_START_HEAD);
+    while (quicklistNext(iter, &entry)) {
+        if (!entry.value) {
+            continue;
+        }
+        sds key = sdsnewlen(entry.value, entry.sz);
+
+        dictEntry *relation_entry = dictFind(db->dict, key);
+        if (relation_entry == NULL) {
+            continue;
+        }
+        robj *relation_val = dictGetVal(relation_entry);
+        relation_val->location = LOCATION_PERSISTED;
+    }
+    quicklistReleaseIterator(iter);
 
 	if (err) {
 		serverLog(LL_VERBOSE, "RocksDB err");
