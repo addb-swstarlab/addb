@@ -1566,6 +1566,15 @@ void initServerConfig(void) {
     server.assert_line = 0;
     server.bug_report_start = 0;
     server.watchdog_period = 0;
+
+
+    /*insert info stats*/
+    server.inserted_row_cnt =0;
+    server.parsing_time =0;
+    server.meta_time =0;
+    server.tiering_time =0;
+    server.data_time =0;
+    server.total_time =0;
 }
 
 extern char **environ;
@@ -3363,6 +3372,20 @@ sds genRedisInfoString(char *section) {
                     j, keys, metaKeys, vkeys, server.db[j].avg_ttl);
             }
         }
+    }
+
+    /*insert info*/
+    if(!strcasecmp(section, "insertstats")) {
+    	info = sdscatprintf(info, "[ %d rows inserted] Acc(micro sec): %lld [ parsing : %lld, meta : %lld, tiering : %lld, data : %lld ]\n"
+    			"[ %d rows inserted] Avg(micro sec): %.2f [ parsing : %.2f, meta : %.2f, tiering : %.2f, data : %.2f ]\n",
+    			server.inserted_row_cnt, server.total_time, server.parsing_time, server.meta_time, server.tiering_time, server.data_time,
+				server.inserted_row_cnt, (float)server.total_time/(float)server.inserted_row_cnt,(float)server.parsing_time/(float)server.inserted_row_cnt,
+				(float)server.meta_time/(float)server.inserted_row_cnt, (float)server.tiering_time/(float)server.inserted_row_cnt,
+				(float)server.data_time/(float)server.inserted_row_cnt);
+    }
+    /*reset insert info*/
+    if(!strcasecmp(section, "resetinsertstats")) {
+    	 reset_insert_info();
     }
     return info;
 }

@@ -1238,6 +1238,15 @@ struct redisServer {
     /*ADDB Relational*/
     int rowgroup_size;
     int columnvector_size;
+
+    /*ADDB insert info stats*/
+    int inserted_row_cnt;
+    long long parsing_time;
+    long long meta_time;
+    long long tiering_time;
+    long long data_time;
+    long long total_time;
+
 };
 
 typedef struct pubsubPattern {
@@ -2135,4 +2144,5 @@ void xorDigest(unsigned char *digest, void *ptr, size_t len);
 #define redisDebugMark() \
     printf("-- MARK %s:%d --\n", __FILE__, __LINE__)
 
+void reset_insert_info();
 #endif
