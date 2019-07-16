@@ -22,3 +22,4 @@ src/.make-settings
 tags
 *\:default/
 .vscode/
+test_scripts/*.resp
