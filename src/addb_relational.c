@@ -121,6 +121,43 @@ MetaKeyInfo *parseMetaKeyInfo(sds metakey) {
     return metaKeyInfo;
 }
 
+/**
+ * Converts datakey to metakey
+ * --- Usage Examples ---
+ *  Parameters:
+ *      dataKey:    D:{100:1:2}:G:1
+ *      metaKey:    &metaKey
+ *      rowGroupId: &rowGroupId
+ *  Call:
+ *      sds dataKey = sdsnew("D:{100:1:2}:G:1");
+ *      sds metaKey;
+ *      int rowGroupId;
+ *      int result = toMetaKey(dataKey, &metaKey, &rowGroupId);
+ *  Results:
+ *      result = C_OK
+ *      metaKey = M:{100:1:2}
+ *      rowGroupId = 1
+ */
+int toMetaKey(sds dataKey, sds *metaKey, int *rowGroupId) {
+    NewDataKeyInfo *dataKeyInfo = parsingDataKeyInfo(dataKey);
+    if (dataKeyInfo == NULL) {
+        return C_ERR;
+    }
+    *metaKey = sdscatfmt(
+        sdsempty(), "%s%s%s%i%s%s%s",
+        RELMODEL_META_PREFIX,                       // 'M'
+        RELMODEL_DELIMITER,                         // ':'
+        RELMODEL_BRACE_PREFIX,                      // '{'
+        dataKeyInfo->tableId,                       // 'tableId'
+        RELMODEL_DELIMITER,                         // ':'
+        dataKeyInfo->partitionInfo.partitionString, // 'partitionInfo'
+        RELMODEL_BRACE_SUFFIX                       // '}'
+    );
+    *rowGroupId = dataKeyInfo->rowGroupId;
+    zfree(dataKeyInfo);
+    return C_OK;
+}
+
 /*addb get dictEntry, a candidate for evict*/
 
 dictEntry *getCandidatedictFirstEntry(client *c, NewDataKeyInfo *dataKeyInfo){
