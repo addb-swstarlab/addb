@@ -234,6 +234,8 @@ sds getDataFieldSds(int rowId, int columnId);
 /*Insert function*/
 int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, robj *valueObj);
 void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal);
+void prepareBatchWriteToRocksDB(redisDb *db, Vector *evict_keys,
+                                Vector *evict_relations);
 
 /*Scan*/
 ColumnParameter *parseColumnParameter(const sds rawColumnIdsString);

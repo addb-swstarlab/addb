@@ -34,6 +34,7 @@ void vectorInit(Vector *v);
 void vecotrInitWithSize(Vector *v, size_t size);
 void vectorTypeInit(Vector *v, int type);
 void vectorTypeInitWithSize(Vector *v, int type, size_t size);
+Vector *vectorCreate(int type, size_t size);
 size_t vectorCount(Vector *v);
 int vectorAdd(Vector *v, void *datum);
 int vectorSet(Vector *v, size_t index, void *datum);
@@ -60,7 +61,7 @@ int stackPush(Stack *s, void *datum);
 void *stackPop(Stack *s);
 int stackFree(Stack *s);
 int stackFreeDeep(Stack *s);
-char *VectorSerialize(robj *o);
+char *VectorSerialize(void *o);
 int vectorDeserialize(sds rawVector, Vector **result);
 // Deprecated
 Vector *VectordeSerialize(char *VectorString);

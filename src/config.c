@@ -346,7 +346,16 @@ void loadServerConfigFromString(char *config) {
      	   if(server.columnvector_size == 0){
      		   server.columnvector_size = 100;  //default size columnvector_size
      	   }
-     } else if (!strcasecmp(argv[0],"lfu-log-factor") && argc == 2) {
+        } else if (!strcasecmp(argv[0], "batch_tiering_size") &&argc == 2) {
+            server.batch_tiering_size = atoi(argv[1]);
+            if(server.batch_tiering_size < 0){
+                    err = "Invalid batch tiering size";
+                    goto loaderr;
+            }
+            if(server.batch_tiering_size == 0){
+                server.batch_tiering_size = 1;  // default
+            }
+        } else if (!strcasecmp(argv[0],"lfu-log-factor") && argc == 2) {
             server.lfu_log_factor = atoi(argv[1]);
             if (server.maxmemory_samples < 0) {
                 err = "lfu-log-factor must be 0 or greater";

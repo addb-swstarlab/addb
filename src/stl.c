@@ -45,6 +45,12 @@ void vectorTypeInitWithSize(Vector *v, int type, size_t size) {
     v->data = (void **) zmalloc(_vectorGetDatumSize(v) * v->size);
 }
 
+Vector *vectorCreate(int type, size_t size) {
+    Vector *v = (Vector *) zmalloc(sizeof(Vector));
+    vectorTypeInitWithSize(v, type, size);
+    return v;
+}
+
 void _vectorResizeIfNeeded(Vector *v) {
     if (v->size == 0) {
         vectorFreeDeep(v);
@@ -237,9 +243,8 @@ int stackFreeDeep(Stack *s) {
     return vectorFreeDeep(&s->data);
 }
 
-char *VectorSerialize(robj *o){
-
-	Vector *v = (Vector *)o->ptr;
+char *VectorSerialize(void *o) {
+	Vector *v = (Vector *) ((robj *) o)->ptr;
 	int v_type = v->type;
 	int v_count = v->count;
 

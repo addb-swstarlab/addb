@@ -1567,14 +1567,21 @@ void initServerConfig(void) {
     server.bug_report_start = 0;
     server.watchdog_period = 0;
 
+    /* ADDB Related */
+    /* Relational configs */
+    server.rowgroup_size = 4;
+    server.columnvector_size = 4;
 
-    /*insert info stats*/
-    server.inserted_row_cnt =0;
-    server.parsing_time =0;
-    server.meta_time =0;
-    server.tiering_time =0;
-    server.data_time =0;
-    server.total_time =0;
+    /* fpWrite info stats */
+    server.inserted_row_cnt = 0;
+    server.parsing_time = 0;
+    server.meta_time = 0;
+    server.tiering_time = 0;
+    server.data_time = 0;
+    server.total_time = 0;
+
+    /* Batch tiering */
+    server.batch_tiering_size = CONFIG_DEFAULT_BATCH_TIERING_SIZE;
 }
 
 extern char **environ;

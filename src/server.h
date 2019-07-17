@@ -68,6 +68,7 @@ typedef long long mstime_t; /* millisecond time type. */
 #include "quicklist.h"  /* Lists are encoded as linked lists of
                            N-elements flat arrays */
 #include "rax.h"     /* Radix tree */
+#include "stl.h"
 
 /* Following includes allow test functions to be called from Redis main() */
 #include "zipmap.h"
@@ -164,6 +165,9 @@ typedef long long mstime_t; /* millisecond time type. */
 #define CONFIG_DEFAULT_DEFRAG_IGNORE_BYTES (100<<20) /* don't defrag if frag overhead is below 100mb */
 #define CONFIG_DEFAULT_DEFRAG_CYCLE_MIN 25 /* 25% CPU min (at lower threshold) */
 #define CONFIG_DEFAULT_DEFRAG_CYCLE_MAX 75 /* 75% CPU max (at upper threshold) */
+
+/* ADDB Related */
+#define CONFIG_DEFAULT_BATCH_TIERING_SIZE 1 /* Single tiering */
 
 #define ACTIVE_EXPIRE_CYCLE_LOOKUPS_PER_LOOP 20 /* Loopkups per loop. */
 #define ACTIVE_EXPIRE_CYCLE_FAST_DURATION 1000 /* Microseconds */
@@ -1234,12 +1238,12 @@ struct redisServer {
     pthread_mutex_t next_client_id_mutex;
     pthread_mutex_t unixtime_mutex;
 
-
-    /*ADDB Relational*/
+    /* ADDB related */
+    /* Relational configs */
     int rowgroup_size;
     int columnvector_size;
 
-    /*ADDB insert info stats*/
+    /* fpWrite info stats */
     int inserted_row_cnt;
     long long parsing_time;
     long long meta_time;
@@ -1247,6 +1251,8 @@ struct redisServer {
     long long data_time;
     long long total_time;
 
+    /* Batch tiering */
+    int batch_tiering_size;
 };
 
 typedef struct pubsubPattern {
@@ -1832,6 +1838,7 @@ int dbAsyncDelete(redisDb *db, robj *key);
 int dbPersistOrClear(redisDb *db, robj *key);
 int dbPersist_(redisDb *db, robj *key);
 int dbClear_(redisDb *db, robj *key);
+void dbPersistBatch_(redisDb *db, Vector *evict_keys, Vector *evict_relations);
 void emptyDbAsync(redisDb *db);
 void slotToKeyFlushAsync(void);
 size_t lazyfreeGetPendingObjectsCount(void);

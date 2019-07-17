@@ -34,6 +34,7 @@
 #include "bio.h"
 #include "atomicvar.h"
 #include "circular_queue.h"
+#include "stl.h"
 
 /* ----------------------------------------------------------------------------
  * Data structures
@@ -589,6 +590,23 @@ size_t freeMemoryGetNotCountedMemory(void) {
 //    return C_ERR;
 //}
 
+void _batchTiering(redisDb *db, Vector *evict_keys, Vector *evict_relations) {
+    int count = server.batch_tiering_size;
+    while (!isEmpty(db->EvictQueue) && count > 0) {
+        dictEntry *de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
+        if (de == NULL) {
+            continue;
+        }
+        sds key = (sds) dictGetKey(de);
+        robj *relation = (robj *) dictGetVal(de);
+        vectorAdd(evict_keys, (void *) key);
+        vectorAdd(evict_relations, (void *) relation);
+        count--;
+    }
+    dbPersistBatch_(db, evict_keys, evict_relations);
+    server.stat_evictedkeys += vectorCount(evict_relations);
+}
+
 int freeMemoryIfNeeded(void) {
     size_t mem_reported, mem_used, mem_tofree, mem_freed;
     mstime_t latency, eviction_latency;
@@ -623,30 +641,17 @@ int freeMemoryIfNeeded(void) {
     mem_tofree = mem_used - server.maxmemory;
     mem_freed = 0;
 
-
-
     if (server.maxmemory_policy == MAXMEMORY_NO_EVICTION)
         goto cant_free; /* We need to free memory, but policy forbids. */
 
+	redisDb *db = server.db;
 
-	sds bestkey = NULL;
-	int bestdbid;
-	redisDb *db;
-	dictEntry *de;
-	db = server.db;
-
-
-	if(db->FreeQueue->size < DEFAULT_FREE_QUEUE_SIZE-1){
-		if (!isEmpty(db->EvictQueue)) {
-			de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
-			if (de != NULL) {
-				bestkey = dictGetKey(de);
-				robj *keyobj = createStringObject(bestkey, sdslen(bestkey));
-				isPersisted = dbPersist_(db, keyobj);
-				server.stat_evictedkeys++;
-			}
-		}
+    if (db->FreeQueue->size < DEFAULT_FREE_QUEUE_SIZE-1) {
+        Vector *evict_keys = vectorCreate(STL_TYPE_SDS, INIT_VECTOR_SIZE);
+        Vector *evict_relations = vectorCreate(STL_TYPE_ROBJ, INIT_VECTOR_SIZE);
+        _batchTiering(db, evict_keys, evict_relations);
     }
+    
     //		if (db->EvictQueue->size == 0 && db->FreeQueue->size > 1000000) {
     //			dictEntry * de;
     //			serverLog(LL_VERBOSE, "if constraint");
@@ -667,7 +672,7 @@ int freeMemoryIfNeeded(void) {
     int index = 0;
     while (mem_used > server.maxmemory) {
 		serverLog(LL_DEBUG,
-				"[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.8 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
+				"[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.9 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
 				index++, server.maxmemory * 9 / 10, server.maxmemory, mem_used,
 				mem_tofree, mem_freed);
 
@@ -703,24 +708,15 @@ int freeMemoryIfNeeded(void) {
 			serverLog(LL_DEBUG, "[EVICT QUEUE] : size = %d, rear = %d, front = %d, max =%d ",
 					db->EvictQueue->size, db->EvictQueue->rear, db->EvictQueue->front, db->EvictQueue->max);
 			serverLog(LL_VERBOSE, "[Memory status] : maxmemory= %ld, used memory = %d", server.maxmemory, mem_used);
-			/* TODO need to check why freequeue is empty
-			 *  Maybe, Insert speed is much faster than tiering speed*/
-			for (int i = 0; i < db->EvictQueue->size * 1/10; i++) {
-				dictEntry *di;
-				sds candidateKey = NULL;
-				if (!isEmpty(db->EvictQueue)) {
-					di = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
-					if (di != NULL) {
-						candidateKey = dictGetKey(di);
-						robj *candidatekeyobj = createStringObject(candidateKey,
-								sdslen(candidateKey));
-						isPersisted = dbPersist_(db, candidatekeyobj);
-						server.stat_evictedkeys++;
-					}
-				} else {
-					serverLog(LL_VERBOSE, "evict queue empty");
-				}
-			}
+			/* TODO(wgchoi): Need to check why freequeue is empty.
+			 *      Maybe, Insert speed is much faster than tiering speed.
+             *      We handle this issue by some workaround that force-evicts
+             *      more relations to RocksDB. */
+            Vector *force_evict_keys = vectorCreate(STL_TYPE_SDS,
+                                                    INIT_VECTOR_SIZE);
+            Vector *force_evict_relations = vectorCreate(STL_TYPE_ROBJ,
+                                                         INIT_VECTOR_SIZE);
+			_batchTiering(db, force_evict_keys, force_evict_relations);
 		}
 
 		mem_used = zmalloc_used_memory();
