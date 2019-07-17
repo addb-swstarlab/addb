@@ -1630,7 +1630,7 @@ int createCondition(const char *rawConditionStr, Stack *s,
     return C_OK;
 }
 
-int _parsePartitions(const char *partitionInfo, Vector *v) {
+int parsePartitions(const char *partitionInfo, Vector *v) {
     char copyStr[MAX_TMPBUF_SIZE];
     char *savePtr = NULL;
     char *token = NULL;
@@ -1873,8 +1873,8 @@ bool evaluateCondition(const Condition *root, const sds metakey) {
 
     Vector partitions;
     vectorInit(&partitions);
-    if (_parsePartitions(metaKeyInfo->partitionInfo.partitionString,
-                         &partitions) == C_ERR) {
+    if (parsePartitions(metaKeyInfo->partitionInfo.partitionString,
+                        &partitions) == C_ERR) {
         _freePartitionParameters(&partitions);
         return false;
     }

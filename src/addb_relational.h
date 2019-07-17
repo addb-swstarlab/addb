@@ -267,6 +267,7 @@ size_t _cachedScanOnRocksDB_non_vector(client *c, redisDb *db,
 /*Partition Filter*/
 bool validateStatements(const sds rawStatementsStr);
 bool validateStatement(const sds rawStatementStr);
+int parsePartitions(const char *partitionInfo, Vector *v);
 int parseStatement(const sds rawStatementStr, Condition **root);
 int createCondition(const char *rawConditionStr, Stack *s, Condition **cond);
 bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
