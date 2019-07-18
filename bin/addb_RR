@@ -195,6 +195,17 @@ function Set_ziplist() {
 	fi
 }
 
+function Set_batch() {
+	if [ -z "$1" ]; then
+		echo -e "\nPlease enter batch_tiering_size"
+		echo "Ex) addb_RR -batch 500"
+		exit 1;
+	else
+		echo -e "\n## ADDB Redis -Set batch_tiering_size "
+		SetConfiguration_Grep1 "batch_tiering_size" "batch_tiering_size" $1
+	fi
+}
+
 # -init
 function InitDirectory() {
 	echo -e "\n## ADDB Redis - Initilize directory"
@@ -409,7 +420,9 @@ function main() {
 		-ziplist)
 			Set_ziplist $2
 			;;
-
+		-batch)
+			Set_batch $2
+			;;
 		-init)
 			InitDirectory
 			;;
