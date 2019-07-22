@@ -1,15 +1,17 @@
 syntax = "proto3";
 
+import "sds.proto";
+
 // Common Fields
 enum StlType {
   LONG = 0;
-  STRING = 1;
+  SDS = 1;
 }
 
 message StlEntry {
   oneof value {
     int64 _long = 1;
-    string _string = 2;
+    ProtoSds _sds = 2;
   }
 }
 

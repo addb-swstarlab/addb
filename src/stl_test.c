@@ -291,7 +291,7 @@ void testStackInterfaceCommand(client *c) {
 
 /*
  * testProtobufCommand
- * Tests Protobuf-Vector interface (Push / Pop / Free).
+ * Tests Protobuf-Vector interface.
  * --- Parameters ---
  *  None
  *
@@ -305,7 +305,7 @@ void testStackInterfaceCommand(client *c) {
  */
 void testProtoVectorCommand(client *c) {
     {
-        // Test storing string data to ProtoVector
+        // Test storing sds data to ProtoVector
         serverLog(LL_DEBUG,
                   "[ADDB_TEST][ProtoVector] Test String type ProtoVector");
 
@@ -320,7 +320,7 @@ void testProtoVectorCommand(client *c) {
 
         // Target - Proto Vector Interface
         ProtoVector target = PROTO_VECTOR__INIT;
-        target.type = STL_TYPE__STRING;
+        target.type = STL_TYPE__SDS;
         target.n_values = 10;
         target.values = zmalloc(sizeof(StlEntry *) * target.n_values);
 
@@ -329,20 +329,22 @@ void testProtoVectorCommand(client *c) {
             sds raw_entry = sdscatfmt(sdsempty(), "%U", i);
             target.values[i] = (StlEntry *) zmalloc(sizeof(StlEntry));
             stl_entry__init(target.values[i]);
-            target.values[i]->value_case = STL_ENTRY__VALUE__STRING;
-            target.values[i]->_string = raw_entry;
+            target.values[i]->value_case = STL_ENTRY__VALUE__SDS;
+            target.values[i]->_sds = sds2proto(raw_entry);
         }
 
         // Compare
         for (size_t i = 0; i < 10; ++i) {
             sds source_entry = (sds) vectorGet(&source, i);
-            char *target_entry = (char *) target.values[i]->_string;
-            assert(strcmp(source_entry, target_entry) == 0);
+            sds target_entry = proto2sds(target.values[i]->_sds);
+            assert(sdscmp(source_entry, target_entry) == 0);
         }
 
         vectorFreeDeep(&source);
         for (size_t i = 0; i < target.n_values; ++i) {
-            zfree(target.values[i]->_string);
+            sds target_entry_sds = proto2sds(target.values[i]->_sds);
+            sdsfree(target_entry_sds);
+            zfree(target.values[i]->_sds);
             zfree(target.values[i]);
         }
         zfree(target.values);
@@ -396,7 +398,7 @@ void testProtoVectorCommand(client *c) {
 
         // Source - Proto Vector Interface with String
         ProtoVector source = PROTO_VECTOR__INIT;
-        source.type = STL_TYPE__STRING;
+        source.type = STL_TYPE__SDS;
         source.n_values = 10;
         source.values = zmalloc(sizeof(StlEntry *) * source.n_values);
 
@@ -405,8 +407,8 @@ void testProtoVectorCommand(client *c) {
             sds raw_entry = sdscatfmt(sdsempty(), "%U", i);
             source.values[i] = (StlEntry *) zmalloc(sizeof(StlEntry));
             stl_entry__init(source.values[i]);
-            source.values[i]->value_case = STL_ENTRY__VALUE__STRING;
-            source.values[i]->_string = raw_entry;
+            source.values[i]->value_case = STL_ENTRY__VALUE__SDS;
+            source.values[i]->_sds = sds2proto(raw_entry);
         }
 
         // Protobuf Serialization
@@ -420,13 +422,17 @@ void testProtoVectorCommand(client *c) {
         for (size_t i = 0; i < 10; ++i) {
             assert(
                 source.values[i]->value_case == target->values[i]->value_case);
+            sds source_sds = proto2sds(source.values[i]->_sds);
+            sds target_sds = proto2sds(target->values[i]->_sds);
             assert(
-                strcmp(source.values[i]->_string, target->values[i]->_string) == 0);
+                sdscmp(source_sds, target_sds) == 0);
         }
 
         // Free protobuf-related data...
         for (size_t i = 0; i < source.n_values; ++i) {
-            sdsfree(source.values[i]->_string);
+            sds source_entry_sds = proto2sds(source.values[i]->_sds);
+            sdsfree(source_entry_sds);
+            zfree(source.values[i]->_sds);
             zfree(source.values[i]);
         }
         zfree(source.values);

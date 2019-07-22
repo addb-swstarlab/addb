@@ -132,7 +132,7 @@ endif
 
 REDIS_CCPLUS=g++
 REDIS_CC=$(QUIET_CC)$(CC) $(FINAL_CFLAGS)
-REDIS_PROTOC=$(QUIET_PROTOC)protoc --c_out=.
+REDIS_PROTOC=$(QUIET_PROTOC)protoc -Iproto/ --c_out=proto/
 REDIS_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
 REDIS_LDPLUS=$(QUIET_LINK)$(REDIS_CCPLUS) $(FINAL_LDFLAGS)
 REDIS_INSTALL=$(QUIET_INSTALL)$(INSTALL)
@@ -210,7 +210,7 @@ ifneq ($(strip $(PREV_FINAL_LDFLAGS)), $(strip $(FINAL_LDFLAGS)))
 endif
 
 # redis-server
-$(REDIS_SERVER_NAME): $(REDIS_SERVER_OBJ) $(REDIS_SERVER_PROTO_OBJ)
+$(REDIS_SERVER_NAME): $(REDIS_SERVER_PROTO_OBJ) $(REDIS_SERVER_OBJ)
 #	$(REDIS_LD) -o $@ $^ ../deps/hiredis/libhiredis.a ../deps/lua/src/liblua.a ../deps/rocksdb/librocksdb.a $(FINAL_LIBS)
 	$(REDIS_LDPLUS) -o $@ $^ ../deps/hiredis/libhiredis.a ../deps/lua/src/liblua.a ../deps/rocksdb/librocksdb.so $(FINAL_LIBS) $(ROCKSDB_LIBS)
 

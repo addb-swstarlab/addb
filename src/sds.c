@@ -292,29 +292,46 @@ ProtoSds *sds2proto(const sds s) {
 }
 
 /* addb
- * Converts protobuf to sds. */
-sds proto2sds(const ProtoSds *proto) {
+ * Converts protobuf to sds.
+ * Flag - PROTO_SDS_NO_COPY = 0, PROTO_SDS_COPY = 1 */
+sds _proto2sds(const ProtoSds *proto, int flag) {
     uint8_t *sh = proto->s.data;
+    sds result;
     switch (proto->type & SDS_TYPE_MASK) {
         case PROTO_SDS_TYPE__SDS_TYPE_5: {
-            return sdsdup(PROTO_SDS_PTR(5,sh));
+            result = PROTO_SDS_PTR(5,sh);
+            break;
         }
         case PROTO_SDS_TYPE__SDS_TYPE_8: {
-            return sdsdup(PROTO_SDS_PTR(8,sh));
+            result = PROTO_SDS_PTR(8,sh);
+            break;
         }
         case PROTO_SDS_TYPE__SDS_TYPE_16: {
-            return sdsdup(PROTO_SDS_PTR(16,sh));
+            result = PROTO_SDS_PTR(16,sh);
+            break;
         }
         case PROTO_SDS_TYPE__SDS_TYPE_32: {
-            return sdsdup(PROTO_SDS_PTR(32,sh));
+            result = PROTO_SDS_PTR(32,sh);
+            break;
         }
         case PROTO_SDS_TYPE__SDS_TYPE_64: {
-            return sdsdup(PROTO_SDS_PTR(64,sh));
+            result = PROTO_SDS_PTR(64,sh);
+            break;
         }
         default: {
             return NULL;
         }
     }
+
+    if (flag == PROTO_SDS_COPY) {
+        return sdsdup(result);
+    } else {
+        return result;
+    }
+}
+
+sds proto2sds(const ProtoSds *proto) {
+    return _proto2sds(proto, PROTO_SDS_NO_COPY);
 }
 
 /* Duplicate an sds string. */
@@ -1457,8 +1474,9 @@ int sdsTest(void) {
             char type = source[-1] & SDS_TYPE_MASK;
             test_cond("sds2proto() --> proto2sds() no copy will have same header address",
                 proto->s.data == (source-sdsHdrSize(type)) );
+            test_cond("sds2proto() --> proto2sds() no copy will have same sds address",
+                source == target);
             sdsfree(source);
-            sdsfree(target);
             zfree(proto);
         }
         {
@@ -1466,7 +1484,7 @@ int sdsTest(void) {
             sds source = sdsnew("Source-Sds-String");
             sdslen(source);
             ProtoSds *proto = _sds2proto(source, PROTO_SDS_COPY);
-            sds target = proto2sds(proto);
+            sds target = _proto2sds(proto, PROTO_SDS_COPY);
             test_cond("sds2proto() --> proto2sds() length comparison",
                 sdslen(source) == sdslen(target));
             test_cond("sds2proto() --> proto2sds() sds comparison",
@@ -1474,6 +1492,8 @@ int sdsTest(void) {
             char type = source[-1] & SDS_TYPE_MASK;
             test_cond("sds2proto() --> proto2sds() copy will have different header address",
                 proto->s.data != (source-sdsHdrSize(type)) );
+            test_cond("sds2proto() --> proto2sds() copy will have different sds address",
+                source != target);
             sdsfree(source);
             sdsfree(target);
             zfree(proto->s.data);
