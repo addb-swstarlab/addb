@@ -2112,6 +2112,7 @@ void chooseBestKeyCommand(client *c);
 void queueEmptyCommand(client *c);
 void serializeCommand(client *c);
 void deserializeCommand(client *c);
+
 /*
  * 2018. 5. 11
  * kem2182@yonsei.ac.kr
@@ -2122,6 +2123,7 @@ void testGetMetaCommand(client *c);
 void testSdsLocationCommand(client *c);
 void testVectorInterfaceCommand(client *c);
 void testStackInterfaceCommand(client *c);
+void testProtoVectorCommand(client *c);
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

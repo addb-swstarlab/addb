@@ -28,6 +28,8 @@ PREFIX?=`pwd`/..
 INSTALL_BIN=$(PREFIX)/bin
 INSTALL=install
 
+.SUFFXIES: .c .o .proto .pb-c.c .pb-c.o
+
 # Default allocator defaults to Jemalloc if it's not an ARM
 MALLOC=libc
 ifneq ($(uname_M),armv6l)
@@ -108,6 +110,9 @@ endif
 endif
 # Include paths to dependencies
 FINAL_CFLAGS+= -I../deps/hiredis -I../deps/linenoise -I../deps/lua/src -I../deps/rocksdb/include -I../deps/jemalloc/include
+FINAL_CFLAGS+= -I$(shell pkg-config --cflags protobuf) -I$(shell pkg-config --cflags libprotobuf-c)
+FINAL_CFLAGS+= -I. -I./proto
+FINAL_LDFLAGS+= -Wl,-rpath=$(shell pkg-config --libs protobuf) -Wl,-rpath=$(shell pkg-config --libs libprotobuf-c)
 
 ifeq ($(MALLOC),tcmalloc)
 	FINAL_CFLAGS+= -DUSE_TCMALLOC
@@ -127,6 +132,7 @@ endif
 
 REDIS_CCPLUS=g++
 REDIS_CC=$(QUIET_CC)$(CC) $(FINAL_CFLAGS)
+REDIS_PROTOC=$(QUIET_PROTOC)protoc --c_out=.
 REDIS_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
 REDIS_LDPLUS=$(QUIET_LINK)$(REDIS_CCPLUS) $(FINAL_LDFLAGS)
 REDIS_INSTALL=$(QUIET_INSTALL)$(INSTALL)
@@ -134,6 +140,7 @@ REDIS_INSTALL=$(QUIET_INSTALL)$(INSTALL)
 #ROCKSDB_LIBS=../deps/rocksdb/liblz4.so ../deps/rocksdb/libz.so ../deps/rocksdb/libbz2.so ../deps/rocksdb/libsnappy.so ../deps/jemalloc/lib/libjemalloc.so
 
 CCCOLOR="\033[34m"
+PROTOCCOLOR="\033[35m"
 LINKCOLOR="\033[34;1m"
 SRCCOLOR="\033[33m"
 BINCOLOR="\033[37;1m"
@@ -142,6 +149,7 @@ ENDCOLOR="\033[0m"
 
 ifndef V
 QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)CC$(ENDCOLOR) $(SRCCOLOR)$@$(ENDCOLOR) 1>&2;
+QUIET_PROTOC = @printf '    %b %b\n' $(PROTOCCOLOR)PROTOC$(ENDCOLOR) $(SRCCOLOR)$@$(ENDCOLOR) 1>&2;
 QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)$@$(ENDCOLOR) 1>&2;
 QUIET_INSTALL = @printf '    %b %b\n' $(LINKCOLOR)INSTALL$(ENDCOLOR) $(BINCOLOR)$@$(ENDCOLOR) 1>&2;
 endif
@@ -149,6 +157,9 @@ endif
 REDIS_SERVER_NAME=redis-server
 REDIS_SENTINEL_NAME=redis-sentinel
 REDIS_SERVER_OBJ=circular_queue.o stl.o persistent_store.o adlist.o quicklist.o ae.o anet.o dict.o server.o sds.o zmalloc.o lzf_c.o lzf_d.o pqsort.o zipmap.o sha1.o ziplist.o release.o networking.o util.o object.o db.o replication.o rdb.o t_string.o t_list.o t_set.o t_zset.o t_hash.o config.o aof.o pubsub.o multi.o debug.o sort.o intset.o syncio.o cluster.o crc16.o endianconv.o slowlog.o scripting.o bio.o rio.o rand.o memtest.o crc64.o bitops.o sentinel.o notify.o setproctitle.o blocked.o hyperloglog.o latency.o sparkline.o redis-check-rdb.o redis-check-aof.o geo.o lazyfree.o module.o evict.o expire.o geohash.o geohash_helper.o childinfo.o defrag.o siphash.o rax.o addb_relational.o addb_table.o addb_test.o stl_test.o
+REDIS_SERVER_PROTO=proto/stl.proto
+REDIS_SERVER_PROTO_C=$(REDIS_SERVER_PROTO:.proto=.pb-c.c)
+REDIS_SERVER_PROTO_OBJ=$(REDIS_SERVER_PROTO_C:.pb-c.c=.pb-c.o)
 REDIS_CLI_NAME=redis-cli
 REDIS_CLI_OBJ=anet.o adlist.o redis-cli.o zmalloc.o release.o anet.o ae.o crc64.o
 REDIS_BENCHMARK_NAME=redis-benchmark
@@ -199,7 +210,7 @@ ifneq ($(strip $(PREV_FINAL_LDFLAGS)), $(strip $(FINAL_LDFLAGS)))
 endif
 
 # redis-server
-$(REDIS_SERVER_NAME): $(REDIS_SERVER_OBJ)
+$(REDIS_SERVER_NAME): $(REDIS_SERVER_OBJ) $(REDIS_SERVER_PROTO_OBJ)
 #	$(REDIS_LD) -o $@ $^ ../deps/hiredis/libhiredis.a ../deps/lua/src/liblua.a ../deps/rocksdb/librocksdb.a $(FINAL_LIBS)
 	$(REDIS_LDPLUS) -o $@ $^ ../deps/hiredis/libhiredis.a ../deps/lua/src/liblua.a ../deps/rocksdb/librocksdb.so $(FINAL_LIBS) $(ROCKSDB_LIBS)
 
@@ -232,8 +243,19 @@ dict-benchmark: dict.c zmalloc.c sds.c siphash.c
 %.o: %.c .make-prerequisites
 	$(REDIS_CC) -c $<
 
+%.pb-c.c: %.proto
+	$(REDIS_PROTOC) $<
+
+%.pb-c.o: %.pb-c.c .make-prerequisites
+	$(REDIS_CC) -c $< -o $@
+
+test_proto: $(REDIS_SERVER_PROTO_OBJ)
+	echo $<
+
+.PHONY: test_proto
+
 clean:
-	rm -rf $(REDIS_SERVER_NAME) $(REDIS_SENTINEL_NAME) $(REDIS_CLI_NAME) $(REDIS_BENCHMARK_NAME) $(REDIS_CHECK_RDB_NAME) $(REDIS_CHECK_AOF_NAME) *.o *.gcda *.gcno *.gcov redis.info lcov-html Makefile.dep dict-benchmark
+	rm -rf $(REDIS_SERVER_NAME) $(REDIS_SENTINEL_NAME) $(REDIS_CLI_NAME) $(REDIS_BENCHMARK_NAME) $(REDIS_CHECK_RDB_NAME) $(REDIS_CHECK_AOF_NAME) *.o *.gcda *.gcno *.gcov redis.info lcov-html Makefile.dep dict-benchmark proto/*.pb-c.*
 
 .PHONY: clean
 

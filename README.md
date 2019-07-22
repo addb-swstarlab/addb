@@ -19,5 +19,6 @@ After install these libraries, please execute theses commands
 
 ```bash
 echo "export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> ~/.bash_profile
+echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/lib" >> ~/.bash_profile
 source ~/.bash_profile
 ```

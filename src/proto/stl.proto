@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+// Common Fields
+enum StlType {
+  LONG = 0;
+  STRING = 1;
+}
+
+message StlEntry {
+  oneof value {
+    int64 _long = 1;
+    string _string = 2;
+  }
+}
+
+// Vector protobuf version
+message ProtoVector {
+  StlType type = 1;
+  repeated StlEntry values = 2;
+}

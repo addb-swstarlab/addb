@@ -7,6 +7,7 @@
 #include "server.h"
 #include "sds.h"
 #include "stl.h"
+#include "proto/stl.pb-c.h"
 
 #include <assert.h>
 #include <string.h>
@@ -283,6 +284,155 @@ void testStackInterfaceCommand(client *c) {
                 sdscmp(popedDatum->ptr, values[0]->ptr) == 0);
         decrRefCount(popedDatum);
         stackFreeDeep(&s);
+    }
+
+    addReply(c, shared.ok);
+}
+
+/*
+ * testProtobufCommand
+ * Tests Protobuf-Vector interface (Push / Pop / Free).
+ * --- Parameters ---
+ *  None
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      None
+ *  Command:
+ *      redis-cli> TESTSTACKINTERFACE
+ *  Results:
+ *      redis-cli> OK (prints results to server logs)
+ */
+void testProtoVectorCommand(client *c) {
+    {
+        // Test storing string data to ProtoVector
+        serverLog(LL_DEBUG,
+                  "[ADDB_TEST][ProtoVector] Test String type ProtoVector");
+
+        // Source - Naive Vector Interface
+        Vector source;
+        vectorTypeInit(&source, STL_TYPE_SDS);
+        // ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        for (size_t i = 0; i < 10; ++i) {
+            sds entry = sdscatfmt(sdsempty(), "%U", i);
+            vectorAdd(&source, entry);
+        }
+
+        // Target - Proto Vector Interface
+        ProtoVector target = PROTO_VECTOR__INIT;
+        target.type = STL_TYPE__STRING;
+        target.n_values = 10;
+        target.values = zmalloc(sizeof(StlEntry *) * target.n_values);
+
+        // ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        for (size_t i = 0; i < 10; ++i) {
+            sds raw_entry = sdscatfmt(sdsempty(), "%U", i);
+            target.values[i] = (StlEntry *) zmalloc(sizeof(StlEntry));
+            stl_entry__init(target.values[i]);
+            target.values[i]->value_case = STL_ENTRY__VALUE__STRING;
+            target.values[i]->_string = raw_entry;
+        }
+
+        // Compare
+        for (size_t i = 0; i < 10; ++i) {
+            sds source_entry = (sds) vectorGet(&source, i);
+            char *target_entry = (char *) target.values[i]->_string;
+            assert(strcmp(source_entry, target_entry) == 0);
+        }
+
+        vectorFreeDeep(&source);
+        for (size_t i = 0; i < target.n_values; ++i) {
+            zfree(target.values[i]->_string);
+            zfree(target.values[i]);
+        }
+        zfree(target.values);
+        serverLog(LL_DEBUG, "[ADDB_TEST][ProtoVector] SUCCESS");
+    }
+    {
+        // Test storing long data to ProtoVector
+        serverLog(LL_DEBUG,
+                  "[ADDB_TEST][ProtoVector] Test Integer type ProtoVector");
+
+        // Source - Naive Vector Interface
+        Vector source;
+        vectorTypeInit(&source, STL_TYPE_LONG);
+        // [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        for (size_t i = 0; i < 10; ++i) {
+            vectorAdd(&source, (void *) i);
+        }
+
+        // Target - Proto Vector Interface
+        ProtoVector target = PROTO_VECTOR__INIT;
+        target.type = STL_TYPE__LONG;
+        target.n_values = 10;
+        target.values = zmalloc(sizeof(StlEntry *) * target.n_values);
+
+        // [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        for (size_t i = 0; i < 10; ++i) {
+            target.values[i] = (StlEntry *) zmalloc(sizeof(StlEntry));
+            target.values[i]->value_case = STL_ENTRY__VALUE__LONG;
+            target.values[i]->_long = i;
+        }
+
+        // Compare
+        for (size_t i = 0; i < 10; ++i) {
+            long source_entry = (long) vectorGet(&source, i);
+            long target_entry = (long) target.values[i]->_long;
+            assert(source_entry == target_entry);
+        }
+
+        vectorFree(&source);
+        for (size_t i = 0; i < target.n_values; ++i) {
+            zfree(target.values[i]);
+        }
+        zfree(target.values);
+        serverLog(LL_DEBUG, "[ADDB_TEST][ProtoVector] SUCCESS");
+    }
+    {
+        // Test ProtoVector Serialization-Deserialization
+        serverLog(
+            LL_DEBUG,
+            "[ADDB_TEST][ProtoVector] Test ProtoVector Serialization-Deserialization");
+
+        // Source - Proto Vector Interface with String
+        ProtoVector source = PROTO_VECTOR__INIT;
+        source.type = STL_TYPE__STRING;
+        source.n_values = 10;
+        source.values = zmalloc(sizeof(StlEntry *) * source.n_values);
+
+        // ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        for (size_t i = 0; i < 10; ++i) {
+            sds raw_entry = sdscatfmt(sdsempty(), "%U", i);
+            source.values[i] = (StlEntry *) zmalloc(sizeof(StlEntry));
+            stl_entry__init(source.values[i]);
+            source.values[i]->value_case = STL_ENTRY__VALUE__STRING;
+            source.values[i]->_string = raw_entry;
+        }
+
+        // Protobuf Serialization
+        size_t serialized_len = proto_vector__get_packed_size(&source);
+        char *serialized = zcalloc(sizeof(char) * serialized_len);
+        proto_vector__pack(&source, (uint8_t *) serialized);
+
+        // Protobuf Deserialization
+        ProtoVector *target = proto_vector__unpack(
+            NULL, serialized_len, (const uint8_t *) serialized);
+        for (size_t i = 0; i < 10; ++i) {
+            assert(
+                source.values[i]->value_case == target->values[i]->value_case);
+            assert(
+                strcmp(source.values[i]->_string, target->values[i]->_string) == 0);
+        }
+
+        // Free protobuf-related data...
+        for (size_t i = 0; i < source.n_values; ++i) {
+            sdsfree(source.values[i]->_string);
+            zfree(source.values[i]);
+        }
+        zfree(source.values);
+        zfree(serialized);
+        proto_vector__free_unpacked(target, NULL);
+        serverLog(LL_DEBUG, "[ADDB_TEST][ProtoVector] SUCCESS");
     }
 
     addReply(c, shared.ok);
