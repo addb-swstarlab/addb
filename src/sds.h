@@ -39,6 +39,8 @@
 #include <stdarg.h>
 #include <stdint.h>
 
+#include "proto/sds.pb-c.h"
+
 typedef char *sds;
 
 /* Note: sdshdr5 is never used, we just access the flags byte directly.
@@ -104,6 +106,11 @@ struct sdshdr{
 #define SDS_ADDB_LOCATION_FLUSHING 2
 #define SDS_ADDB_LOCATION_ROCKSDB 3
 #define SDS_ADDB_LOCATION_MASK 3        // Masking by '0b11'
+
+/* addb protobuf */
+#define PROTO_SDS_PTR(T,sh) ((sds)((sh)+(sizeof(struct sdshdr##T))))
+#define PROTO_SDS_NO_COPY 0
+#define PROTO_SDS_COPY 1
 
 /* addb */
 static inline size_t sdsloc(const sds s) {
@@ -283,6 +290,14 @@ static inline void sdssetalloc(sds s, size_t newlen) {
 sds sdsnewlenloc(const void *init, size_t initlen, size_t location);
 sds sdsnewloc(const char *init, size_t location);
 sds sdsduploc(const sds s);
+
+/* addb
+ * implementer: totorody (kem2182@yonsei.ac.kr)
+ * Converts sds to protobuf.
+ */
+ProtoSds *_sds2proto(const sds s, int flag);
+ProtoSds *sds2proto(const sds s);
+sds proto2sds(const ProtoSds *proto);
 
 sds sdsnewlen(const void *init, size_t initlen);
 sds sdsnew(const char *init);

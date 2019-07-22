@@ -157,7 +157,7 @@ endif
 REDIS_SERVER_NAME=redis-server
 REDIS_SENTINEL_NAME=redis-sentinel
 REDIS_SERVER_OBJ=circular_queue.o stl.o persistent_store.o adlist.o quicklist.o ae.o anet.o dict.o server.o sds.o zmalloc.o lzf_c.o lzf_d.o pqsort.o zipmap.o sha1.o ziplist.o release.o networking.o util.o object.o db.o replication.o rdb.o t_string.o t_list.o t_set.o t_zset.o t_hash.o config.o aof.o pubsub.o multi.o debug.o sort.o intset.o syncio.o cluster.o crc16.o endianconv.o slowlog.o scripting.o bio.o rio.o rand.o memtest.o crc64.o bitops.o sentinel.o notify.o setproctitle.o blocked.o hyperloglog.o latency.o sparkline.o redis-check-rdb.o redis-check-aof.o geo.o lazyfree.o module.o evict.o expire.o geohash.o geohash_helper.o childinfo.o defrag.o siphash.o rax.o addb_relational.o addb_table.o addb_test.o stl_test.o
-REDIS_SERVER_PROTO=proto/stl.proto
+REDIS_SERVER_PROTO=proto/stl.proto proto/sds.proto
 REDIS_SERVER_PROTO_C=$(REDIS_SERVER_PROTO:.proto=.pb-c.c)
 REDIS_SERVER_PROTO_OBJ=$(REDIS_SERVER_PROTO_C:.pb-c.c=.pb-c.o)
 REDIS_CLI_NAME=redis-cli
@@ -279,8 +279,8 @@ lcov:
 	@geninfo -o redis.info .
 	@genhtml --legend -o lcov-html redis.info
 
-test-sds: sds.c sds.h
-	$(REDIS_CC) sds.c zmalloc.c -DSDS_TEST_MAIN $(FINAL_LIBS) -o /tmp/sds_test
+test-sds: sds.c sds.h proto/sds.pb-c.c
+	$(REDIS_CC) sds.c zmalloc.c proto/sds.pb-c.c -DSDS_TEST_MAIN $(FINAL_LIBS) -o /tmp/sds_test $(FINAL_LDFLAGS)
 	/tmp/sds_test
 
 .PHONY: lcov

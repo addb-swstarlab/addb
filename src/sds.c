@@ -234,6 +234,89 @@ sds sdsduploc(const sds s) {
     return sdsnewlenloc(s, sdslen(s), sdsloc(s));
 }
 
+/* addb
+ * Converts sds to protobuf.
+ * Flag - PROTO_SDS_NO_COPY = 0, PROTO_SDS_COPY = 1 */
+ProtoSds *_sds2proto(const sds s, int flag) {
+    ProtoSds *proto = (ProtoSds *) zcalloc(sizeof(ProtoSds));
+    proto_sds__init(proto);
+
+    void *sh;
+    unsigned char flags = s[-1];
+    char type = flags & SDS_TYPE_MASK;
+    switch (type) {
+        case SDS_TYPE_5: {
+            sh = SDS_HDR(5,s);
+            proto->type = PROTO_SDS_TYPE__SDS_TYPE_5;
+            break;
+        }
+        case SDS_TYPE_8: {
+            sh = SDS_HDR(8,s);
+            proto->type = PROTO_SDS_TYPE__SDS_TYPE_8;
+            break;
+        }
+        case SDS_TYPE_16: {
+            sh = SDS_HDR(16,s);
+            proto->type = PROTO_SDS_TYPE__SDS_TYPE_16;
+            break;
+        }
+        case SDS_TYPE_32: {
+            sh = SDS_HDR(32,s);
+            proto->type = PROTO_SDS_TYPE__SDS_TYPE_32;
+            break;
+        }
+        case SDS_TYPE_64: {
+            sh = SDS_HDR(64,s);
+            proto->type = PROTO_SDS_TYPE__SDS_TYPE_64;
+            break;
+        }
+        default: {
+            zfree(proto);
+            return NULL;
+        }
+    }
+
+    proto->s.len = sdsalloc(s) + sdsHdrSize(type);
+    if (flag == PROTO_SDS_COPY) {
+        proto->s.data = zcalloc(sizeof(uint8_t) * proto->s.len);
+        memcpy(proto->s.data, sh, sizeof(uint8_t) * proto->s.len);
+    } else {
+        proto->s.data = sh;
+    }
+
+    return proto;
+}
+
+ProtoSds *sds2proto(const sds s) {
+    return _sds2proto(s, PROTO_SDS_NO_COPY);
+}
+
+/* addb
+ * Converts protobuf to sds. */
+sds proto2sds(const ProtoSds *proto) {
+    uint8_t *sh = proto->s.data;
+    switch (proto->type & SDS_TYPE_MASK) {
+        case PROTO_SDS_TYPE__SDS_TYPE_5: {
+            return sdsdup(PROTO_SDS_PTR(5,sh));
+        }
+        case PROTO_SDS_TYPE__SDS_TYPE_8: {
+            return sdsdup(PROTO_SDS_PTR(8,sh));
+        }
+        case PROTO_SDS_TYPE__SDS_TYPE_16: {
+            return sdsdup(PROTO_SDS_PTR(16,sh));
+        }
+        case PROTO_SDS_TYPE__SDS_TYPE_32: {
+            return sdsdup(PROTO_SDS_PTR(32,sh));
+        }
+        case PROTO_SDS_TYPE__SDS_TYPE_64: {
+            return sdsdup(PROTO_SDS_PTR(64,sh));
+        }
+        default: {
+            return NULL;
+        }
+    }
+}
+
 /* Duplicate an sds string. */
 sds sdsdup(const sds s) {
     return sdsnewlen(s, sdslen(s));
@@ -1359,6 +1442,42 @@ int sdsTest(void) {
             test_cond("sdsMakeRoomFor() final length",sdslen(x)==101);
 
             sdsfree(x);
+        }
+
+        {
+            // Protobuf <-> sds no copy test
+            sds source = sdsnew("Source-Sds-String");
+            sdslen(source);
+            ProtoSds *proto = sds2proto(source);
+            sds target = proto2sds(proto);
+            test_cond("sds2proto() --> proto2sds() length comparison",
+                sdslen(source) == sdslen(target));
+            test_cond("sds2proto() --> proto2sds() sds comparison",
+                sdscmp(source, target) == 0);
+            char type = source[-1] & SDS_TYPE_MASK;
+            test_cond("sds2proto() --> proto2sds() no copy will have same header address",
+                proto->s.data == (source-sdsHdrSize(type)) );
+            sdsfree(source);
+            sdsfree(target);
+            zfree(proto);
+        }
+        {
+            // Protobuf <-> sds copy test
+            sds source = sdsnew("Source-Sds-String");
+            sdslen(source);
+            ProtoSds *proto = _sds2proto(source, PROTO_SDS_COPY);
+            sds target = proto2sds(proto);
+            test_cond("sds2proto() --> proto2sds() length comparison",
+                sdslen(source) == sdslen(target));
+            test_cond("sds2proto() --> proto2sds() sds comparison",
+                sdscmp(source, target) == 0);
+            char type = source[-1] & SDS_TYPE_MASK;
+            test_cond("sds2proto() --> proto2sds() copy will have different header address",
+                proto->s.data != (source-sdsHdrSize(type)) );
+            sdsfree(source);
+            sdsfree(target);
+            zfree(proto->s.data);
+            zfree(proto);
         }
     }
     test_report()

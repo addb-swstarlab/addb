@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+enum ProtoSdsType {
+  SDS_TYPE_5 = 0;
+  SDS_TYPE_8 = 1;
+  SDS_TYPE_16 = 2;
+  SDS_TYPE_32 = 3;
+  SDS_TYPE_64 = 4;
+}
+
+message ProtoSds {
+  ProtoSdsType type = 1;
+  bytes s = 2;
+}
