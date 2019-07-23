@@ -516,3 +516,212 @@ void testProtoVectorInterfaceCommand(client *c) {
     }
     addReply(c, shared.ok);
 }
+
+/*
+ * testProtoVectorSerializationCommand
+ * Tests Protobuf-Vector user-friendly Serialization-Deserialization.
+ * --- Parameters ---
+ *  None
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      None
+ *  Command:
+ *      redis-cli> TESTPROTOVECTORSERIALIZATION
+ *  Results:
+ *      redis-cli> OK (prints results to server logs)
+ */
+void testProtoVectorSerializationCommand(client *c) {
+    {
+        // ProtoVector Type [LONG]
+        ProtoVector v;
+        protoVectorTypeInit(&v, STL_TYPE_LONG);
+        serverLog(
+            LL_DEBUG,
+            "[ADDB_TEST][PROTO_VECTOR][LONG] Test LONG type ProtoVector Serialization"
+        );
+        const long values[] = { 1, 2, 3 };
+        protoVectorAdd(&v, (void *) values[0]);
+        protoVectorAdd(&v, (void *) values[1]);
+        protoVectorAdd(&v, (void *) values[2]);
+        // Serialization
+        char *serialized = protoVectorSerialize(&v);
+        // Deserialization
+        ProtoVector *target;
+        protoVectorDeserialize(serialized, &target);
+        assert(v.type == target->type);
+        assert(v.n_values == target->n_values);
+        assert(v.count == target->count);
+        for (size_t i = 0; i < v.count; ++i) {
+            long source_entry = (long) protoVectorGet(&v, i);
+            long target_entry = (long) protoVectorGet(target, i);
+            assert(source_entry == target_entry);
+        }
+        protoVectorFreeDeep(&v);
+        protoVectorFreeDeserialized(target);
+        zfree(serialized);
+    }
+    {
+        // ProtoVector Type [SDS]
+        ProtoVector v;
+        protoVectorTypeInit(&v, STL_TYPE_SDS);
+        serverLog(
+            LL_DEBUG,
+            "[ADDB_TEST][PROTO_VECTOR][SDS] Test SDS type ProtoVector Serialzation"
+        );
+        assert(v.n_values == 0);
+        assert(v.count == 0);
+        const sds values[] = {
+            sdsnew("TEST_VECTOR_SDS_VALUE_1"),
+            sdsnew("TEST_VECTOR_SDS_VALUE_2"),
+            sdsnew("TEST_VECTOR_SDS_VALUE_3"),
+        };
+        protoVectorAdd(&v, (void *) values[0]);
+        protoVectorAdd(&v, (void *) values[1]);
+        protoVectorAdd(&v, (void *) values[2]);
+        // Serialization
+        char *serialized = protoVectorSerialize(&v);
+        // Deserialization
+        ProtoVector *target;
+        protoVectorDeserialize(serialized, &target);
+        assert(v.type == target->type);
+        assert(v.n_values == target->n_values);
+        assert(v.count == target->count);
+        for (size_t i = 0; i < v.count; ++i) {
+            sds source_entry = (sds) protoVectorGet(&v, i);
+            sds target_entry = (sds) protoVectorGet(target, i);
+            assert(sdscmp(source_entry, target_entry) == 0);
+        }
+        protoVectorFreeDeep(&v);
+        protoVectorFreeDeserialized(target);
+        zfree(serialized);
+    }
+    addReply(c, shared.ok);
+}
+
+/*
+ * testCmpSerializationTimeCommand
+ * Tests compare serialization time Naive with Protobuf.
+ * --- Parameters ---
+ *  None
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      None
+ *  Command:
+ *      redis-cli> TESTCMPSERIALIZATIONTIME
+ *  Results:
+ *      redis-cli> OK (prints results to server logs)
+ */
+void testCmpSerializationTimeCommand(client *c) {
+    {
+        // Type [SDS]
+        const size_t n = 300;
+        sds *values = (sds *) zmalloc(sizeof(sds) * n);
+        for (size_t i = 0; i < n; ++i) {
+            values[i] = sdscatfmt(sdsempty(), "TEST_VECTOR_SDS_VALUE_%u", i);
+        }
+
+        typedef struct CmpSerializationTimeStat {
+            long long naive_serialize_us;
+            long long naive_deserialize_us;
+            long long protobuf_serialize_us;
+            long long protobuf_deserialize_us;
+        } __stat;
+        __stat time_statistics;
+
+        long long start_us, end_us;
+
+        // Naive - Serialization, Deserialization
+        {
+            Vector *v = (Vector *) zmalloc(sizeof(Vector));
+            vectorTypeInit(v, STL_TYPE_SDS);
+            for (size_t i = 0; i < n; ++i) {
+                vectorAdd(v, (void *) sdsdup(values[i]));
+            }
+
+            // Serialization
+            robj *v_obj = createObject(OBJ_VECTOR, v);
+
+            ////// Time check //////
+            start_us = ustime();
+            char *serialized = VectorSerialize((void *) v_obj);
+            end_us = ustime();
+            time_statistics.naive_serialize_us = end_us - start_us;
+            ////// Time check //////
+
+            // Deserialization
+            sds serialized_sds = sdsnew(serialized);
+            zfree(serialized);
+            Vector *deserialized;
+            ////// Time check //////
+            start_us = ustime();
+            vectorDeserialize(serialized_sds, &deserialized);
+            end_us = ustime();
+            time_statistics.naive_deserialize_us = end_us - start_us;
+            ////// Time check //////
+
+            sdsfree(serialized_sds);
+            vectorFreeDeep(deserialized);
+            zfree(deserialized);
+            decrRefCount(v_obj);
+        }
+
+        // ProtoVector - Serialization, Deserialization
+        {
+            ProtoVector v;
+            protoVectorTypeInit(&v, STL_TYPE_SDS);
+            for (size_t i = 0; i < n; ++i) {
+                protoVectorAdd(&v, (void *) sdsdup(values[i]));
+            }
+
+            // Serialization
+            ////// Time check //////
+            start_us = ustime();
+            char *serialized = protoVectorSerialize(&v);
+            end_us = ustime();
+            time_statistics.protobuf_serialize_us = end_us - start_us;
+            ////// Time check //////
+
+            // Deserialization
+            ProtoVector *target;
+            ////// Time check //////
+            start_us = ustime();
+            protoVectorDeserialize(serialized, &target);
+            end_us = ustime();
+            time_statistics.protobuf_deserialize_us = end_us - start_us;
+            ////// Time check //////
+
+            protoVectorFreeDeep(&v);
+            protoVectorFreeDeserialized(target);
+            zfree(serialized);
+        }
+
+        for (size_t i = 0; i < n; ++i) {
+            sdsfree(values[i]);
+        }
+        zfree(values);
+
+        // Prints statistics
+        serverLog(LL_DEBUG, "[testCmpSerializationTimeTest] Statistics N: %zu", n);
+        serverLog(LL_DEBUG, "================================================");
+        serverLog(
+            LL_DEBUG,
+            "[NAIVE][SERIALIZE] elapsed time: %lld us",
+            time_statistics.naive_serialize_us);
+        serverLog(
+            LL_DEBUG,
+            "[NAIVE][DESERIALIZE] elapsed time: %lld us",
+            time_statistics.naive_deserialize_us);
+        serverLog(
+            LL_DEBUG,
+            "[PROTOBUF][SERIALIZE] elapsed time: %lld us",
+            time_statistics.protobuf_serialize_us);
+        serverLog(
+            LL_DEBUG,
+            "[PROTOBUF][DESERIALIZE] elapsed time: %lld us",
+            time_statistics.protobuf_deserialize_us);
+        serverLog(LL_DEBUG, "================================================");
+    }
+    addReply(c, shared.ok);
+}

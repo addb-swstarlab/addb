@@ -339,7 +339,8 @@ struct redisCommand redisCommandTable[] = {
 	{"cvdeserial", deserializeCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
     {"testprotovector",testProtoVectorCommand,-1,"r",0,NULL,1,1,1,0,0},
     {"testprotovectorinterface",testProtoVectorInterfaceCommand,-1,"r",0,NULL,1,1,1,0,0},
-
+    {"testprotovectorserialization",testProtoVectorSerializationCommand,-1,"r",0,NULL,1,1,1,0,0},
+    {"testcmpserializationtime",testCmpSerializationTimeCommand,-1,"r",0,NULL,1,1,1,0,0},
 };
 
 /*============================ Utility functions ============================ */

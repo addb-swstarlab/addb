@@ -2128,6 +2128,8 @@ void testVectorInterfaceCommand(client *c);
 void testStackInterfaceCommand(client *c);
 void testProtoVectorCommand(client *c);
 void testProtoVectorInterfaceCommand(client *c);
+void testProtoVectorSerializationCommand(client *c);
+void testCmpSerializationTimeCommand(client *c);
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

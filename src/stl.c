@@ -713,3 +713,62 @@ int protoVectorFreeDeep(ProtoVector *v) {
     zfree(v->values);
     return C_OK;
 }
+
+/* _protoVectorFitStlEntries function
+ *  Fit vector entries for serialization.
+ *  Because, if there are empty StlEntry on vector entries array,
+ *  serialization work will be failed.
+ *  So, we remove empty StlEntries at this function.
+ *
+ * ex) fit([0, 1, 2, 3, 4, 5, x, x, x, x])
+ *      x is empty StlEntry
+ * result)
+ *      [0, 1, 2, 3, 4, 5]
+ */
+void _protoVectorFitStlEntries(ProtoVector *v) {
+    v->values = (StlEntry **) zrealloc(
+        v->values, sizeof(StlEntry *) * v->count);
+    v->n_values = v->count;
+}
+
+/* protoVectorSerialize function
+ * Serialization format
+ * [ serialized_length ][ serialized ]
+ *
+ * ex) serialize([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+ *      serialized_length = 20
+ *      serialized = "snl1clsdj[38;fn3j:c8e0ps["
+ *      len(serialized) = 20
+ * result)
+ *      "20snl1clsdj[38;fn3j:c8e0ps["
+ */
+char *protoVectorSerialize(ProtoVector *v) {
+    _protoVectorFitStlEntries(v);
+    size_t serialized_len = proto_vector__get_packed_size(v);
+
+    char *serialized = zcalloc(
+        sizeof(uint64_t) + sizeof(uint8_t) * serialized_len);
+    uint64_t *serialized_len_ptr = (uint64_t *) serialized;
+    uint8_t *serialized_obj = (uint8_t *) (serialized + sizeof(uint64_t));
+
+    *serialized_len_ptr = serialized_len;
+    proto_vector__pack(v, serialized_obj);
+
+    return serialized;
+}
+
+int protoVectorDeserialize(const char *serialized, ProtoVector **result) {
+    const uint64_t *serialized_len_ptr = (const uint64_t *) serialized;
+    const uint8_t *serialized_obj = (const uint8_t *) (
+        serialized + sizeof(uint64_t)
+    );
+
+    size_t serialized_len = *serialized_len_ptr;
+    *result = proto_vector__unpack(NULL, serialized_len, serialized_obj);
+    return C_OK;
+}
+
+int protoVectorFreeDeserialized(ProtoVector *deserialized) {
+    proto_vector__free_unpacked(deserialized, NULL);
+    return C_OK;
+}
