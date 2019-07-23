@@ -18,9 +18,11 @@
 #define STL_TYPE_ROBJ 3
 
 #define INIT_VECTOR_SIZE 10
+#define INIT_PROTO_VECTOR_SIZE 10
 
 #include <stddef.h>
 #include "sds.h"
+#include "proto/stl.pb-c.h"
 
 /* Vector */
 typedef struct _Vector {
@@ -66,4 +68,14 @@ int vectorDeserialize(sds rawVector, Vector **result);
 // Deprecated
 Vector *VectordeSerialize(char *VectorString);
 void CheckVectorsds(Vector *v);
+
+/* Proto Vector Helper */
+void protoVectorTypeInit(ProtoVector *v, int type);
+int protoVectorAdd(ProtoVector *v, void *datum);
+int protoVectorSet(ProtoVector *v, size_t i, void *datum);
+void *protoVectorGet(ProtoVector *v, size_t i);
+int protoVectorDelete(ProtoVector *v, size_t i);
+void *protoVectorPop(ProtoVector *v);
+int protoVectorFree(ProtoVector *v);
+int protoVectorFreeDeep(ProtoVector *v);
 #endif

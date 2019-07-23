@@ -466,6 +466,9 @@ typedef long long mstime_t; /* millisecond time type. */
 /*ADDB COLUMN VECTOR*/
 #define OBJ_VECTOR 6
 
+/* addb protobuf */
+#define OBJ_PROTO_VECTOR 7
+
 /* The "module" object type is a special one that signals that the object
  * is one directly managed by a Redis module. In this case the value points
  * to a moduleValue struct, which contains the object value (which is only
@@ -2124,6 +2127,7 @@ void testSdsLocationCommand(client *c);
 void testVectorInterfaceCommand(client *c);
 void testStackInterfaceCommand(client *c);
 void testProtoVectorCommand(client *c);
+void testProtoVectorInterfaceCommand(client *c);
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

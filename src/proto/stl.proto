@@ -19,4 +19,5 @@ message StlEntry {
 message ProtoVector {
   StlType type = 1;
   repeated StlEntry values = 2;
+  uint64 count = 3;
 }

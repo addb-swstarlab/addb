@@ -290,8 +290,8 @@ void testStackInterfaceCommand(client *c) {
 }
 
 /*
- * testProtobufCommand
- * Tests Protobuf-Vector interface.
+ * testProtoVectorCommand
+ * Tests Protobuf-Vector basic logics.
  * --- Parameters ---
  *  None
  *
@@ -299,7 +299,7 @@ void testStackInterfaceCommand(client *c) {
  *  Parameters:
  *      None
  *  Command:
- *      redis-cli> TESTSTACKINTERFACE
+ *      redis-cli> TESTPROTOVECTOR
  *  Results:
  *      redis-cli> OK (prints results to server logs)
  */
@@ -441,5 +441,78 @@ void testProtoVectorCommand(client *c) {
         serverLog(LL_DEBUG, "[ADDB_TEST][ProtoVector] SUCCESS");
     }
 
+    addReply(c, shared.ok);
+}
+
+/*
+ * testProtoVectorInterfaceCommand
+ * Tests Protobuf-Vector user-friendly interface.
+ * --- Parameters ---
+ *  None
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      None
+ *  Command:
+ *      redis-cli> TESTPROTOVECTORINTERFACE
+ *  Results:
+ *      redis-cli> OK (prints results to server logs)
+ */
+void testProtoVectorInterfaceCommand(client *c) {
+    {
+        // ProtoVector Type [LONG]
+        ProtoVector v;
+        protoVectorTypeInit(&v, STL_TYPE_LONG);
+        serverLog(LL_DEBUG, "[ADDB_TEST][PROTO_VECTOR][LONG] Test LONG type ProtoVector");
+        assert(v.n_values == 0);
+        assert(v.count == 0);
+        const long values[] = { 1, 2, 3 };
+        protoVectorAdd(&v, (void *) values[0]);
+        protoVectorAdd(&v, (void *) values[1]);
+        protoVectorAdd(&v, (void *) values[2]);
+        assert(v.count == 3);
+        for (size_t i = 0; i < v.count; ++i) {
+            assert(values[i] == (long) protoVectorGet(&v, i));
+        }
+        // Pop test
+        long popedDatum;
+        popedDatum = (long) protoVectorPop(&v);
+        assert(v.count == 2 && popedDatum == values[2]);
+        protoVectorDelete(&v, 0);
+        assert(v.count == 1);
+        protoVectorDelete(&v, 0);
+        assert(v.count == 0);
+        protoVectorFreeDeep(&v);
+    }
+    {
+        // ProtoVector Type [SDS]
+        ProtoVector v;
+        protoVectorTypeInit(&v, STL_TYPE_SDS);
+        serverLog(LL_DEBUG, "[ADDB_TEST][PROTO_VECTOR][SDS] Test SDS type ProtoVector");
+        assert(v.n_values == 0);
+        assert(v.count == 0);
+        const sds values[] = {
+            sdsnew("TEST_VECTOR_SDS_VALUE_1"),
+            sdsnew("TEST_VECTOR_SDS_VALUE_2"),
+            sdsnew("TEST_VECTOR_SDS_VALUE_3"),
+        };
+        protoVectorAdd(&v, (void *) values[0]);
+        protoVectorAdd(&v, (void *) values[1]);
+        protoVectorAdd(&v, (void *) values[2]);
+        assert(v.count == 3);
+        for (size_t i = 0; i < v.count; ++i) {
+            assert(sdscmp(values[i], (sds) protoVectorGet(&v, i)) == 0);
+        }
+        // Pop test
+        sds popedDatum;
+        popedDatum = (sds) protoVectorPop(&v);
+        assert(v.count == 2 && sdscmp(popedDatum, values[2]) == 0);
+        protoVectorDelete(&v, 0);
+        assert(v.count == 1);
+        protoVectorDelete(&v, 0);
+        assert(v.count == 0);
+        protoVectorFreeDeep(&v);
+        sdsfree(popedDatum);
+    }
     addReply(c, shared.ok);
 }

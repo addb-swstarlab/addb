@@ -348,6 +348,12 @@ void freeVectorObject(robj *o){
 	zfree(v);
 }
 
+void freeProtoVectorObject(robj *o) {
+    ProtoVector *v = o->ptr;
+    protoVectorFreeDeep(v);
+    zfree(v);
+}
+
 void incrRefCount(robj *o) {
     if (o->refcount != OBJ_SHARED_REFCOUNT) o->refcount++;
 }
@@ -362,6 +368,7 @@ void decrRefCount(robj *o) {
         case OBJ_HASH: freeHashObject(o); break;
         case OBJ_MODULE: freeModuleObject(o); break;
         case OBJ_VECTOR: freeVectorObject(o); break;
+        case OBJ_PROTO_VECTOR: freeProtoVectorObject(o); break;
         default: serverPanic("Unknown object type"); break;
         }
         zfree(o);
