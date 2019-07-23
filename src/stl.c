@@ -245,29 +245,105 @@ int stackFreeDeep(Stack *s) {
 
 //fix test
 char *VectorSerialize(void *o) {
-	Vector *v = (Vector *) ((robj *) o)->ptr;
-	int v_type = v->type;
-	int v_count = v->count;
-
-		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
-				v_type, RELMODEL_VECTOR_COUNT_PREFIX, v_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
-
-		int i;
-		for(i=0; i < v_count; i++){
-			sds element = (sds)vectorGet(v,i);
-			serial_buf= sdscatsds(serial_buf, element);
-
-			if(i < (v_count -1)){
-				serial_buf = sdscat(serial_buf,RELMODEL_DELIMITER);
-			}
-		}
-		serial_buf = sdscat(serial_buf, VECTOR_DATA_SUFFIX);
+//	Vector *v = (Vector *) ((robj *) o)->ptr;
+//	int v_type = v->type;
+//	int v_count = v->count;
+//
+//		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
+//				v_type, RELMODEL_VECTOR_COUNT_PREFIX, v_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
+//
+//		int i;
+//		for(i=0; i < v_count; i++){
+//			sds element = (sds)vectorGet(v,i);
+//			serial_buf= sdscatsds(serial_buf, element);
+//
+//			if(i < (v_count -1)){
+//				serial_buf = sdscat(serial_buf,RELMODEL_DELIMITER);
+//			}
+//		}
+//		serial_buf = sdscat(serial_buf, VECTOR_DATA_SUFFIX);
 
 //	//fixed string
-//	sds serial_buf = sdscatfmt(sdsempty(), "V:{T:1:N:250}:D:[1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:"
-//			"1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:"
-//			"1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:"
-//			"1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1]");
+	sds serial_buf = sdscatfmt(sdsempty(), " V:{T:1:N:250}:D:[according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull"
+			":final deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly "
+			"special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions."
+			" busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:according to the slyly final deposits. c:to beans are carefully final "
+			"pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final "
+			"idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :"
+			"quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:according to the slyly final deposits. c:"
+			"to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular"
+			" de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites--"
+			" packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:according to the "
+			"slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was "
+			"alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual"
+			" foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto"
+			" be:according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly "
+			"silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss "
+			"the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. "
+			"unusual, pending pinto be:according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :"
+			"nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special "
+			"packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the "
+			"slyly perm:deposits. unusual, pending pinto be:according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final "
+			"deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special "
+			"asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. "
+			"busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:according to the slyly final deposits. c:to beans are carefully final "
+			"pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final idea"
+			":iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly "
+			"even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:according to the slyly final deposits. c:to beans are "
+			"carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:about the "
+			"blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle "
+			"quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:according to the slyly final deposits. "
+			"c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:"
+			"about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages "
+			"haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be: according to the slyly final "
+			"deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing accounts "
+			"regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites"
+			"-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:according to the "
+			"slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:"
+			"ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. "
+			"ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:"
+			"according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent "
+			"requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the "
+			"fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. "
+			"unusual, pending pinto be:according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the "
+			":nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special "
+			"packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the "
+			"slyly perm:deposits. unusual, pending pinto be:according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final "
+			"deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special "
+			"asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. "
+			"busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:according to the slyly final deposits. c:to beans are carefully "
+			"final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:about the blithely "
+			"final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle "
+			"quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:according to the slyly final "
+			"deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing "
+			"accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. "
+			"ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be:"
+			"according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent "
+			"requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the "
+			"fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. "
+			"unusual, pending pinto be:according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :"
+			"nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special "
+			"packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the "
+			"slyly perm:deposits. unusual, pending pinto be:according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final "
+			"deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special "
+			"asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. "
+			"busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be: according to the slyly final deposits. c:to beans are carefully "
+			"final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de:about the blithely "
+			"final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :"
+			"quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be: according to the slyly final deposits. c:"
+			"to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was alo:ing accounts regular de"
+			":about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- "
+			"packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto be: according to the "
+			"slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly silent requests was "
+			"alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss the fluffily unusual "
+			"foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. unusual, pending pinto "
+			"be: according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along the :nts about the slyly "
+			"silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly special packages. quic:oss "
+			"the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according to the slyly perm:deposits. "
+			"unusual, pending pinto be: according to the slyly final deposits. c:to beans are carefully final pinto bea:sleep carefull:final deposits solve along "
+			"the :nts about the slyly silent requests was alo:ing accounts regular de:about the blithely final idea:iously. doggedly special asymptotes:kly evenly "
+			"special packages. quic:oss the fluffily unusual foxes. ca:theodolites-- packages haggle quickly. :quickly even instructions. busy:re blithely according "
+			"to the slyly perm:deposits. unusual, pending pinto be]");
 
 		serverLog(LL_DEBUG, "(char version)SERIALIZE VECTOR : %s", serial_buf);
 
