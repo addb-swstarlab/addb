@@ -811,7 +811,7 @@ void prepareBatchWriteToRocksDB(redisDb *db, Vector *evict_keys,
             sds rockskey = sdsnew(keystr);
             char *serialized_vector_obj = VectorSerialize(vector_obj);
 
-            serverLog(LL_DEBUG, "SERIALIZE Serial_val RESULT : %s",
+            serverLog(LL_WARNING, "SERIALIZE Serial_val RESULT : %s",
                       serialized_vector_obj);
             setPersistentKeyWithBatch(db->persistent_store, rockskey,
                                       sdslen(rockskey), serialized_vector_obj,
