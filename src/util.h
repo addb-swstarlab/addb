@@ -48,7 +48,7 @@ sds getAbsolutePath(char *filename);
 int pathIsBaseName(char *path);
 
 /*ADDB Custom*/
-int stringmatchregex(const char *str, const char *pattern);
+int stringmatchregex(const char *pattern, const char *str);
 
 #ifdef REDIS_TEST
 int utilTest(int argc, char **argv);

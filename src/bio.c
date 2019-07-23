@@ -225,6 +225,8 @@ void *bioProcessBackgroundJobs(void *arg) {
             __sync_synchronize();
             vectorFree(evict_keys);
             vectorFree(evict_relations);
+            zfree(evict_keys);
+            zfree(evict_relations);
         } else if (type == BIO_TIERED_FREE) {
             /* ADDB */
             dictEntry *de = (dictEntry *)job->arg1;

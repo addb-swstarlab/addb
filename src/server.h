@@ -2127,6 +2127,7 @@ void testSdsLocationCommand(client *c);
 void testVectorInterfaceCommand(client *c);
 void testStackInterfaceCommand(client *c);
 <<<<<<< HEAD
+<<<<<<< HEAD
 void testProtoVectorCommand(client *c);
 void testProtoVectorInterfaceCommand(client *c);
 void testProtoVectorSerializationCommand(client *c);
@@ -2134,6 +2135,9 @@ void testCmpSerializationTimeCommand(client *c);
 =======
 void testToMetaKeyCommand(client *c);
 >>>>>>> d9b580a... [IMPLEMENT][BATCH_TIERING] Implements converting dataKey to metaKey.
+=======
+void testStringMatchRegexCommand(client *c);
+>>>>>>> 4bbb345... [TRIVIAL] Adds 'stringmatchregex' tests.
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

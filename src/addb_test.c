@@ -6,6 +6,7 @@
 
 #include "server.h"
 #include "sds.h"
+#include "util.h"
 
 #include <assert.h>
 
@@ -163,6 +164,7 @@ void testSdsLocationCommand(client *c) {
     addReply(c, shared.ok);
 }
 
+<<<<<<< HEAD
 void testToMetaKeyCommand(client *c) {
     {
         // Tests success case
@@ -190,6 +192,36 @@ void testToMetaKeyCommand(client *c) {
         assert(metaKey == NULL);
         assert(rowGroupId == -1);
         sdsfree(dataKey);
+=======
+void testStringMatchRegexCommand(client *c) {
+    {
+        // Date type match
+        const char *pattern = "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$";
+        const char *date1 = "1995-05-15";
+        assert(stringmatchregex(pattern, date1) == 1);
+        const char *date2 = "2018-03-18";
+        assert(stringmatchregex(pattern, date2) == 1);
+        const char *invalid_date1 = "19283-038-387";
+        assert(stringmatchregex(pattern, invalid_date1) == 0);
+        const char *invalid_date2 = "Hello-World-ADDB";
+        assert(stringmatchregex(pattern, invalid_date2) == 0);
+        const char *invalid_date3 = "1995-05-15-08-13-30";
+        assert(stringmatchregex(pattern, invalid_date3) == 0);
+        const char *invalid_date4 = "1995-05-15:08:13:30";
+        assert(stringmatchregex(pattern, invalid_date4) == 0);
+    }
+    {
+        // Integer type match
+        const char *pattern = "^[1-9][0-9]*$";
+        const char *integer1 = "123456789";
+        assert(stringmatchregex(pattern, integer1) == 1);
+        const char *integer2 = "1000";
+        assert(stringmatchregex(pattern, integer2) == 1);
+        const char *invalid_integer1 = "Tony St(ring)ark: I am string man";
+        assert(stringmatchregex(pattern, invalid_integer1) == 0);
+        const char *invalid_integer2 = "01234";
+        assert(stringmatchregex(pattern, invalid_integer2) == 0);
+>>>>>>> 4bbb345... [TRIVIAL] Adds 'stringmatchregex' tests.
     }
     addReply(c, shared.ok);
 }

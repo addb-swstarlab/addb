@@ -674,6 +674,31 @@ int pathIsBaseName(char *path) {
     return strchr(path,'/') == NULL && strchr(path,'\\') == NULL;
 }
 
+/*ADDB Custom*/
+int stringmatchregex(const char *pattern, const char *str) {
+    regex_t regex;
+
+    if (regcomp(&regex, pattern, REG_EXTENDED) != 0) {
+        // Invalid regular expression pattern
+        return -1;
+    }
+
+    int result = 0;
+    int exec_status = regexec(&regex, str, 0, NULL, 0);
+    if (!exec_status) {
+        // Matched.
+        result = 1;
+    } else if (exec_status == REG_NOMATCH) {
+        // Not matched.
+        result = 0;
+    } else {
+        result = -1;
+    }
+
+    regfree(&regex);
+    return result;
+}
+
 #ifdef REDIS_TEST
 #include <assert.h>
 
@@ -820,27 +845,6 @@ static void test_ll2string(void) {
     sz = ll2string(buf, sizeof buf, v);
     assert(sz == 19);
     assert(!strcmp(buf, "9223372036854775807"));
-}
-
-/*ADDB Custom*/
-int stringmatchregex(const char *str, const char *pattern) {
-    regex_t regex;
-    if (regcomp(&regex, pattern, REG_EXTENDED | REG_ICASE) != 0) {
-        // Invalid regular expression pattern
-        return -1;
-    }
-
-    int result = 0;
-    if (regexec(&regex, str, 0, NULL, 0) == 0) {
-        // Matched.
-        result = 1;
-    } else {
-        // Not matched.
-        result = 0;
-    }
-
-    regfree(&regex);
-    return result;
 }
 
 #define UNUSED(x) (void)(x)
