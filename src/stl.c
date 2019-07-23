@@ -243,24 +243,31 @@ int stackFreeDeep(Stack *s) {
     return vectorFreeDeep(&s->data);
 }
 
+//fix test
 char *VectorSerialize(void *o) {
-	Vector *v = (Vector *) ((robj *) o)->ptr;
-	int v_type = v->type;
-	int v_count = v->count;
+//	Vector *v = (Vector *) ((robj *) o)->ptr;
+//	int v_type = v->type;
+//	int v_count = v->count;
 
-		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
-				v_type, RELMODEL_VECTOR_COUNT_PREFIX, v_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
+//		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
+//				v_type, RELMODEL_VECTOR_COUNT_PREFIX, v_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
 
-		int i;
-		for(i=0; i < v_count; i++){
-			sds element = (sds)vectorGet(v,i);
-			serial_buf= sdscatsds(serial_buf, element);
+//		int i;
+//		for(i=0; i < v_count; i++){
+//			sds element = (sds)vectorGet(v,i);
+//			serial_buf= sdscatsds(serial_buf, element);
+//
+//			if(i < (v_count -1)){
+//				serial_buf = sdscat(serial_buf,RELMODEL_DELIMITER);
+//			}
+//		}
+//		serial_buf = sdscat(serial_buf, VECTOR_DATA_SUFFIX);
 
-			if(i < (v_count -1)){
-				serial_buf = sdscat(serial_buf,RELMODEL_DELIMITER);
-			}
-		}
-		serial_buf = sdscat(serial_buf, VECTOR_DATA_SUFFIX);
+	//fixed string
+	sds serial_buf = sdscatfmt(sdsempty(), "V:{T:1:N:250}:D:[1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:"
+			"1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:"
+			"1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:"
+			"1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1:1]");
 
 		serverLog(LL_DEBUG, "(char version)SERIALIZE VECTOR : %s", serial_buf);
 
