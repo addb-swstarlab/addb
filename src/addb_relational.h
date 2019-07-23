@@ -244,17 +244,17 @@ void freeColumnParameter(ColumnParameter *param);
 void freeScanParameter(ScanParameter *param);
 int populateScanParameter(redisDb *db, ScanParameter *scanParam);
 RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey);
-void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
-void _cachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
-                 Vector *data, robj **cachedColumnVectorObjs,
-                 int *cachedColumnVectorIds);
-Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey);
+// void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
+// void _cachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
+//                  Vector *data, robj **cachedColumnVectorObjs,
+//                  int *cachedColumnVectorIds);
+ProtoVector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey);
 // Legacy Functions
-void legacyScanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
-void _legacyCachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
-                       Vector *data);
-void _legacyCachedScanOnRocksDB(redisDb *db, size_t rowGroupId,
-                                ScanParameter *scanParam, Vector *data);
+// void legacyScanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data);
+// void _legacyCachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
+//                        Vector *data);
+// void _legacyCachedScanOnRocksDB(redisDb *db, size_t rowGroupId,
+//                                 ScanParameter *scanParam, Vector *data);
 // Non-vector scan functions
 size_t scanDataFromADDB_non_vector(client *c, redisDb *db,
                                    ScanParameter *scanParam);

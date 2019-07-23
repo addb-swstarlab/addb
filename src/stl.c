@@ -740,19 +740,20 @@ void _protoVectorFitStlEntries(ProtoVector *v) {
  *      serialized = "snl1clsdj[38;fn3j:c8e0ps["
  *      len(serialized) = 20
  * result)
- *      "20snl1clsdj[38;fn3j:c8e0ps["
+ *      "20snl1clsdj[38;fn3j:c8e0ps[" + '\0'
  */
-char *protoVectorSerialize(ProtoVector *v) {
+char *protoVectorSerialize(ProtoVector *v, size_t *total_len) {
     _protoVectorFitStlEntries(v);
     size_t serialized_len = proto_vector__get_packed_size(v);
+    *total_len = sizeof(uint64_t) + sizeof(uint8_t) * serialized_len + 1;
 
-    char *serialized = zcalloc(
-        sizeof(uint64_t) + sizeof(uint8_t) * serialized_len);
+    char *serialized = zcalloc(*total_len);
     uint64_t *serialized_len_ptr = (uint64_t *) serialized;
     uint8_t *serialized_obj = (uint8_t *) (serialized + sizeof(uint64_t));
 
     *serialized_len_ptr = serialized_len;
     proto_vector__pack(v, serialized_obj);
+    serialized[*total_len - 1] = '\0';
 
     return serialized;
 }

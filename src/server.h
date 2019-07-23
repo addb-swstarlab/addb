@@ -2113,8 +2113,8 @@ void getQueueStatusCommand(client *c);
 void dequeueCommand(client *c);
 void chooseBestKeyCommand(client *c);
 void queueEmptyCommand(client *c);
-void serializeCommand(client *c);
-void deserializeCommand(client *c);
+// void serializeCommand(client *c);
+// void deserializeCommand(client *c);
 
 /*
  * 2018. 5. 11

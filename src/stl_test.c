@@ -545,7 +545,8 @@ void testProtoVectorSerializationCommand(client *c) {
         protoVectorAdd(&v, (void *) values[1]);
         protoVectorAdd(&v, (void *) values[2]);
         // Serialization
-        char *serialized = protoVectorSerialize(&v);
+        size_t serialzed_len;
+        char *serialized = protoVectorSerialize(&v, &serialzed_len);
         // Deserialization
         ProtoVector *target;
         protoVectorDeserialize(serialized, &target);
@@ -580,7 +581,8 @@ void testProtoVectorSerializationCommand(client *c) {
         protoVectorAdd(&v, (void *) values[1]);
         protoVectorAdd(&v, (void *) values[2]);
         // Serialization
-        char *serialized = protoVectorSerialize(&v);
+        size_t serialized_len;
+        char *serialized = protoVectorSerialize(&v, &serialized_len);
         // Deserialization
         ProtoVector *target;
         protoVectorDeserialize(serialized, &target);
@@ -678,7 +680,8 @@ void testCmpSerializationTimeCommand(client *c) {
             // Serialization
             ////// Time check //////
             start_us = ustime();
-            char *serialized = protoVectorSerialize(&v);
+            size_t serialized_len;
+            char *serialized = protoVectorSerialize(&v, &serialized_len);
             end_us = ustime();
             time_statistics.protobuf_serialize_us = end_us - start_us;
             ////// Time check //////

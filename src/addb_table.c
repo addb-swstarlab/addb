@@ -533,11 +533,11 @@ void fieldsAndValueCommand(client *c){
     	if((de = dictFind(hashdictObj, dataField->ptr)) != NULL){
     	  sds key = dictGetKey(de);
      		robj *obj = dictGetVal(de);
-     		Vector *v = (Vector *)obj->ptr;
+     		ProtoVector *v = (ProtoVector *)obj->ptr;
      		int number = v->count;
      		int j=0;
      		for(j=0; j < number; j++){
-     			sprintf(str_buf, "field : %s, value : %s", key, (sds)vectorGet(v, j));
+     			sprintf(str_buf, "field : %s, value : %s", key, (sds) protoVectorGet(v, j));
      			addReplyBulkCString(c, str_buf);
      			numkeys++;
      		}
@@ -821,64 +821,66 @@ void queueEmptyCommand(client *c){
  *          redis-cli>
  *          (nil)
  */
-void serializeCommand(client *c){
+// TODO(totoro): Serialization logics are changed to use 'protobuf'.
+//      Please remove below command after stable status.
+// void serializeCommand(client *c){
 
-	  sds pattern = sdsnew(c->argv[1]->ptr);
+// 	  sds pattern = sdsnew(c->argv[1]->ptr);
 
-    robj *hashdict = lookupSDSKeyFordict(c->db, pattern);
-
-
-    dictEntry *de;
-
-    if(hashdict == NULL){
-    	 addReply(c, shared.nullbulk);
-    }
-    else {
-
-     	char str_buf[1024];
-     	unsigned long numkeys = 0;
-     	void *replylen = addDeferredMultiBulkLength(c);
-
-     	dict *hashdictObj = (dict *) hashdict->ptr;
-     	dictIterator *di;
-     	di = dictGetSafeIterator(hashdictObj);
-
-     	while((de = dictNext(di)) != NULL){
-
-     		sds key = dictGetKey(de);
-     		robj *vectorObj = dictGetVal(de);
-     		Vector *v = (Vector *)vectorObj->ptr;
-     		int vector_type = v->type;
-     		int vector_count = v->count;
-     		int i=0;
-
-     		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
-     				vector_type, RELMODEL_VECTOR_COUNT_PREFIX, vector_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
-     		for(i=0; i< vector_count; i++){
-     			sds element = (sds) vectorGet(v, i);
-     			serial_buf = sdscatsds(serial_buf, element);
-     			if (i < vector_count -1) {
-     				serial_buf =  sdscat(serial_buf, RELMODEL_DELIMITER);
-     			}
-     		}
-     	  serial_buf =  sdscat(serial_buf, VECTOR_DATA_SUFFIX);
-     		sprintf(str_buf, "Datakey : %s, Field : %s, SerializeVector : %s",
-     				pattern, key, serial_buf);
-     		addReplyBulkCString(c, str_buf);
-     		numkeys++;
-
-     		serverLog(LL_VERBOSE, "DATAKEY : %s , Field : %s, serial_string : %s",
-     				pattern, key, serial_buf);
+//     robj *hashdict = lookupSDSKeyFordict(c->db, pattern);
 
 
-     	}
+//     dictEntry *de;
+
+//     if(hashdict == NULL){
+//     	 addReply(c, shared.nullbulk);
+//     }
+//     else {
+
+//      	char str_buf[1024];
+//      	unsigned long numkeys = 0;
+//      	void *replylen = addDeferredMultiBulkLength(c);
+
+//      	dict *hashdictObj = (dict *) hashdict->ptr;
+//      	dictIterator *di;
+//      	di = dictGetSafeIterator(hashdictObj);
+
+//      	while((de = dictNext(di)) != NULL){
+
+//      		sds key = dictGetKey(de);
+//      		robj *vectorObj = dictGetVal(de);
+//      		Vector *v = (Vector *)vectorObj->ptr;
+//      		int vector_type = v->type;
+//      		int vector_count = v->count;
+//      		int i=0;
+
+//      		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
+//      				vector_type, RELMODEL_VECTOR_COUNT_PREFIX, vector_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
+//      		for(i=0; i< vector_count; i++){
+//      			sds element = (sds) vectorGet(v, i);
+//      			serial_buf = sdscatsds(serial_buf, element);
+//      			if (i < vector_count -1) {
+//      				serial_buf =  sdscat(serial_buf, RELMODEL_DELIMITER);
+//      			}
+//      		}
+//      	  serial_buf =  sdscat(serial_buf, VECTOR_DATA_SUFFIX);
+//      		sprintf(str_buf, "Datakey : %s, Field : %s, SerializeVector : %s",
+//      				pattern, key, serial_buf);
+//      		addReplyBulkCString(c, str_buf);
+//      		numkeys++;
+
+//      		serverLog(LL_VERBOSE, "DATAKEY : %s , Field : %s, serial_string : %s",
+//      				pattern, key, serial_buf);
 
 
-     	sdsfree(pattern);
-     	decrRefCount(pattern);
-     	setDeferredMultiBulkLength(c, replylen, numkeys);
-    }
-}
+//      	}
+
+
+//      	sdsfree(pattern);
+//      	decrRefCount(pattern);
+//      	setDeferredMultiBulkLength(c, replylen, numkeys);
+//     }
+// }
 
 /*
  * deserializeCommand
@@ -909,48 +911,50 @@ void serializeCommand(client *c){
  *          redis-cli>
  *          ERR
  */
-void deserializeCommand(client *c){
+// TODO(totoro): Serialization logics are changed to use 'protobuf'.
+//      Please remove below command after stable status.
+// void deserializeCommand(client *c){
 
-	sds pattern = sdsnew(c->argv[1]->ptr);
+// 	sds pattern = sdsnew(c->argv[1]->ptr);
 
-	  char* err = NULL;
-	  size_t val_len;
-	  char* val;
-	  val = rocksdb_get_cf(c->db->persistent_store->ps, c->db->persistent_store->ps_options->roptions,
-			  c->db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW], pattern, sdslen(pattern), &val_len, &err);
+// 	  char* err = NULL;
+// 	  size_t val_len;
+// 	  char* val;
+// 	  val = rocksdb_get_cf(c->db->persistent_store->ps, c->db->persistent_store->ps_options->roptions,
+// 			  c->db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW], pattern, sdslen(pattern), &val_len, &err);
 
-	  if(val == NULL){
-		  rocksdb_free(val);
-		  serverLog(LL_VERBOSE, "ROCKSDB KEY-VALUE NOT EXIST");
-			sdsfree(pattern);
-			addReply(c, shared.err);
-	  }
-	  else {
+// 	  if(val == NULL){
+// 		  rocksdb_free(val);
+// 		  serverLog(LL_VERBOSE, "ROCKSDB KEY-VALUE NOT EXIST");
+// 			sdsfree(pattern);
+// 			addReply(c, shared.err);
+// 	  }
+// 	  else {
 
-		  char str_buf[1024];
-		  unsigned long numkeys = 0;
-		  void *replylen = addDeferredMultiBulkLength(c);
+// 		  char str_buf[1024];
+// 		  unsigned long numkeys = 0;
+// 		  void *replylen = addDeferredMultiBulkLength(c);
 
-		  serverLog(LL_DEBUG, "VALUE STRING : %s", val);
-		  Vector *v = VectordeSerialize(val);
-		  int count = v->count;
+// 		  serverLog(LL_DEBUG, "VALUE STRING : %s", val);
+// 		  Vector *v = VectordeSerialize(val);
+// 		  int count = v->count;
 
-		  int i =0;
-		  for(i=0; i < count ; i++){
+// 		  int i =0;
+// 		  for(i=0; i < count ; i++){
 
-			  sprintf(str_buf, "VECTOR[%d], Value : %s", i, vectorGet(v, i));
-	     		addReplyBulkCString(c, str_buf);
-	     		numkeys++;
-		  }
+// 			  sprintf(str_buf, "VECTOR[%d], Value : %s", i, vectorGet(v, i));
+// 	     		addReplyBulkCString(c, str_buf);
+// 	     		numkeys++;
+// 		  }
 
-		  rocksdb_free(val);
-		  sdsfree(pattern);
-			vectorFreeDeep(v);
-			zfree(v);
-		  setDeferredMultiBulkLength(c, replylen, numkeys);
-	  }
+// 		  rocksdb_free(val);
+// 		  sdsfree(pattern);
+// 			vectorFreeDeep(v);
+// 			zfree(v);
+// 		  setDeferredMultiBulkLength(c, replylen, numkeys);
+// 	  }
 
-}
+// }
 
 
 void deleteEntryCommand(client *c){

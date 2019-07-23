@@ -78,7 +78,7 @@ int protoVectorDelete(ProtoVector *v, size_t i);
 void *protoVectorPop(ProtoVector *v);
 int protoVectorFree(ProtoVector *v);
 int protoVectorFreeDeep(ProtoVector *v);
-char *protoVectorSerialize(ProtoVector *v);
+char *protoVectorSerialize(ProtoVector *v, size_t *len);
 int protoVectorDeserialize(const char *serialized, ProtoVector **result);
 int protoVectorFreeDeserialized(ProtoVector *deserialized);
 #endif
