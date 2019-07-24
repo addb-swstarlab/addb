@@ -338,6 +338,7 @@ struct redisCommand redisCommandTable[] = {
 	{"cvserial", serializeCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
 	{"cvdeserial", deserializeCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
     {"testtometakey",testToMetaKeyCommand,-1,"r",0,NULL,1,1,1,0,0},
+    {"teststringmatchregex",testStringMatchRegexCommand,-1,"r",0,NULL,1,1,1,0,0},
 
 };
 
