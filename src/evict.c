@@ -590,8 +590,30 @@ size_t freeMemoryGetNotCountedMemory(void) {
 //    return C_ERR;
 //}
 
+int _getRowCount(redisDb *db, sds dataKey) {
+    sds metaKey;
+    int rowGroupId;
+    if (toMetaKey(dataKey, &metaKey, &rowGroupId) == C_ERR) {
+        serverLog(
+            LL_WARNING,
+            "[_batchTiering][_getRowCount] FATAL: datakey has invalid format! %s",
+            dataKey);
+        serverAssert(0);
+    }
+    serverLog(LL_DEBUG, "[_batchTiering][%s] metakey: %s, rowGroupId: %d", dataKey, metaKey, rowGroupId);
+    robj *metaObj = lookupSDSKeyForMetadict(db, metaKey);
+    robj *rowGroupField = createStringObjectFromLongLong(
+        (long long) rowGroupId);
+    int rowCount = lookupCompInfoForRowNumberInMeta(metaObj, rowGroupField);
+
+    sdsfree(metaKey);
+    decrRefCount(rowGroupField);
+    return rowCount;
+}
+
 void _batchTiering(redisDb *db, Vector *evict_keys, Vector *evict_relations) {
     int count = server.batch_tiering_size;
+    serverLog(LL_DEBUG, "[_batchTiering] Initial batch tiering size: %d", count);
     while (!isEmpty(db->EvictQueue) && count > 0) {
         dictEntry *de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
         if (de == NULL) {
@@ -601,7 +623,10 @@ void _batchTiering(redisDb *db, Vector *evict_keys, Vector *evict_relations) {
         robj *relation = (robj *) dictGetVal(de);
         vectorAdd(evict_keys, (void *) key);
         vectorAdd(evict_relations, (void *) relation);
-        count--;
+        serverLog(LL_DEBUG, "[_batchTiering][%s] Get row count", key);
+        int rowCount = _getRowCount(db, key);
+        count -= rowCount;
+        serverLog(LL_DEBUG, "[_batchTiering][%s] Remain batch tiering size: %d", key, count);
     }
     dbPersistBatch_(db, evict_keys, evict_relations);
     server.stat_evictedkeys += vectorCount(evict_relations);

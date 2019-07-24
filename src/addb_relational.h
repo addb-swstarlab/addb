@@ -190,6 +190,7 @@ typedef struct _PartitionParameter {
 
 NewDataKeyInfo *parsingDataKeyInfo(sds dataKeyString);
 MetaKeyInfo *parseMetaKeyInfo(sds metakey);
+int toMetaKey(sds dataKey, sds *metaKey, int *rowGroupId);
 int changeDataKeyInfo(NewDataKeyInfo *dataKeyInfo, int number);
 
 dictEntry *getCandidatedictFirstEntry(client *c, NewDataKeyInfo *dataKeyInfo);
