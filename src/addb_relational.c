@@ -1497,6 +1497,41 @@ Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey) {
     return vector;
 }
 
+/* dateStrToInteger function
+ * Converts date string to integer.
+ *      ex)     dateStrToInteger("1995-05-15", strlen("1995-05-15"));
+ *      result) C_OK, *result=19950515
+ *
+ *      ex)     dateStrToInteger("I am not date", strlen("I am not date"));
+ *      result) C_ERR
+ */
+int dateStrToInteger(const char *dateStr, long *result) {
+    if (!stringmatchregex(ADDB_DATE_PARTITION_PATTERN, dateStr)) {
+        return C_ERR;
+    }
+
+    sds dateSds = sdsnew(dateStr);
+
+    // Parses 1995-05-15 to 19950515
+    int token_count;
+    sds *tokens = sdssplit(dateSds, ADDB_DATE_PARTITION_TOKEN, &token_count);
+    sdsfree(dateSds);
+
+    if (token_count != 3) {
+        sdsfreesplitres(tokens, token_count);
+        return C_ERR;
+    }
+
+    sds result_sds = sdsjoinsds(tokens, token_count, "", 0);
+    sdsfreesplitres(tokens, token_count);
+    if (string2l(result_sds, sdslen(result_sds), result) != 1) {
+        sdsfree(result_sds);
+        return C_ERR;
+    }
+    sdsfree(result_sds);
+    return C_OK;
+}
+
 // TODO(totoro): Implements validateStatements function by regex.
 bool validateStatements(const sds rawStatementsStr) {
     return true;
@@ -1563,7 +1598,10 @@ int createCondition(const char *rawConditionStr, Stack *s,
         ConditionChild *child = (ConditionChild *) zmalloc(
                 sizeof(ConditionChild));
         long tokenLong;
-        if (string2l(token, strlen(token), &tokenLong) == 1) {
+        if (
+            dateStrToInteger(token, &tokenLong) == C_OK ||
+            string2l(token, strlen(token), &tokenLong) == 1
+        ) {
             child->type = CONDITION_CHILD_VALUE_TYPE_LONG;
             child->value.l = tokenLong;
         } else {
@@ -1653,7 +1691,10 @@ int parsePartitions(const char *partitionInfo, Vector *v) {
             return C_ERR;
         }
         long valueLong;
-        if (string2l(token, strlen(token), &valueLong) == 1) {
+        if (
+            dateStrToInteger(token, &valueLong) == C_OK ||
+            string2l(token, strlen(token), &valueLong) == 1
+        ) {
             param->type = CONDITION_CHILD_VALUE_TYPE_LONG;
             param->value.l = valueLong;
         } else {

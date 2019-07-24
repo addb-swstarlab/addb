@@ -13,6 +13,10 @@
 #define MAX_TMPBUF_SIZE 128
 #define SDS_DATA_KEY_MAX (sizeof(struct sdshdr) + DATA_KEY_MAX_SIZE)
 
+// Pattern for recognizing "1995-05-15"
+#define ADDB_DATE_PARTITION_PATTERN "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+#define ADDB_DATE_PARTITION_TOKEN "-"
+
 #define CONDITION_CHILD_VALUE_TYPE_NONE 0
 #define CONDITION_CHILD_VALUE_TYPE_COND 1
 #define CONDITION_CHILD_VALUE_TYPE_LONG 2
@@ -265,6 +269,7 @@ size_t _cachedScanOnRocksDB_non_vector(client *c, redisDb *db,
                                        ScanParameter *scanParam);
 
 /*Partition Filter*/
+int dateStrToInteger(const char *dateStr, long *result);
 bool validateStatements(const sds rawStatementsStr);
 bool validateStatement(const sds rawStatementStr);
 int parsePartitions(const char *partitionInfo, Vector *v);
