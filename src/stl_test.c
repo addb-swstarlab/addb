@@ -307,7 +307,7 @@ void testProtoVectorCommand(client *c) {
     {
         // Test storing sds data to ProtoVector
         serverLog(LL_DEBUG,
-                  "[ADDB_TEST][ProtoVector] Test String type ProtoVector");
+                  "[ADDB_TEST][ProtoVector] Test sds type ProtoVector");
 
         // Source - Naive Vector Interface
         Vector source;
@@ -321,26 +321,25 @@ void testProtoVectorCommand(client *c) {
         // Target - Proto Vector Interface
         ProtoVector target = PROTO_VECTOR__INIT;
         target.n_values = 10;
-        target.values = (ProtoSds **) zmalloc(sizeof(ProtoSds *) * target.n_values);
+        target.values = (ProtobufCBinaryData *) zmalloc(sizeof(ProtobufCBinaryData) * target.n_values);
 
         // ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
         for (size_t i = 0; i < 10; ++i) {
             sds raw_entry = sdscatfmt(sdsempty(), "%U", i);
-            target.values[i] = sds2proto(raw_entry);
+            target.values[i] = sds2protobytes(raw_entry);
         }
 
         // Compare
         for (size_t i = 0; i < 10; ++i) {
             sds source_entry = (sds) vectorGet(&source, i);
-            sds target_entry = proto2sds(target.values[i]);
+            sds target_entry = protobytes2sds(target.values[i]);
             assert(sdscmp(source_entry, target_entry) == 0);
         }
 
         vectorFreeDeep(&source);
         for (size_t i = 0; i < target.n_values; ++i) {
-            sds target_entry_sds = proto2sds(target.values[i]);
+            sds target_entry_sds = protobytes2sds(target.values[i]);
             sdsfree(target_entry_sds);
-            zfree(target.values[i]);
         }
         zfree(target.values);
         serverLog(LL_DEBUG, "[ADDB_TEST][ProtoVector] SUCCESS");
@@ -354,12 +353,12 @@ void testProtoVectorCommand(client *c) {
         // Source - Proto Vector Interface with String
         ProtoVector source = PROTO_VECTOR__INIT;
         source.n_values = 10;
-        source.values = zmalloc(sizeof(ProtoSds *) * source.n_values);
+        source.values = (ProtobufCBinaryData *) zmalloc(sizeof(ProtobufCBinaryData) * source.n_values);
 
         // ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
         for (size_t i = 0; i < 10; ++i) {
             sds raw_entry = sdscatfmt(sdsempty(), "%U", i);
-            source.values[i] = sds2proto(raw_entry);
+            source.values[i] = sds2protobytes(raw_entry);
         }
 
         // Protobuf Serialization
@@ -371,17 +370,16 @@ void testProtoVectorCommand(client *c) {
         ProtoVector *target = proto_vector__unpack(
             NULL, serialized_len, (const uint8_t *) serialized);
         for (size_t i = 0; i < 10; ++i) {
-            sds source_sds = proto2sds(source.values[i]);
-            sds target_sds = proto2sds(target->values[i]);
+            sds source_sds = protobytes2sds(source.values[i]);
+            sds target_sds = protobytes2sds(target->values[i]);
             assert(
                 sdscmp(source_sds, target_sds) == 0);
         }
 
         // Free protobuf-related data...
         for (size_t i = 0; i < source.n_values; ++i) {
-            sds source_entry_sds = proto2sds(source.values[i]);
+            sds source_entry_sds = protobytes2sds(source.values[i]);
             sdsfree(source_entry_sds);
-            zfree(source.values[i]);
         }
         zfree(source.values);
         zfree(serialized);
@@ -424,7 +422,7 @@ void testProtoVectorInterfaceCommand(client *c) {
         protoVectorAdd(&v, values[2]);
         assert(v.count == 3);
         for (size_t i = 0; i < v.count; ++i) {
-            assert(sdscmp(values[i], (sds) protoVectorGet(&v, i)) == 0);
+            assert(sdscmp(values[i], protoVectorGet(&v, i)) == 0);
         }
         // Pop test
         sds popedDatum;
@@ -483,8 +481,8 @@ void testProtoVectorSerializationCommand(client *c) {
         assert(v.n_values == target->n_values);
         assert(v.count == target->count);
         for (size_t i = 0; i < v.count; ++i) {
-            sds source_entry = (sds) protoVectorGet(&v, i);
-            sds target_entry = (sds) protoVectorGet(target, i);
+            sds source_entry = protoVectorGet(&v, i);
+            sds target_entry = protoVectorGet(target, i);
             assert(sdscmp(source_entry, target_entry) == 0);
         }
         protoVectorFreeDeep(&v);
@@ -564,8 +562,9 @@ void testCmpSerializationTimeCommand(client *c) {
             time_statistics.naive_deserialize_us = end_us - start_us;
             ////// Time check //////
             ////// Size check //////
+            serverLog(LL_DEBUG, "Total sds size: %zu", sizeof(sds) * deserialized->size);
             time_statistics.naive_deserialize_size = 0;
-            time_statistics.naive_deserialize_size += sizeof(sizeof(Vector));
+            time_statistics.naive_deserialize_size += sizeof(Vector);
             time_statistics.naive_deserialize_size += sizeof(sds) * deserialized->size;
             for (size_t i = 0; i < vectorCount(deserialized); ++i) {
                 sds entry = vectorGet(deserialized, i);
@@ -609,16 +608,15 @@ void testCmpSerializationTimeCommand(client *c) {
             ////// Time check //////
             ////// Size check //////
             time_statistics.protobuf_deserialize_size = 0;
-            time_statistics.protobuf_deserialize_size += sizeof(sizeof(ProtoVector));
-            time_statistics.protobuf_deserialize_size += sizeof(ProtoSds *) * target->n_values;
+            time_statistics.protobuf_deserialize_size += sizeof(ProtoVector);
+            time_statistics.protobuf_deserialize_size += sizeof(ProtobufCMessage) * target->n_values;
             serverLog(LL_DEBUG, "Vector size: %zu", sizeof(Vector));
             serverLog(LL_DEBUG, "sds size: %zu", sizeof(sds));
-            serverLog(LL_DEBUG, "ProtobufCMessage size: %zu", sizeof(ProtobufCMessage));
             serverLog(LL_DEBUG, "ProtoVector size: %zu", sizeof(ProtoVector));
-            serverLog(LL_DEBUG, "ProtoSds size: %zu", sizeof(ProtoSds));
+            serverLog(LL_DEBUG, "ProtobufCMessage size: %zu", sizeof(ProtobufCMessage));
+            serverLog(LL_DEBUG, "Total ProtobufCMessage size: %zu", sizeof(ProtobufCMessage) * target->n_values);
             for (size_t i = 0; i < target->count; ++i) {
-                sds entry = proto2sds(target->values[i]);
-                time_statistics.protobuf_deserialize_size += sizeof(ProtoSds);
+                sds entry = protobytes2sds(target->values[i]);
                 time_statistics.protobuf_deserialize_size += sdstotalsize(entry);
             }
             ////// Size check //////

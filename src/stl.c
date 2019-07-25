@@ -145,7 +145,7 @@ void *vectorUnlink(Vector *v, size_t index) {
     }
 
     void **newArray = (void **) zmalloc(_vectorGetDatumSize(v) * v->size);
-    void *target;
+    void *target = NULL;
     for (size_t i = 0, j = 0; i < v->count; ++i) {
         if (i == index) {
             target = v->data[i];
@@ -525,19 +525,20 @@ void CheckVectorsds(Vector *v){
 void _protoVectorResizeIfNeeded(ProtoVector *v) {
     if (v->n_values == 0) {
         v->n_values = INIT_PROTO_VECTOR_SIZE;
-        v->values = (ProtoSds **) zmalloc(sizeof(ProtoSds *) * v->n_values);
+        v->values = (ProtobufCBinaryData *) zmalloc(
+            sizeof(ProtobufCBinaryData) * v->n_values);
         for (size_t i = 0; i < v->n_values; ++i) {
-            v->values[i] = NULL;
+            v->values[i].data = NULL;
         }
     }
 
     if (v->n_values <= v->count) {
         size_t legacy_n_values = v->n_values;
         v->n_values += INIT_VECTOR_SIZE;
-        v->values = (ProtoSds **) zrealloc(
-            v->values, sizeof(ProtoSds *) * v->n_values);
+        v->values = (ProtobufCBinaryData *) zrealloc(
+            v->values, sizeof(ProtobufCBinaryData) * v->n_values);
         for (size_t i = legacy_n_values; i < v->n_values; ++i) {
-            v->values[i] = NULL;
+            v->values[i].data = NULL;
         }
     }
 }
@@ -563,19 +564,13 @@ int protoVectorSet(ProtoVector *v, size_t i, sds datum) {
         return C_ERR;
     }
 
-    if (v->values[i] != NULL) {
-        sds legacy = proto2sds(v->values[i]);
+    if (v->values[i].data != NULL) {
+        sds legacy = protobytes2sds(v->values[i]);
         sdsfree(legacy);
-        zfree(v->values[i]);
+        v->values[i].data = NULL;
     }
 
-    ProtoSds *datum_proto = sds2proto((sds) datum);
-    if (datum_proto == NULL) {
-        serverLog(
-            LL_DEBUG,
-            "ERROR: protoVectorSet(): datum is not sds type!");
-        return C_ERR;
-    }
+    ProtobufCBinaryData datum_proto = sds2protobytes(datum);
     v->values[i] = datum_proto;
 
     return C_OK;
@@ -588,7 +583,7 @@ sds protoVectorGet(ProtoVector *v, size_t i) {
         return NULL;
     }
 
-    return proto2sds(v->values[i]);
+    return protobytes2sds(v->values[i]);
 }
 
 int protoVectorDelete(ProtoVector *v, size_t i) {
@@ -598,12 +593,11 @@ int protoVectorDelete(ProtoVector *v, size_t i) {
         return C_ERR;
     }
 
-    ProtoSds *target = v->values[i];
-    sdsfree(proto2sds(target));
-    zfree(target);
+    sdsfree(protobytes2sds(v->values[i]));
+    v->values[i].data = NULL;
 
-    ProtoSds **new_values = (ProtoSds **) zcalloc(
-        sizeof(ProtoSds *) * v->n_values);
+    ProtobufCBinaryData *new_values = (ProtobufCBinaryData *) zcalloc(
+        sizeof(ProtobufCBinaryData) * v->n_values);
     /* Ex) delete index '4'
      * [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ]
      *   ----------  |  -------------
@@ -622,41 +616,38 @@ int protoVectorDelete(ProtoVector *v, size_t i) {
         memcpy(
             new_values,
             v->values,
-            sizeof(ProtoSds *) * i
+            sizeof(ProtobufCBinaryData) * i
         );
     }
     if (i != v->count - 1) {
         memcpy(
             new_values + i,
             v->values + (i + 1),
-            sizeof(ProtoSds *) * (v->count - i - 1)
+            sizeof(ProtobufCBinaryData) * (v->count - i - 1)
         );
     }
     zfree(v->values);
     v->values = new_values;
     v->count--;
+    return C_OK;
 }
 
 sds protoVectorPop(ProtoVector *v) {
     sds _target = protoVectorGet(v, v->count - 1);
-    sds result = sdsdup((sds) _target);
+    sds result = sdsdup(_target);
     protoVectorDelete(v, v->count - 1);
     return result;
 }
 
 int protoVectorFree(ProtoVector *v) {
-    for (size_t i = 0; i < v->count; ++i) {
-        zfree(v->values[i]);
-    }
     zfree(v->values);
     return C_OK;
 }
 
 int protoVectorFreeDeep(ProtoVector *v) {
     for (size_t i = 0; i < v->count; ++i) {
-        sds sds_entry = proto2sds(v->values[i]);
+        sds sds_entry = protobytes2sds(v->values[i]);
         sdsfree(sds_entry);
-        zfree(v->values[i]);
     }
     zfree(v->values);
     return C_OK;
@@ -664,18 +655,18 @@ int protoVectorFreeDeep(ProtoVector *v) {
 
 /* _protoVectorFitEntries function
  *  Fit vector entries for serialization.
- *  Because, if there are empty ProtoSds on vector entries array,
+ *  Because, if there are empty sds on vector entries array,
  *  serialization work will be failed.
- *  So, we remove empty ProtoSds at this function.
+ *  So, we remove empty sds at this function.
  *
  * ex) fit([0, 1, 2, 3, 4, 5, x, x, x, x])
- *      x is empty ProtoSds
+ *      x is empty sds
  * result)
  *      [0, 1, 2, 3, 4, 5]
  */
 void _protoVectorFitEntries(ProtoVector *v) {
-    v->values = (ProtoSds **) zrealloc(
-        v->values, sizeof(ProtoSds *) * v->count);
+    v->values = (ProtobufCBinaryData *) zrealloc(
+        v->values, sizeof(ProtobufCBinaryData) * v->count);
     v->n_values = v->count;
 }
 

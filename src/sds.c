@@ -342,8 +342,8 @@ ProtoSds *sds2proto(const sds s) {
 
 /* addb
  * Converts protobuf bytes to sds */
-sds protobytes2sds(const ProtobufCBinaryData *bytes) {
-    char *sh = (char *) bytes->data;
+sds protobytes2sds(const ProtobufCBinaryData bytes) {
+    char *sh = (char *) bytes.data;
     sds result;
     char type = *((char *) sh) & SDS_TYPE_MASK;
     switch (type) {
@@ -1587,7 +1587,7 @@ int sdsTest(void) {
             // Protobuf bytes <-> sds test
             sds source = sdsnew("Source-Sds-String");
             ProtobufCBinaryData proto_bytes = sds2protobytes(source);
-            sds target = protobytes2sds(&proto_bytes);
+            sds target = protobytes2sds(proto_bytes);
             test_cond("sds2proto() --> proto2sds() length comparison",
                 sdslen(source) == sdslen(target));
             test_cond("sds2proto() --> proto2sds() sds comparison",

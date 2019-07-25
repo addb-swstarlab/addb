@@ -310,7 +310,7 @@ static inline void sdssetalloc(sds s, size_t newlen) {
  * implementer: totorody (kem2182@yonsei.ac.kr)
  * Total sds size (zmalloced)
  */
-size_t sdstotalsize(sds s) {
+static inline size_t sdstotalsize(sds s) {
     size_t result = sdsalloc(s);
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -350,7 +350,7 @@ ProtoSds *sds2proto(const sds s);
 sds _proto2sds(const ProtoSds *proto, int flag);
 sds proto2sds(const ProtoSds *proto);
 ProtobufCBinaryData sds2protobytes(const sds s);
-sds protobytes2sds(const ProtobufCBinaryData *bytes);
+sds protobytes2sds(const ProtobufCBinaryData bytes);
 
 sds sdsnewlen(const void *init, size_t initlen);
 sds sdsnew(const char *init);
