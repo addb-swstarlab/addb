@@ -511,22 +511,34 @@ void testCmpSerializationTimeCommand(client *c) {
     {
         // Type [SDS]
         const size_t n = 300;
+        const size_t iter_count = 1000000;
         sds *values = (sds *) zmalloc(sizeof(sds) * n);
         for (size_t i = 0; i < n; ++i) {
             values[i] = sdscatfmt(sdsempty(), "TEST_VECTOR_SDS_VALUE_%u", i);
         }
 
         typedef struct CmpSerializationTimeStat {
-            long long naive_serialize_us;
-            long long naive_serialize_size;
-            long long naive_deserialize_us;
-            long long naive_deserialize_size;
-            long long protobuf_serialize_us;
-            long long protobuf_serialize_size;
-            long long protobuf_deserialize_us;
-            long long protobuf_deserialize_size;
+            size_t naive_serialize_us;
+            size_t naive_serialize_size;
+            size_t naive_deserialize_us;
+            size_t naive_deserialize_size;
+            size_t protobuf_serialize_us;
+            size_t protobuf_serialize_size;
+            size_t protobuf_deserialize_us;
+            size_t protobuf_deserialize_size;
+            size_t naive2protobuf_serialize_us;
         } __stat;
         __stat time_statistics;
+
+        time_statistics.naive_serialize_us = 0;
+        time_statistics.naive_serialize_size = 0;
+        time_statistics.naive_deserialize_us = 0;
+        time_statistics.naive_deserialize_size = 0;
+        time_statistics.protobuf_serialize_us = 0;
+        time_statistics.protobuf_serialize_size = 0;
+        time_statistics.protobuf_deserialize_us = 0;
+        time_statistics.protobuf_deserialize_size = 0;
+        time_statistics.naive2protobuf_serialize_us = 0;
 
         long long start_us, end_us;
 
@@ -541,40 +553,40 @@ void testCmpSerializationTimeCommand(client *c) {
             // Serialization
             robj *v_obj = createObject(OBJ_VECTOR, v);
 
-            ////// Time check //////
-            start_us = ustime();
-            char *serialized = VectorSerialize((void *) v_obj);
-            end_us = ustime();
-            time_statistics.naive_serialize_us = end_us - start_us;
-            ////// Time check //////
-            ////// Size check //////
-            time_statistics.naive_serialize_size = strlen(serialized);
-            ////// Size check //////
+            for (size_t i = 0; i < iter_count; ++i) {
+                ////// Time check //////
+                start_us = ustime();
+                char *serialized = VectorSerialize((void *) v_obj);
+                end_us = ustime();
+                time_statistics.naive_serialize_us += end_us - start_us;
+                ////// Time check //////
+                ////// Size check //////
+                time_statistics.naive_serialize_size += strlen(serialized);
+                ////// Size check //////
 
-            // Deserialization
-            sds serialized_sds = sdsnew(serialized);
-            zfree(serialized);
-            Vector *deserialized;
-            ////// Time check //////
-            start_us = ustime();
-            vectorDeserialize(serialized_sds, &deserialized);
-            end_us = ustime();
-            time_statistics.naive_deserialize_us = end_us - start_us;
-            ////// Time check //////
-            ////// Size check //////
-            serverLog(LL_DEBUG, "Total sds size: %zu", sizeof(sds) * deserialized->size);
-            time_statistics.naive_deserialize_size = 0;
-            time_statistics.naive_deserialize_size += sizeof(Vector);
-            time_statistics.naive_deserialize_size += sizeof(sds) * deserialized->size;
-            for (size_t i = 0; i < vectorCount(deserialized); ++i) {
-                sds entry = vectorGet(deserialized, i);
-                time_statistics.naive_deserialize_size += sdstotalsize(entry);
+                // Deserialization
+                sds serialized_sds = sdsnew(serialized);
+                zfree(serialized);
+                Vector *deserialized;
+                ////// Time check //////
+                start_us = ustime();
+                vectorDeserialize(serialized_sds, &deserialized);
+                end_us = ustime();
+                time_statistics.naive_deserialize_us += end_us - start_us;
+                ////// Time check //////
+                ////// Size check //////
+                time_statistics.naive_deserialize_size += sizeof(Vector);
+                time_statistics.naive_deserialize_size += sizeof(sds) * deserialized->size;
+                for (size_t i = 0; i < vectorCount(deserialized); ++i) {
+                    sds entry = vectorGet(deserialized, i);
+                    time_statistics.naive_deserialize_size += sdstotalsize(entry);
+                }
+                ////// Size check //////
+
+                sdsfree(serialized_sds);
+                vectorFreeDeep(deserialized);
+                zfree(deserialized);
             }
-            ////// Size check //////
-
-            sdsfree(serialized_sds);
-            vectorFreeDeep(deserialized);
-            zfree(deserialized);
             decrRefCount(v_obj);
         }
 
@@ -586,44 +598,69 @@ void testCmpSerializationTimeCommand(client *c) {
                 protoVectorAdd(&v, sdsdup(values[i]));
             }
 
+            serverLog(LL_VERBOSE, "Vector size: %zu", sizeof(Vector));
+            serverLog(LL_VERBOSE, "sds size: %zu", sizeof(sds));
+            serverLog(LL_VERBOSE, "ProtoVector size: %zu", sizeof(ProtoVector));
+            serverLog(LL_VERBOSE, "ProtobufCMessage size: %zu", sizeof(ProtobufCMessage));
             // Serialization
             ////// Time check //////
-            start_us = ustime();
-            size_t serialized_len;
-            char *serialized = protoVectorSerialize(&v, &serialized_len);
-            end_us = ustime();
-            time_statistics.protobuf_serialize_us = end_us - start_us;
-            ////// Time check //////
-            ////// Size check //////
-            time_statistics.protobuf_serialize_size = serialized_len;
-            ////// Size check //////
+            for (size_t i = 0; i < iter_count; ++i) {
+                start_us = ustime();
+                size_t serialized_len;
+                char *serialized = protoVectorSerialize(&v, &serialized_len);
+                end_us = ustime();
+                time_statistics.protobuf_serialize_us += end_us - start_us;
+                ////// Time check //////
+                ////// Size check //////
+                time_statistics.protobuf_serialize_size += serialized_len;
+                ////// Size check //////
 
-            // Deserialization
-            ProtoVector *target;
-            ////// Time check //////
-            start_us = ustime();
-            protoVectorDeserialize(serialized, &target);
-            end_us = ustime();
-            time_statistics.protobuf_deserialize_us = end_us - start_us;
-            ////// Time check //////
-            ////// Size check //////
-            time_statistics.protobuf_deserialize_size = 0;
-            time_statistics.protobuf_deserialize_size += sizeof(ProtoVector);
-            time_statistics.protobuf_deserialize_size += sizeof(ProtobufCMessage) * target->n_values;
-            serverLog(LL_DEBUG, "Vector size: %zu", sizeof(Vector));
-            serverLog(LL_DEBUG, "sds size: %zu", sizeof(sds));
-            serverLog(LL_DEBUG, "ProtoVector size: %zu", sizeof(ProtoVector));
-            serverLog(LL_DEBUG, "ProtobufCMessage size: %zu", sizeof(ProtobufCMessage));
-            serverLog(LL_DEBUG, "Total ProtobufCMessage size: %zu", sizeof(ProtobufCMessage) * target->n_values);
-            for (size_t i = 0; i < target->count; ++i) {
-                sds entry = protobytes2sds(target->values[i]);
-                time_statistics.protobuf_deserialize_size += sdstotalsize(entry);
+                // Deserialization
+                ProtoVector *target;
+                ////// Time check //////
+                start_us = ustime();
+                protoVectorDeserialize(serialized, &target);
+                end_us = ustime();
+                time_statistics.protobuf_deserialize_us += end_us - start_us;
+                ////// Time check //////
+                ////// Size check //////
+                time_statistics.protobuf_deserialize_size += sizeof(ProtoVector);
+                time_statistics.protobuf_deserialize_size += sizeof(ProtobufCMessage) * target->n_values;
+                for (size_t i = 0; i < target->count; ++i) {
+                    sds entry = protobytes2sds(target->values[i]);
+                    time_statistics.protobuf_deserialize_size += sdstotalsize(entry);
+                }
+                ////// Size check //////
+
+                protoVectorFreeDeserialized(target);
+                zfree(serialized);
             }
-            ////// Size check //////
-
             protoVectorFreeDeep(&v);
-            protoVectorFreeDeserialized(target);
-            zfree(serialized);
+        }
+
+        // naive2protobuf serialization test
+        {
+            Vector v;
+            vectorTypeInit(&v, STL_TYPE_SDS);
+            for (size_t i = 0; i < n; ++i) {
+                vectorAdd(&v, (void *) sdsdup(values[i]));
+            }
+
+            for (size_t i = 0; i < iter_count; ++i) {
+                ////// Time check //////
+                start_us = ustime();
+                ProtoVector *pv = vector2ProtoVector(&v);
+                size_t serialized_len;
+                char *serialized = protoVectorSerialize(pv, &serialized_len);
+                end_us = ustime();
+                time_statistics.naive2protobuf_serialize_us += end_us - start_us;
+                ////// Time check //////
+                protoVectorFree(pv);
+                zfree(pv);
+                zfree(serialized);
+            }
+
+            vectorFreeDeep(&v);
         }
 
         for (size_t i = 0; i < n; ++i) {
@@ -632,41 +669,45 @@ void testCmpSerializationTimeCommand(client *c) {
         zfree(values);
 
         // Prints statistics
-        serverLog(LL_DEBUG, "[testCmpSerializationTimeTest] Statistics N: %zu", n);
-        serverLog(LL_DEBUG, "================================================");
+        serverLog(LL_VERBOSE, "[testCmpSerializationTimeTest] Statistics N: %zu", n);
+        serverLog(LL_VERBOSE, "================================================");
         serverLog(
-            LL_DEBUG,
-            "[NAIVE][SERIALIZE] elapsed time: %lld us",
+            LL_VERBOSE,
+            "[NAIVE][SERIALIZE] elapsed time: %zu us",
             time_statistics.naive_serialize_us);
         serverLog(
-            LL_DEBUG,
-            "[NAIVE][SERIALIZE] size: %lld byte",
+            LL_VERBOSE,
+            "[NAIVE][SERIALIZE] size: %zu byte",
             time_statistics.naive_serialize_size);
         serverLog(
-            LL_DEBUG,
-            "[NAIVE][DESERIALIZE] elapsed time: %lld us",
+            LL_VERBOSE,
+            "[NAIVE][DESERIALIZE] elapsed time: %zu us",
             time_statistics.naive_deserialize_us);
         serverLog(
-            LL_DEBUG,
-            "[NAIVE][DESERIALIZE] size: %lld byte",
+            LL_VERBOSE,
+            "[NAIVE][DESERIALIZE] size: %zu byte",
             time_statistics.naive_deserialize_size);
         serverLog(
-            LL_DEBUG,
-            "[PROTOBUF][SERIALIZE] elapsed time: %lld us",
+            LL_VERBOSE,
+            "[PROTOBUF][SERIALIZE] elapsed time: %zu us",
             time_statistics.protobuf_serialize_us);
         serverLog(
-            LL_DEBUG,
-            "[PROTOBUF][SERIALIZE] size: %lld byte",
+            LL_VERBOSE,
+            "[PROTOBUF][SERIALIZE] size: %zu byte",
             time_statistics.protobuf_serialize_size);
         serverLog(
-            LL_DEBUG,
-            "[PROTOBUF][DESERIALIZE] elapsed time: %lld us",
+            LL_VERBOSE,
+            "[PROTOBUF][DESERIALIZE] elapsed time: %zu us",
             time_statistics.protobuf_deserialize_us);
         serverLog(
-            LL_DEBUG,
-            "[PROTOBUF][DESERIALIZE] size: %lld byte",
+            LL_VERBOSE,
+            "[PROTOBUF][DESERIALIZE] size: %zu byte",
             time_statistics.protobuf_deserialize_size);
-        serverLog(LL_DEBUG, "================================================");
+        serverLog(
+            LL_VERBOSE,
+            "[NAIVE2PROTOBUF][SERIALIZE] elapsed time: %zu us",
+            time_statistics.naive2protobuf_serialize_us);
+        serverLog(LL_VERBOSE, "================================================");
     }
     addReply(c, shared.ok);
 }

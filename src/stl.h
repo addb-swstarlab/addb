@@ -71,6 +71,8 @@ void CheckVectorsds(Vector *v);
 
 /* Proto Vector Helper */
 void protoVectorInit(ProtoVector *v);
+void protoVectorInitWithSize(ProtoVector *v, size_t size);
+ProtoVector *vector2ProtoVector(Vector *v);
 int protoVectorAdd(ProtoVector *v, sds datum);
 int protoVectorSet(ProtoVector *v, size_t i, sds datum);
 sds protoVectorGet(ProtoVector *v, size_t i);

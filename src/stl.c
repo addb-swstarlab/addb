@@ -430,7 +430,7 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
 	}
 
 	vector_count = atoi(token);
-	serverLog(LL_VERBOSE, "vector type : %d, count : %d", vector_type, vector_count);
+	serverLog(LL_DEBUG, "vector type : %d, count : %d", vector_type, vector_count);
 
 	//create vector
     *result = zmalloc(sizeof(Vector));
@@ -456,7 +456,7 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
 		}
 		serverLog(LL_DEBUG, "idx : %d, value : %s", vector_count - 1, token);
 		vectorAdd(*result, sdsnew(token));
-        serverLog(LL_VERBOSE, "Vector deserialize finished");
+        serverLog(LL_DEBUG, "Vector deserialize finished");
         return C_OK;
 	}
 
@@ -508,7 +508,7 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
         }
     }
 
-    serverLog(LL_VERBOSE, "Vector deserialize finished");
+    serverLog(LL_DEBUG, "Vector deserialize finished");
 	return C_OK;
 }
 
@@ -545,6 +545,25 @@ void _protoVectorResizeIfNeeded(ProtoVector *v) {
 
 void protoVectorInit(ProtoVector *v) {
     proto_vector__init(v);
+}
+
+void protoVectorInitWithSize(ProtoVector *v, size_t size) {
+    protoVectorInit(v);
+    v->n_values = size;
+    v->values = (ProtobufCBinaryData *) zmalloc(
+        sizeof(ProtobufCBinaryData) * v->n_values);
+    for (size_t i = 0; i < v->n_values; ++i) {
+        v->values[i].data = NULL;
+    }
+}
+
+ProtoVector *vector2ProtoVector(Vector *v) {
+    ProtoVector *pv = (ProtoVector *) zmalloc(sizeof(ProtoVector));
+    protoVectorInitWithSize(pv, vectorCount(v));
+    for (size_t i = 0; i < vectorCount(v); ++i) {
+        protoVectorAdd(pv, (sds) vectorGet(v, i));
+    }
+    return pv;
 }
 
 int protoVectorAdd(ProtoVector *v, sds datum) {
@@ -665,6 +684,10 @@ int protoVectorFreeDeep(ProtoVector *v) {
  *      [0, 1, 2, 3, 4, 5]
  */
 void _protoVectorFitEntries(ProtoVector *v) {
+    if (v->n_values == v->count) {
+        return;
+    }
+
     v->values = (ProtobufCBinaryData *) zrealloc(
         v->values, sizeof(ProtobufCBinaryData) * v->count);
     v->n_values = v->count;
