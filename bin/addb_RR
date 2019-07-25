@@ -195,6 +195,28 @@ function Set_ziplist() {
 	fi
 }
 
+function Set_batch() {
+	if [ -z "$1" ]; then
+		echo -e "\nPlease enter batch_tiering_size"
+		echo "Ex) addb_RR -batch 500"
+		exit 1;
+	else
+		echo -e "\n## ADDB Redis -Set batch_tiering_size "
+		SetConfiguration_Grep1 "batch_tiering_size" "batch_tiering_size" $1
+	fi
+}
+
+function Set_slow() {
+	if [ -z "$1" ]; then
+		echo -e "\nPlease enter slow log threshold"
+		echo "Ex) addb_RR -slow 1000000"
+		exit 1;
+	else
+		echo -e "\n## ADDB Redis -Set slow log threshold "
+		SetConfiguration_Grep1 "slowlog-log-slower-than" "slowlog-log-slower-than" $1
+	fi
+}
+
 # -init
 function InitDirectory() {
 	echo -e "\n## ADDB Redis - Initilize directory"
@@ -256,7 +278,8 @@ function WatchServer() {
 		content+=" du -h ${DATA_DIR_2}/${port}/${ROCKSDB_DATA_DIR};"
 	done
 	#content+="./scripts/clusterCommand8.sh dbsize"
-	content+="addb_RR -command dbsize"
+	content+="addb_RR -command dbsize;"
+	content+="addb_RR -command info clients"
 	watch -d -n 1 "${content}"
 }
 #	-kill
@@ -281,6 +304,10 @@ function CleanData() {
 		echo "rm -r ${DATA_DIR_2}/${port}/*"
 		rm -r ${DATA_DIR_2}/${port}/*
 	done
+
+	echo "rm -r ${LOG_DIR}"
+	rm -r ${LOG_DIR}/*
+
 }
 
 # -create
@@ -409,7 +436,12 @@ function main() {
 		-ziplist)
 			Set_ziplist $2
 			;;
-
+		-batch)
+			Set_batch $2
+			;;
+		-slow)
+			Set_slow $2
+			;;
 		-init)
 			InitDirectory
 			;;
@@ -458,7 +490,8 @@ addb_spark [ -help ]
             [ -rewrite <yes | no>]
             [ -RG <rowgroup_size>]
             [ -ziplist <hash-max-ziplist-entries>]
-
+            [ -batch <batch_tiering_size>]
+            
             # Redis-server
             [ -init ]
             [ -run ]
