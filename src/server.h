@@ -2126,10 +2126,14 @@ void testGetMetaCommand(client *c);
 void testSdsLocationCommand(client *c);
 void testVectorInterfaceCommand(client *c);
 void testStackInterfaceCommand(client *c);
+<<<<<<< HEAD
 void testProtoVectorCommand(client *c);
 void testProtoVectorInterfaceCommand(client *c);
 void testProtoVectorSerializationCommand(client *c);
 void testCmpSerializationTimeCommand(client *c);
+=======
+void testToMetaKeyCommand(client *c);
+>>>>>>> d9b580a... [IMPLEMENT][BATCH_TIERING] Implements converting dataKey to metaKey.
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

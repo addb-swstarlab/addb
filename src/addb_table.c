@@ -11,28 +11,6 @@
 #include "circular_queue.h"
 
 /*ADDB*/
-/*
- * fpWriteCommand
- *  Write relation data to ADDB.
- * --- Parameters ---
- *  arg1:  dataKeyInfo
- *  arg2:  partitionInfo
- *  arg3:  Number of columns
- *  arg4:  Filter index column (Not used now)
- *  arg5~: Column Data
- *
- * --- Usage Examples ---
- *  Parameters:
- *      dataKeyInfo:        D:{100:1:2}
- *      partitionInfo:      1:2
- *      NumberOfColumns:    4
- *      FilterIndexColumn:  0
- *      Column Data:        1 1 1 1
- *  Command:
- *      redis-cli> FPWRITE D:{100:1:2} 1:2 4 0 1 1 1 1
- *  Results:
- *      redis-cli> OK
- */
 
 long long GetTimeDiff(unsigned int nFlag){
 
@@ -65,7 +43,28 @@ void reset_insert_info(){
 	server.total_time = 0;
 }
 
-
+/*
+ * fpWriteCommand
+ *  Write relation data to ADDB.
+ * --- Parameters ---
+ *  arg1:  dataKeyInfo
+ *  arg2:  partitionInfo
+ *  arg3:  Number of columns
+ *  arg4:  Filter index column (Not used now)
+ *  arg5~: Column Data
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      dataKeyInfo:        D:{100:1:2}
+ *      partitionInfo:      1:2
+ *      NumberOfColumns:    4
+ *      FilterIndexColumn:  0
+ *      Column Data:        1 1 1 1
+ *  Command:
+ *      redis-cli> FPWRITE D:{100:1:2} 1:2 4 0 1 1 1 1
+ *  Results:
+ *      redis-cli> OK
+ */
 void fpWriteCommand(client *c){
 
 	GetTimeDiff(0); //start time check

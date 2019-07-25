@@ -335,12 +335,19 @@ struct redisCommand redisCommandTable[] = {
 	{"dequeueentry", dequeueCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
 	{"evictbestkey", chooseBestKeyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
 	{"emptyqueue", queueEmptyCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0 },
+<<<<<<< HEAD
 	// {"cvserial", serializeCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
 	// {"cvdeserial", deserializeCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
     {"testprotovector",testProtoVectorCommand,-1,"r",0,NULL,1,1,1,0,0},
     {"testprotovectorinterface",testProtoVectorInterfaceCommand,-1,"r",0,NULL,1,1,1,0,0},
     {"testprotovectorserialization",testProtoVectorSerializationCommand,-1,"r",0,NULL,1,1,1,0,0},
     {"testcmpserializationtime",testCmpSerializationTimeCommand,-1,"r",0,NULL,1,1,1,0,0},
+=======
+	{"cvserial", serializeCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
+	{"cvdeserial", deserializeCommand, 2, "rS",0,NULL,0,0,0,0,0,0,0},
+    {"testtometakey",testToMetaKeyCommand,-1,"r",0,NULL,1,1,1,0,0},
+
+>>>>>>> d9b580a... [IMPLEMENT][BATCH_TIERING] Implements converting dataKey to metaKey.
 };
 
 /*============================ Utility functions ============================ */

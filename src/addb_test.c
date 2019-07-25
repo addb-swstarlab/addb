@@ -162,3 +162,34 @@ void testSdsLocationCommand(client *c) {
     }
     addReply(c, shared.ok);
 }
+
+void testToMetaKeyCommand(client *c) {
+    {
+        // Tests success case
+        // D:{100:1:2}:G:1 --> M:{100:1:2}, 1
+        sds dataKey = sdsnew("D:{100:1:2}:G:1");
+        sds metaKey = NULL;
+        int rowGroupId = -1;
+        int result = toMetaKey(dataKey, &metaKey, &rowGroupId);
+        assert(result == C_OK);
+        sds metaKeyTarget = sdsnew("M:{100:1:2}");
+        assert(sdscmp(metaKey, metaKeyTarget) == 0);
+        assert(rowGroupId == 1);
+        sdsfree(dataKey);
+        sdsfree(metaKey);
+        sdsfree(metaKeyTarget);
+    }
+    {
+        // Tests failed case
+        // D:100:1:2:G:1 --> C_ERR
+        sds dataKey = sdsnew("D10012G1");
+        sds metaKey = NULL;
+        int rowGroupId = -1;
+        int result = toMetaKey(dataKey, &metaKey, &rowGroupId);
+        assert(result == C_ERR);
+        assert(metaKey == NULL);
+        assert(rowGroupId == -1);
+        sdsfree(dataKey);
+    }
+    addReply(c, shared.ok);
+}

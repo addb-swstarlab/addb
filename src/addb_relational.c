@@ -121,6 +121,43 @@ MetaKeyInfo *parseMetaKeyInfo(sds metakey) {
     return metaKeyInfo;
 }
 
+/**
+ * Converts datakey to metakey
+ * --- Usage Examples ---
+ *  Parameters:
+ *      dataKey:    D:{100:1:2}:G:1
+ *      metaKey:    &metaKey
+ *      rowGroupId: &rowGroupId
+ *  Call:
+ *      sds dataKey = sdsnew("D:{100:1:2}:G:1");
+ *      sds metaKey;
+ *      int rowGroupId;
+ *      int result = toMetaKey(dataKey, &metaKey, &rowGroupId);
+ *  Results:
+ *      result = C_OK
+ *      metaKey = M:{100:1:2}
+ *      rowGroupId = 1
+ */
+int toMetaKey(sds dataKey, sds *metaKey, int *rowGroupId) {
+    NewDataKeyInfo *dataKeyInfo = parsingDataKeyInfo(dataKey);
+    if (dataKeyInfo == NULL) {
+        return C_ERR;
+    }
+    *metaKey = sdscatfmt(
+        sdsempty(), "%s%s%s%i%s%s%s",
+        RELMODEL_META_PREFIX,                       // 'M'
+        RELMODEL_DELIMITER,                         // ':'
+        RELMODEL_BRACE_PREFIX,                      // '{'
+        dataKeyInfo->tableId,                       // 'tableId'
+        RELMODEL_DELIMITER,                         // ':'
+        dataKeyInfo->partitionInfo.partitionString, // 'partitionInfo'
+        RELMODEL_BRACE_SUFFIX                       // '}'
+    );
+    *rowGroupId = dataKeyInfo->rowGroupId;
+    zfree(dataKeyInfo);
+    return C_OK;
+}
+
 /*addb get dictEntry, a candidate for evict*/
 
 dictEntry *getCandidatedictFirstEntry(client *c, NewDataKeyInfo *dataKeyInfo){
@@ -649,10 +686,10 @@ int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, ro
 
 	if ((de = dictFind(hashDict, dataField->ptr)) == NULL) {
         // create vector
-        ProtoVector *v = zmalloc(sizeof(ProtoVector));
-        protoVectorInit(v);
-        protoVectorAdd(v, sdsdup(valueObj->ptr));
-        robj *columnVectorObj = createObject(OBJ_PROTO_VECTOR, v);
+        Vector *v = zmalloc(sizeof(Vector));
+        vectorTypeInit(v, STL_TYPE_SDS);
+        vectorAdd(v, (void *) sdsdup(valueObj->ptr));
+        robj *columnVectorObj = createObject(OBJ_VECTOR, v);
 
         int ret = dictAdd(hashDict, sdsdup(dataField->ptr), columnVectorObj);
 
@@ -670,12 +707,12 @@ int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, ro
 	} else {
         // get vector object & append value
         robj *columnVectorObj = dictGetVal(de);
-        assert(columnVectorObj->type == OBJ_PROTO_VECTOR);
- 		ProtoVector *v = (ProtoVector *) columnVectorObj->ptr;
- 		protoVectorAdd(v, sdsdup(valueObj->ptr));
+        assert(columnVectorObj->type == OBJ_VECTOR);
+ 		Vector *v = (Vector *) columnVectorObj->ptr;
+ 		vectorAdd(v, (void *) sdsdup(valueObj->ptr));
 
  		// check append result
-        if (!sdscmp(protoVectorGet(v, v->count - 1), (sds) valueObj->ptr)) {
+        if (!sdscmp(vectorGet(v, v->count - 1), (sds) valueObj->ptr)) {
             serverLog(
                 LL_DEBUG,
                 "Append Existed Vector & DATA INSERTION SUCCESS. dataKey : %s, dataField : %s, value :%s",
@@ -718,9 +755,10 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 		sds rocksKey = sdsnew(keystr);
 		//robj *value = createStringObject(val, sdslen(val));
         size_t serialized_len;
-        char *serialized = protoVectorSerialize(
-            (ProtoVector *) columnVectorObj->ptr,
-            &serialized_len);
+        ProtoVector *pv = vector2ProtoVector((Vector *) columnVectorObj->ptr);
+        char *serialized = protoVectorSerialize(pv, &serialized_len);
+        protoVectorFree(pv);
+        zfree(pv);
 
         serverLog(LL_DEBUG, "SERIALIZE Serial_val RESULT : %s", serialized);
         setPersistentKeyWithBatch(db->persistent_store, rocksKey,
@@ -771,9 +809,11 @@ void prepareBatchWriteToRocksDB(redisDb *db, Vector *evict_keys,
             sprintf(keystr, "%s:%s%s", key, REL_MODEL_FIELD_PREFIX, field_key);
             sds rockskey = sdsnew(keystr);
             size_t serialized_len;
+            ProtoVector *pv = vector2ProtoVector((Vector *) vector_obj->ptr);
             char *serialized_vector_obj = protoVectorSerialize(
-                (ProtoVector *) vector_obj->ptr,
-                &serialized_len);
+                pv, &serialized_len);
+            protoVectorFree(pv);
+            zfree(pv);
 
             serverLog(LL_DEBUG, "SERIALIZE Serial_val RESULT : %s",
                       serialized_vector_obj);
@@ -1194,8 +1234,8 @@ size_t _cachedScan_non_vector(client *c, redisDb *db, size_t rowGroupId,
                     k, cachedColumnVectorIds[k]);
             }
 
-            ProtoVector *columnVector =
-                (ProtoVector *) cachedColumnVectorObjs[k]->ptr;
+            Vector *columnVector =
+                (Vector *) cachedColumnVectorObjs[k]->ptr;
             if (columnVector == NULL) {
                 serverLog(
                     LL_WARNING,
@@ -1209,7 +1249,7 @@ size_t _cachedScan_non_vector(client *c, redisDb *db, size_t rowGroupId,
             //         LL_VERBOSE, "ColumnVector[%zu]: [%s]", l,
             //         vectorGet(columnVector, l));
             // }
-            sds value = protoVectorGet(columnVector, getColumnVectorIndex(rowId));
+            sds value = (sds) vectorGet(columnVector, getColumnVectorIndex(rowId));
             if (value == NULL) {
                 serverLog(
                     LL_WARNING,
@@ -1219,7 +1259,7 @@ size_t _cachedScan_non_vector(client *c, redisDb *db, size_t rowGroupId,
                 for (size_t l = 0; l < columnVector->count; ++l) {
                     serverLog(
                         LL_WARNING, "ColumnVector[%zu]: [%s]", l,
-                        protoVectorGet(columnVector, l));
+                        (sds) vectorGet(columnVector, l));
                 }
             }
             addReplyBulkSds(c, sdsdup(value));
