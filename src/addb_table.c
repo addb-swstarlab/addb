@@ -236,7 +236,7 @@ void fpWriteCommand(client *c){
 
     	}
     	else { //partition column
-    		severLog(LL_DEBUG, "%d is partition column", column_idx);
+    		serverLog(LL_DEBUG, "%d is partition column", column_idx);
     		idx++;
     		insertedRow++;
     		continue;
