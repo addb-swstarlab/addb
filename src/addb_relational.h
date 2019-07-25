@@ -273,6 +273,7 @@ int dateStrToInteger(const char *dateStr, long *result);
 bool validateStatements(const sds rawStatementsStr);
 bool validateStatement(const sds rawStatementStr);
 int parsePartitions(const char *partitionInfo, Vector *v);
+void _freePartitionParameters(Vector *partitions);
 int parseStatement(const sds rawStatementStr, Condition **root);
 int createCondition(const char *rawConditionStr, Stack *s, Condition **cond);
 bool _evaluateLeafOperator(const int optype, const ConditionChild *first,
