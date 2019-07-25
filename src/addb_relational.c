@@ -650,7 +650,7 @@ int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, ro
 	if ((de = dictFind(hashDict, dataField->ptr)) == NULL) {
         // create vector
         ProtoVector *v = zmalloc(sizeof(ProtoVector));
-        protoVectorTypeInit(v, STL_TYPE_SDS);
+        protoVectorInit(v);
         protoVectorAdd(v, sdsdup(valueObj->ptr));
         robj *columnVectorObj = createObject(OBJ_PROTO_VECTOR, v);
 

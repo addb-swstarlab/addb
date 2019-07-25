@@ -525,7 +525,7 @@ void CheckVectorsds(Vector *v){
 void _protoVectorResizeIfNeeded(ProtoVector *v) {
     if (v->n_values == 0) {
         v->n_values = INIT_PROTO_VECTOR_SIZE;
-        v->values = (StlEntry **) zmalloc(sizeof(StlEntry *) * v->n_values);
+        v->values = (ProtoSds **) zmalloc(sizeof(ProtoSds *) * v->n_values);
         for (size_t i = 0; i < v->n_values; ++i) {
             v->values[i] = NULL;
         }
@@ -534,34 +534,19 @@ void _protoVectorResizeIfNeeded(ProtoVector *v) {
     if (v->n_values <= v->count) {
         size_t legacy_n_values = v->n_values;
         v->n_values += INIT_VECTOR_SIZE;
-        v->values = (StlEntry **) zrealloc(
-            v->values, sizeof(StlEntry *) * v->n_values);
+        v->values = (ProtoSds **) zrealloc(
+            v->values, sizeof(ProtoSds *) * v->n_values);
         for (size_t i = legacy_n_values; i < v->n_values; ++i) {
             v->values[i] = NULL;
         }
     }
 }
 
-void protoVectorTypeInit(ProtoVector *v, int type) {
-    switch (type) {
-        case STL_TYPE_LONG: {
-            proto_vector__init(v);
-            v->type = STL_TYPE__LONG;
-            break;
-        }
-        case STL_TYPE_SDS: {
-            proto_vector__init(v);
-            v->type = STL_TYPE__SDS;
-            break;
-        }
-        default: {
-            serverLog(LL_WARNING, "FATAL: Proto vector does not support type except LONG, SDS.");
-            serverAssert(0);
-        }
-    }
+void protoVectorInit(ProtoVector *v) {
+    proto_vector__init(v);
 }
 
-int protoVectorAdd(ProtoVector *v, void *datum) {
+int protoVectorAdd(ProtoVector *v, sds datum) {
     _protoVectorResizeIfNeeded(v);
     size_t index = v->count;
     v->count++;
@@ -571,62 +556,39 @@ int protoVectorAdd(ProtoVector *v, void *datum) {
     return C_OK;
 }
 
-int protoVectorSet(ProtoVector *v, size_t i, void *datum) {
+int protoVectorSet(ProtoVector *v, size_t i, sds datum) {
     if (i >= v->count) {
         serverLog(LL_DEBUG,
                   "ERROR: Try to set element that index overflows vector");
         return C_ERR;
     }
 
-    if (v->values[i] == NULL) {
-        v->values[i] = (StlEntry *) zmalloc(sizeof(StlEntry));
-        stl_entry__init(v->values[i]);
-        if (v->type == STL_TYPE__SDS) {
-            v->values[i]->_sds = NULL;
-        }
+    if (v->values[i] != NULL) {
+        sds legacy = proto2sds(v->values[i]);
+        sdsfree(legacy);
+        zfree(v->values[i]);
     }
 
-    if (v->type == STL_TYPE__LONG) {
-        v->values[i]->value_case = STL_ENTRY__VALUE__LONG;
-        v->values[i]->_long = (long) datum;
-    } else if (v->type == STL_TYPE__SDS) {
-        v->values[i]->value_case = STL_ENTRY__VALUE__SDS;
-        if (v->values[i]->_sds != NULL) {
-            sds legacy = proto2sds(v->values[i]->_sds);
-            sdsfree(legacy);
-            zfree(v->values[i]->_sds);
-        }
-        ProtoSds *datum_proto = sds2proto((sds) datum);
-        if (datum_proto == NULL) {
-            serverLog(
-                LL_DEBUG,
-                "ERROR: protoVectorSet(): datum is not sds type!");
-            return C_ERR;
-        }
-        v->values[i]->_sds = datum_proto;
-    } else {
-        serverLog(LL_DEBUG, "FATAL ERROR: Wrong vector type [%d]", v->type);
+    ProtoSds *datum_proto = sds2proto((sds) datum);
+    if (datum_proto == NULL) {
+        serverLog(
+            LL_DEBUG,
+            "ERROR: protoVectorSet(): datum is not sds type!");
         return C_ERR;
     }
+    v->values[i] = datum_proto;
 
     return C_OK;
 }
 
-void *protoVectorGet(ProtoVector *v, size_t i) {
+sds protoVectorGet(ProtoVector *v, size_t i) {
     if (i >= v->count) {
         serverLog(LL_DEBUG,
                   "ERROR: Try to get element that index overflows vector");
         return NULL;
     }
 
-    if (v->type == STL_TYPE__LONG) {
-        return v->values[i]->_long;
-    } else if (v->type == STL_TYPE__SDS) {
-        return proto2sds(v->values[i]->_sds);
-    } else {
-        serverLog(LL_DEBUG, "FATAL ERROR: Wrong vector type [%d]", v->type);
-        return NULL;
-    }
+    return proto2sds(v->values[i]);
 }
 
 int protoVectorDelete(ProtoVector *v, size_t i) {
@@ -636,15 +598,12 @@ int protoVectorDelete(ProtoVector *v, size_t i) {
         return C_ERR;
     }
 
-    StlEntry *target = v->values[i];
-    if (v->type == STL_TYPE__SDS) {
-        sdsfree(proto2sds(target->_sds));
-        zfree(target->_sds);
-    }
+    ProtoSds *target = v->values[i];
+    sdsfree(proto2sds(target));
     zfree(target);
 
-    StlEntry **new_values = (StlEntry **) zcalloc(
-        sizeof(StlEntry *) * v->n_values);
+    ProtoSds **new_values = (ProtoSds **) zcalloc(
+        sizeof(ProtoSds *) * v->n_values);
     /* Ex) delete index '4'
      * [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ]
      *   ----------  |  -------------
@@ -663,14 +622,14 @@ int protoVectorDelete(ProtoVector *v, size_t i) {
         memcpy(
             new_values,
             v->values,
-            sizeof(StlEntry *) * i
+            sizeof(ProtoSds *) * i
         );
     }
     if (i != v->count - 1) {
         memcpy(
             new_values + i,
             v->values + (i + 1),
-            sizeof(StlEntry *) * (v->count - i - 1)
+            sizeof(ProtoSds *) * (v->count - i - 1)
         );
     }
     zfree(v->values);
@@ -678,23 +637,15 @@ int protoVectorDelete(ProtoVector *v, size_t i) {
     v->count--;
 }
 
-void *protoVectorPop(ProtoVector *v) {
-    void *_target = protoVectorGet(v, v->count - 1);
-    void *target;
-    if (v->type == STL_TYPE__SDS) {
-        target = sdsdup((sds) _target);
-    } else {
-        target = _target;
-    }
+sds protoVectorPop(ProtoVector *v) {
+    sds _target = protoVectorGet(v, v->count - 1);
+    sds result = sdsdup((sds) _target);
     protoVectorDelete(v, v->count - 1);
-    return target;
+    return result;
 }
 
 int protoVectorFree(ProtoVector *v) {
     for (size_t i = 0; i < v->count; ++i) {
-        if (v->type == STL_TYPE__SDS) {
-            zfree(v->values[i]->_sds);
-        }
         zfree(v->values[i]);
     }
     zfree(v->values);
@@ -703,31 +654,28 @@ int protoVectorFree(ProtoVector *v) {
 
 int protoVectorFreeDeep(ProtoVector *v) {
     for (size_t i = 0; i < v->count; ++i) {
-        if (v->type == STL_TYPE__SDS) {
-            sds sds_entry = proto2sds(v->values[i]->_sds);
-            sdsfree(sds_entry);
-            zfree(v->values[i]->_sds);
-        }
+        sds sds_entry = proto2sds(v->values[i]);
+        sdsfree(sds_entry);
         zfree(v->values[i]);
     }
     zfree(v->values);
     return C_OK;
 }
 
-/* _protoVectorFitStlEntries function
+/* _protoVectorFitEntries function
  *  Fit vector entries for serialization.
- *  Because, if there are empty StlEntry on vector entries array,
+ *  Because, if there are empty ProtoSds on vector entries array,
  *  serialization work will be failed.
- *  So, we remove empty StlEntries at this function.
+ *  So, we remove empty ProtoSds at this function.
  *
  * ex) fit([0, 1, 2, 3, 4, 5, x, x, x, x])
- *      x is empty StlEntry
+ *      x is empty ProtoSds
  * result)
  *      [0, 1, 2, 3, 4, 5]
  */
-void _protoVectorFitStlEntries(ProtoVector *v) {
-    v->values = (StlEntry **) zrealloc(
-        v->values, sizeof(StlEntry *) * v->count);
+void _protoVectorFitEntries(ProtoVector *v) {
+    v->values = (ProtoSds **) zrealloc(
+        v->values, sizeof(ProtoSds *) * v->count);
     v->n_values = v->count;
 }
 
@@ -743,7 +691,7 @@ void _protoVectorFitStlEntries(ProtoVector *v) {
  *      "20snl1clsdj[38;fn3j:c8e0ps[" + '\0'
  */
 char *protoVectorSerialize(ProtoVector *v, size_t *total_len) {
-    _protoVectorFitStlEntries(v);
+    _protoVectorFitEntries(v);
     size_t serialized_len = proto_vector__get_packed_size(v);
     *total_len = sizeof(uint64_t) + sizeof(uint8_t) * serialized_len + 1;
 

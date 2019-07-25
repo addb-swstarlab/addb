@@ -2,22 +2,8 @@ syntax = "proto3";
 
 import "sds.proto";
 
-// Common Fields
-enum StlType {
-  LONG = 0;
-  SDS = 1;
-}
-
-message StlEntry {
-  oneof value {
-    int64 _long = 1;
-    ProtoSds _sds = 2;
-  }
-}
-
 // Vector protobuf version
 message ProtoVector {
-  StlType type = 1;
-  repeated StlEntry values = 2;
+  repeated ProtoSds values = 2;
   uint64 count = 3;
 }

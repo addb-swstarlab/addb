@@ -70,12 +70,12 @@ Vector *VectordeSerialize(char *VectorString);
 void CheckVectorsds(Vector *v);
 
 /* Proto Vector Helper */
-void protoVectorTypeInit(ProtoVector *v, int type);
-int protoVectorAdd(ProtoVector *v, void *datum);
-int protoVectorSet(ProtoVector *v, size_t i, void *datum);
-void *protoVectorGet(ProtoVector *v, size_t i);
+void protoVectorInit(ProtoVector *v);
+int protoVectorAdd(ProtoVector *v, sds datum);
+int protoVectorSet(ProtoVector *v, size_t i, sds datum);
+sds protoVectorGet(ProtoVector *v, size_t i);
 int protoVectorDelete(ProtoVector *v, size_t i);
-void *protoVectorPop(ProtoVector *v);
+sds protoVectorPop(ProtoVector *v);
 int protoVectorFree(ProtoVector *v);
 int protoVectorFreeDeep(ProtoVector *v);
 char *protoVectorSerialize(ProtoVector *v, size_t *len);
