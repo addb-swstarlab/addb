@@ -601,6 +601,29 @@ void testProtoVectorSerializationCommand(client *c) {
     addReply(c, shared.ok);
 }
 
+size_t _sizeOfSds(sds s) {
+    size_t result = sdsalloc(s);
+    unsigned char flags = s[-1];
+    switch(flags&SDS_TYPE_MASK) {
+        case SDS_TYPE_5:
+            result += sizeof(*SDS_HDR(5,s));
+            break;
+        case SDS_TYPE_8:
+            result += sizeof(*SDS_HDR(8,s));
+            break;
+        case SDS_TYPE_16:
+            result += sizeof(*SDS_HDR(16,s));
+            break;
+        case SDS_TYPE_32:
+            result += sizeof(*SDS_HDR(32,s));
+            break;
+        case SDS_TYPE_64:
+            result += sizeof(*SDS_HDR(64,s));
+            break;
+    }
+    return result;
+}
+
 /*
  * testCmpSerializationTimeCommand
  * Tests compare serialization time Naive with Protobuf.
@@ -618,7 +641,7 @@ void testProtoVectorSerializationCommand(client *c) {
 void testCmpSerializationTimeCommand(client *c) {
     {
         // Type [SDS]
-        const size_t n = 300;
+        const size_t n = 3;
         sds *values = (sds *) zmalloc(sizeof(sds) * n);
         for (size_t i = 0; i < n; ++i) {
             values[i] = sdscatfmt(sdsempty(), "TEST_VECTOR_SDS_VALUE_%u", i);
@@ -626,9 +649,13 @@ void testCmpSerializationTimeCommand(client *c) {
 
         typedef struct CmpSerializationTimeStat {
             long long naive_serialize_us;
+            long long naive_serialize_size;
             long long naive_deserialize_us;
+            long long naive_deserialize_size;
             long long protobuf_serialize_us;
+            long long protobuf_serialize_size;
             long long protobuf_deserialize_us;
+            long long protobuf_deserialize_size;
         } __stat;
         __stat time_statistics;
 
@@ -651,6 +678,9 @@ void testCmpSerializationTimeCommand(client *c) {
             end_us = ustime();
             time_statistics.naive_serialize_us = end_us - start_us;
             ////// Time check //////
+            ////// Size check //////
+            time_statistics.naive_serialize_size = strlen(serialized);
+            ////// Size check //////
 
             // Deserialization
             sds serialized_sds = sdsnew(serialized);
@@ -662,6 +692,15 @@ void testCmpSerializationTimeCommand(client *c) {
             end_us = ustime();
             time_statistics.naive_deserialize_us = end_us - start_us;
             ////// Time check //////
+            ////// Size check //////
+            time_statistics.naive_deserialize_size = 0;
+            time_statistics.naive_deserialize_size += sizeof(sizeof(Vector));
+            time_statistics.naive_deserialize_size += sizeof(sds) * deserialized->size;
+            for (size_t i = 0; i < vectorCount(deserialized); ++i) {
+                sds entry = vectorGet(deserialized, i);
+                time_statistics.naive_deserialize_size += _sizeOfSds(entry);
+            }
+            ////// Size check //////
 
             sdsfree(serialized_sds);
             vectorFreeDeep(deserialized);
@@ -685,6 +724,9 @@ void testCmpSerializationTimeCommand(client *c) {
             end_us = ustime();
             time_statistics.protobuf_serialize_us = end_us - start_us;
             ////// Time check //////
+            ////// Size check //////
+            time_statistics.protobuf_serialize_size = serialized_len;
+            ////// Size check //////
 
             // Deserialization
             ProtoVector *target;
@@ -694,6 +736,17 @@ void testCmpSerializationTimeCommand(client *c) {
             end_us = ustime();
             time_statistics.protobuf_deserialize_us = end_us - start_us;
             ////// Time check //////
+            ////// Size check //////
+            time_statistics.protobuf_deserialize_size = 0;
+            time_statistics.protobuf_deserialize_size += sizeof(sizeof(ProtoVector));
+            time_statistics.protobuf_deserialize_size += sizeof(StlEntry *) * target->n_values;
+            for (size_t i = 0; i < target->count; ++i) {
+                time_statistics.protobuf_deserialize_size += sizeof(StlEntry);
+                ProtoSds *entry = target->values[i]->_sds;
+                time_statistics.protobuf_deserialize_size += sizeof(ProtoSds);
+                time_statistics.protobuf_deserialize_size += entry->s.len;
+            }
+            ////// Size check //////
 
             protoVectorFreeDeep(&v);
             protoVectorFreeDeserialized(target);
@@ -714,16 +767,32 @@ void testCmpSerializationTimeCommand(client *c) {
             time_statistics.naive_serialize_us);
         serverLog(
             LL_DEBUG,
+            "[NAIVE][SERIALIZE] size: %lld byte",
+            time_statistics.naive_serialize_size);
+        serverLog(
+            LL_DEBUG,
             "[NAIVE][DESERIALIZE] elapsed time: %lld us",
             time_statistics.naive_deserialize_us);
+        serverLog(
+            LL_DEBUG,
+            "[NAIVE][DESERIALIZE] size: %lld byte",
+            time_statistics.naive_deserialize_size);
         serverLog(
             LL_DEBUG,
             "[PROTOBUF][SERIALIZE] elapsed time: %lld us",
             time_statistics.protobuf_serialize_us);
         serverLog(
             LL_DEBUG,
+            "[PROTOBUF][SERIALIZE] size: %lld byte",
+            time_statistics.protobuf_serialize_size);
+        serverLog(
+            LL_DEBUG,
             "[PROTOBUF][DESERIALIZE] elapsed time: %lld us",
             time_statistics.protobuf_deserialize_us);
+        serverLog(
+            LL_DEBUG,
+            "[PROTOBUF][DESERIALIZE] size: %lld byte",
+            time_statistics.protobuf_deserialize_size);
         serverLog(LL_DEBUG, "================================================");
     }
     addReply(c, shared.ok);
