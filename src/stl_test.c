@@ -495,29 +495,6 @@ void testProtoVectorSerializationCommand(client *c) {
     addReply(c, shared.ok);
 }
 
-size_t _sizeOfSds(sds s) {
-    size_t result = sdsalloc(s);
-    unsigned char flags = s[-1];
-    switch(flags&SDS_TYPE_MASK) {
-        case SDS_TYPE_5:
-            result += sizeof(*SDS_HDR(5,s));
-            break;
-        case SDS_TYPE_8:
-            result += sizeof(*SDS_HDR(8,s));
-            break;
-        case SDS_TYPE_16:
-            result += sizeof(*SDS_HDR(16,s));
-            break;
-        case SDS_TYPE_32:
-            result += sizeof(*SDS_HDR(32,s));
-            break;
-        case SDS_TYPE_64:
-            result += sizeof(*SDS_HDR(64,s));
-            break;
-    }
-    return result;
-}
-
 /*
  * testCmpSerializationTimeCommand
  * Tests compare serialization time Naive with Protobuf.
@@ -592,7 +569,7 @@ void testCmpSerializationTimeCommand(client *c) {
             time_statistics.naive_deserialize_size += sizeof(sds) * deserialized->size;
             for (size_t i = 0; i < vectorCount(deserialized); ++i) {
                 sds entry = vectorGet(deserialized, i);
-                time_statistics.naive_deserialize_size += _sizeOfSds(entry);
+                time_statistics.naive_deserialize_size += sdstotalsize(entry);
             }
             ////// Size check //////
 
@@ -642,7 +619,7 @@ void testCmpSerializationTimeCommand(client *c) {
             for (size_t i = 0; i < target->count; ++i) {
                 sds entry = proto2sds(target->values[i]);
                 time_statistics.protobuf_deserialize_size += sizeof(ProtoSds);
-                time_statistics.protobuf_deserialize_size += _sizeOfSds(entry);
+                time_statistics.protobuf_deserialize_size += sdstotalsize(entry);
             }
             ////// Size check //////
 

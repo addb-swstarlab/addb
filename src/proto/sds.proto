@@ -1,3 +1,4 @@
+// Deprecated...
 syntax = "proto3";
 
 enum ProtoSdsType {

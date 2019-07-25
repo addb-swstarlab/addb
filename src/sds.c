@@ -92,12 +92,14 @@ sds sdsnewlenloc(const void *init, size_t initlen, size_t location) {
     switch(type) {
         case SDS_TYPE_5: {
             SDS_HDR_VAR(5,s);
+            sh->_proto_flags = type;
             sh->location = location & SDS_ADDB_LOCATION_MASK;
             *fp = type | (initlen << SDS_TYPE_BITS);
             break;
         }
         case SDS_TYPE_8: {
             SDS_HDR_VAR(8,s);
+            sh->_proto_flags = type;
             sh->len = initlen;
             sh->alloc = initlen;
             sh->location = location & SDS_ADDB_LOCATION_MASK;
@@ -106,6 +108,7 @@ sds sdsnewlenloc(const void *init, size_t initlen, size_t location) {
         }
         case SDS_TYPE_16: {
             SDS_HDR_VAR(16,s);
+            sh->_proto_flags = type;
             sh->len = initlen;
             sh->alloc = initlen;
             sh->location = location & SDS_ADDB_LOCATION_MASK;
@@ -114,6 +117,7 @@ sds sdsnewlenloc(const void *init, size_t initlen, size_t location) {
         }
         case SDS_TYPE_32: {
             SDS_HDR_VAR(32,s);
+            sh->_proto_flags = type;
             sh->len = initlen;
             sh->alloc = initlen;
             sh->location = location & SDS_ADDB_LOCATION_MASK;
@@ -122,6 +126,7 @@ sds sdsnewlenloc(const void *init, size_t initlen, size_t location) {
         }
         case SDS_TYPE_64: {
             SDS_HDR_VAR(64,s);
+            sh->_proto_flags = type;
             sh->len = initlen;
             sh->alloc = initlen;
             sh->location = location & SDS_ADDB_LOCATION_MASK;
@@ -166,12 +171,14 @@ sds sdsnewlen(const void *init, size_t initlen) {
     switch(type) {
         case SDS_TYPE_5: {
             SDS_HDR_VAR(5,s);
+            sh->_proto_flags = type;
             sh->location = SDS_ADDB_LOCATION_NONE & SDS_ADDB_LOCATION_MASK;
             *fp = type | (initlen << SDS_TYPE_BITS);
             break;
         }
         case SDS_TYPE_8: {
             SDS_HDR_VAR(8,s);
+            sh->_proto_flags = type;
             sh->len = initlen;
             sh->alloc = initlen;
             sh->location = SDS_ADDB_LOCATION_NONE & SDS_ADDB_LOCATION_MASK;
@@ -180,6 +187,7 @@ sds sdsnewlen(const void *init, size_t initlen) {
         }
         case SDS_TYPE_16: {
             SDS_HDR_VAR(16,s);
+            sh->_proto_flags = type;
             sh->len = initlen;
             sh->alloc = initlen;
             sh->location = SDS_ADDB_LOCATION_NONE & SDS_ADDB_LOCATION_MASK;
@@ -188,6 +196,7 @@ sds sdsnewlen(const void *init, size_t initlen) {
         }
         case SDS_TYPE_32: {
             SDS_HDR_VAR(32,s);
+            sh->_proto_flags = type;
             sh->len = initlen;
             sh->alloc = initlen;
             sh->location = SDS_ADDB_LOCATION_NONE & SDS_ADDB_LOCATION_MASK;
@@ -196,6 +205,7 @@ sds sdsnewlen(const void *init, size_t initlen) {
         }
         case SDS_TYPE_64: {
             SDS_HDR_VAR(64,s);
+            sh->_proto_flags = type;
             sh->len = initlen;
             sh->alloc = initlen;
             sh->location = SDS_ADDB_LOCATION_NONE & SDS_ADDB_LOCATION_MASK;
@@ -232,6 +242,45 @@ sds sdsnew(const char *init) {
  * Duplicate an sds string along with the location information. */
 sds sdsduploc(const sds s) {
     return sdsnewlenloc(s, sdslen(s), sdsloc(s));
+}
+
+/* addb
+ * Converts sds to protobuf bytes.
+ */
+ProtobufCBinaryData sds2protobytes(const sds s) {
+    ProtobufCBinaryData bytes;
+
+    void *sh = NULL;
+    unsigned char flags = s[-1];
+    char type = flags & SDS_TYPE_MASK;
+
+    switch (type) {
+        case SDS_TYPE_5: {
+            sh = SDS_HDR(5,s);
+            break;
+        }
+        case SDS_TYPE_8: {
+            sh = SDS_HDR(8,s);
+            break;
+        }
+        case SDS_TYPE_16: {
+            sh = SDS_HDR(16,s);
+            break;
+        }
+        case SDS_TYPE_32: {
+            sh = SDS_HDR(32,s);
+            break;
+        }
+        case SDS_TYPE_64: {
+            sh = SDS_HDR(64,s);
+            break;
+        }
+    }
+
+    bytes.len = sdsalloc(s) + sdsHdrSize(type);
+    bytes.data = sh;
+
+    return bytes;
 }
 
 /* addb
@@ -289,6 +338,41 @@ ProtoSds *_sds2proto(const sds s, int flag) {
 
 ProtoSds *sds2proto(const sds s) {
     return _sds2proto(s, PROTO_SDS_NO_COPY);
+}
+
+/* addb
+ * Converts protobuf bytes to sds */
+sds protobytes2sds(const ProtobufCBinaryData *bytes) {
+    char *sh = (char *) bytes->data;
+    sds result;
+    char type = *((char *) sh) & SDS_TYPE_MASK;
+    switch (type) {
+        case PROTO_SDS_TYPE__SDS_TYPE_5: {
+            result = PROTO_SDS_PTR(5,sh);
+            break;
+        }
+        case PROTO_SDS_TYPE__SDS_TYPE_8: {
+            result = PROTO_SDS_PTR(8,sh);
+            break;
+        }
+        case PROTO_SDS_TYPE__SDS_TYPE_16: {
+            result = PROTO_SDS_PTR(16,sh);
+            break;
+        }
+        case PROTO_SDS_TYPE__SDS_TYPE_32: {
+            result = PROTO_SDS_PTR(32,sh);
+            break;
+        }
+        case PROTO_SDS_TYPE__SDS_TYPE_64: {
+            result = PROTO_SDS_PTR(64,sh);
+            break;
+        }
+        default: {
+            return NULL;
+        }
+    }
+
+    return result;
 }
 
 /* addb
@@ -1498,6 +1582,32 @@ int sdsTest(void) {
             sdsfree(target);
             zfree(proto->s.data);
             zfree(proto);
+        }
+        {
+            // Protobuf bytes <-> sds test
+            sds source = sdsnew("Source-Sds-String");
+            ProtobufCBinaryData proto_bytes = sds2protobytes(source);
+            sds target = protobytes2sds(&proto_bytes);
+            test_cond("sds2proto() --> proto2sds() length comparison",
+                sdslen(source) == sdslen(target));
+            test_cond("sds2proto() --> proto2sds() sds comparison",
+                sdscmp(source, target) == 0);
+            char source_type = source[-1] & SDS_TYPE_MASK;
+            char target_type = target[-1] & SDS_TYPE_MASK;
+            test_cond("sds2proto() --> proto2sds() no copy will have same type",
+                source_type == target_type);
+            char source_proto_type = sdsprotoflags(source);
+            char target_proto_type = sdsprotoflags(target);
+            test_cond("sds2proto() --> proto2sds() no copy will have same _proto_type",
+                source_proto_type == target_proto_type);
+            test_cond("sds2proto() --> proto2sds() no copy will have same _proto_type and type",
+                source_type == source_proto_type &&
+                target_type == target_proto_type);
+            test_cond("sds2proto() --> proto2sds() no copy will have same header address",
+                proto_bytes.data == (source-sdsHdrSize(source_type)) );
+            test_cond("sds2proto() --> proto2sds() no copy will have same sds address",
+                source == target);
+            sdsfree(source);
         }
     }
     test_report()

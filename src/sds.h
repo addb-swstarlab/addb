@@ -46,11 +46,13 @@ typedef char *sds;
 /* Note: sdshdr5 is never used, we just access the flags byte directly.
  * However is here to document the layout of type 5 SDS strings. */
 struct __attribute__ ((__packed__)) sdshdr5 {
+    unsigned _proto_flags:3; /* addb protobuf for reverse transformation */
     unsigned location:2; /* addb hash location information */
     unsigned char flags; /* 3 lsb of type, and 5 msb of string length */
     char buf[];
 };
 struct __attribute__ ((__packed__)) sdshdr8 {
+    unsigned _proto_flags:3; /* addb protobuf for reverse transformation */
     uint8_t len; /* used */
     uint8_t alloc; /* excluding the header and null terminator */
     unsigned location:2; /* addb hash location information */
@@ -58,6 +60,7 @@ struct __attribute__ ((__packed__)) sdshdr8 {
     char buf[];
 };
 struct __attribute__ ((__packed__)) sdshdr16 {
+    unsigned _proto_flags:3; /* addb protobuf for reverse transformation */
     uint16_t len; /* used */
     uint16_t alloc; /* excluding the header and null terminator */
     unsigned location:2; /* addb hash location information */
@@ -65,6 +68,7 @@ struct __attribute__ ((__packed__)) sdshdr16 {
     char buf[];
 };
 struct __attribute__ ((__packed__)) sdshdr32 {
+    unsigned _proto_flags:3; /* addb protobuf for reverse transformation */
     uint32_t len; /* used */
     uint32_t alloc; /* excluding the header and null terminator */
     unsigned location:2; /* addb hash location information */
@@ -72,6 +76,7 @@ struct __attribute__ ((__packed__)) sdshdr32 {
     char buf[];
 };
 struct __attribute__ ((__packed__)) sdshdr64 {
+    unsigned _proto_flags:3; /* addb protobuf for reverse transformation */
     uint64_t len; /* used */
     uint64_t alloc; /* excluding the header and null terminator */
     unsigned location:2; /* addb hash location information */
@@ -126,6 +131,24 @@ static inline size_t sdsloc(const sds s) {
             return SDS_HDR(32,s)->location;
         case SDS_TYPE_64:
             return SDS_HDR(64,s)->location;
+    }
+    return 0;
+}
+
+/* addb */
+static inline char sdsprotoflags(const sds s) {
+    unsigned char flags = s[-1];
+    switch (flags & SDS_TYPE_MASK) {
+        case SDS_TYPE_5:
+            return SDS_HDR(5,s)->_proto_flags & SDS_TYPE_MASK;
+        case SDS_TYPE_8:
+            return SDS_HDR(8,s)->_proto_flags & SDS_TYPE_MASK;
+        case SDS_TYPE_16:
+            return SDS_HDR(16,s)->_proto_flags & SDS_TYPE_MASK;
+        case SDS_TYPE_32:
+            return SDS_HDR(32,s)->_proto_flags & SDS_TYPE_MASK;
+        case SDS_TYPE_64:
+            return SDS_HDR(64,s)->_proto_flags & SDS_TYPE_MASK;
     }
     return 0;
 }
@@ -285,6 +308,33 @@ static inline void sdssetalloc(sds s, size_t newlen) {
 
 /* addb
  * implementer: totorody (kem2182@yonsei.ac.kr)
+ * Total sds size (zmalloced)
+ */
+size_t sdstotalsize(sds s) {
+    size_t result = sdsalloc(s);
+    unsigned char flags = s[-1];
+    switch(flags&SDS_TYPE_MASK) {
+        case SDS_TYPE_5:
+            result += sizeof(*SDS_HDR(5,s));
+            break;
+        case SDS_TYPE_8:
+            result += sizeof(*SDS_HDR(8,s));
+            break;
+        case SDS_TYPE_16:
+            result += sizeof(*SDS_HDR(16,s));
+            break;
+        case SDS_TYPE_32:
+            result += sizeof(*SDS_HDR(32,s));
+            break;
+        case SDS_TYPE_64:
+            result += sizeof(*SDS_HDR(64,s));
+            break;
+    }
+    return result;
+}
+
+/* addb
+ * implementer: totorody (kem2182@yonsei.ac.kr)
  * sds with location header API
  */
 sds sdsnewlenloc(const void *init, size_t initlen, size_t location);
@@ -297,7 +347,10 @@ sds sdsduploc(const sds s);
  */
 ProtoSds *_sds2proto(const sds s, int flag);
 ProtoSds *sds2proto(const sds s);
+sds _proto2sds(const ProtoSds *proto, int flag);
 sds proto2sds(const ProtoSds *proto);
+ProtobufCBinaryData sds2protobytes(const sds s);
+sds protobytes2sds(const ProtobufCBinaryData *bytes);
 
 sds sdsnewlen(const void *init, size_t initlen);
 sds sdsnew(const char *init);
