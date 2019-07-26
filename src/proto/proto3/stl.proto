@@ -1,7 +1,7 @@
-syntax = "proto2";
+syntax = "proto3";
 
 // Vector protobuf version
 message ProtoVector {
   repeated bytes values = 2;
-  required uint64 count = 3;
+  uint64 count = 3;
 }

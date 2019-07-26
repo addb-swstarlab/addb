@@ -1,5 +1,5 @@
 // Deprecated...
-syntax = "proto2";
+syntax = "proto3";
 
 enum ProtoSdsType {
   SDS_TYPE_5 = 0;
@@ -10,6 +10,6 @@ enum ProtoSdsType {
 }
 
 message ProtoSds {
-  required ProtoSdsType type = 1;
-  required bytes s = 2;
+  ProtoSdsType type = 1;
+  bytes s = 2;
 }
