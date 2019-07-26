@@ -1154,12 +1154,20 @@ size_t scanDataFromADDB_non_vector(client *c, redisDb *db,
 
         // Performs ColumnVector cached scan.
         if (scanParam->rowGroupParams[rowGroupId - 1].isInRocksDb) {
+        	  GetTimeDiff(0);
             numReplies += _cachedScanOnRocksDB_non_vector(
                 c, db, rowGroupId, scanParam);
+            long long t_rocksdb_scan = GetTimeDiff(1);
+            server.rocksdb_scan_time += t_rocksdb_scan;
+            server.total_scan_time += t_rocksdb_scan;
             continue;
         }
 
+        GetTimeDiff(0);
         numReplies += _cachedScan_non_vector(c, db, rowGroupId, scanParam);
+        long long t_redis_scan = GetTimeDiff(1);
+        server.redis_scan_time += t_redis_scan;
+        server.total_scan_time += t_redis_scan;
     }
     return numReplies;
 }

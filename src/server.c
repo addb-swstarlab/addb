@@ -1580,6 +1580,16 @@ void initServerConfig(void) {
     server.data_time = 0;
     server.total_time = 0;
 
+    /* fpScan info stats */
+    server.scan_cmd_cnt =0;
+    server.scan_parsing_time =0;
+    server.populate_time =0;
+    server.redis_scan_time =0;
+    server.rocksdb_scan_time =0;
+    server.free_time =0;
+    server.reply_time =0;
+    server.total_scan_time =0;
+
     /* Batch tiering */
     server.batch_tiering_size = CONFIG_DEFAULT_BATCH_TIERING_SIZE;
 }
@@ -3394,6 +3404,24 @@ sds genRedisInfoString(char *section) {
     if(!strcasecmp(section, "resetinsertstats")) {
     	 reset_insert_info();
     }
+
+    /*scan info*/
+    if(!strcasecmp(section, "scanstats")) {
+
+    	info = sdscatprintf(info, "[SCAN][Executed : %d] Acc(micro sec): %lld [parsing : %lld, populate : %lld, scan : (REDIS : %lld, RocksDB : %lld), "
+    			"free : %lld, reply : %lld]\n[SCAN][Executed : %d] Avg(micro sec): %.2f [parsing : %.2f, populate : %.2f, scan : (REDIS : %.2f, "
+    			"RocksDB : %.2f), free : %.2f, reply : %.2f]\n",
+    			server.scan_cmd_cnt, server.total_scan_time, server.scan_parsing_time, server.populate_time, server.redis_scan_time, server.rocksdb_scan_time,
+				server.free_time, server.reply_time, server.scan_cmd_cnt, (float)server.total_scan_time/(float)server.scan_cmd_cnt,
+				(float)server.scan_parsing_time/(float)server.scan_cmd_cnt,(float)server.populate_time/(float)server.scan_cmd_cnt,
+				(float)server.redis_scan_time/(float)server.scan_cmd_cnt,(float)server.rocksdb_scan_time/(float)server.scan_cmd_cnt,
+				(float)server.free_time/(float)server.scan_cmd_cnt, (float)server.reply_time/(float)server.scan_cmd_cnt);
+    }
+    /*reset scan info*/
+    if(!strcasecmp(section, "resetscanstats")) {
+    	 reset_scan_info();
+    }
+
     return info;
 }
 

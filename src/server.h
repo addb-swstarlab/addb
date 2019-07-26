@@ -1251,6 +1251,16 @@ struct redisServer {
     long long data_time;
     long long total_time;
 
+    /* fpScan info stats */
+    int scan_cmd_cnt;
+    long long scan_parsing_time;
+    long long populate_time;
+    long long redis_scan_time;
+    long long rocksdb_scan_time;
+    long long free_time;
+    long long reply_time;
+    long long total_scan_time;
+
     /* Batch tiering */
     int batch_tiering_size;
 };
@@ -2112,6 +2122,8 @@ void chooseBestKeyCommand(client *c);
 void queueEmptyCommand(client *c);
 void serializeCommand(client *c);
 void deserializeCommand(client *c);
+long long GetTimeDiff(unsigned int nFlag);
+
 /*
  * 2018. 5. 11
  * kem2182@yonsei.ac.kr
@@ -2153,5 +2165,7 @@ void xorDigest(unsigned char *digest, void *ptr, size_t len);
 #define redisDebugMark() \
     printf("-- MARK %s:%d --\n", __FILE__, __LINE__)
 
+/*time stuff*/
 void reset_insert_info();
+void reset_scan_info();
 #endif

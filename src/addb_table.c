@@ -43,6 +43,17 @@ void reset_insert_info(){
 	server.total_time = 0;
 }
 
+void reset_scan_info(){
+    server.scan_cmd_cnt =0;
+    server.scan_parsing_time =0;
+    server.populate_time =0;
+    server.redis_scan_time =0;
+    server.rocksdb_scan_time =0;
+    server.free_time =0;
+    server.reply_time =0;
+    server.total_scan_time =0;
+}
+
 /*
  * fpWriteCommand
  *  Write relation data to ADDB.
@@ -273,8 +284,12 @@ void fpScanCommand(client *c) {
     // serverLog(LL_DEBUG, "first: %s, second: %s", (sds) c->argv[1]->ptr,
     //           (sds) c->argv[2]->ptr);
 
+    GetTimeDiff(0);
     /*Creates scan parameters*/
     ScanParameter *scanParam = createScanParameter(c);
+    long long t_parsing = GetTimeDiff(1);
+    server.scan_parsing_time += t_parsing;
+
     // serverLog(LL_DEBUG, "DEBUG: parse scan parameter");
     // serverLog(LL_DEBUG, "startRowGroupId: %d, totalRowGroupCount: %d",
     //           scanParam->startRowGroupId, scanParam->totalRowGroupCount);
@@ -297,16 +312,29 @@ void fpScanCommand(client *c) {
     //                   &scanParam->columnParam->columnIdStrList, i));
     // }
 
+    GetTimeDiff(0);
     /*Populates row group information to scan parameters*/
     int totalDataCount = populateScanParameter(c->db, scanParam);
+    long long t_populate= GetTimeDiff(1);
+    server.populate_time += t_populate;
     serverLog(LL_DEBUG, "total data count: %d", totalDataCount);
 
     /*Non-Vector response version*/
     void *replylen = addDeferredMultiBulkLength(c);
     size_t numreplies = scanDataFromADDB_non_vector(c, c->db, scanParam);
-    freeScanParameter(scanParam);
-    setDeferredMultiBulkLength(c, replylen, numreplies);
 
+    GetTimeDiff(0);
+    freeScanParameter(scanParam);
+    long long t_free = GetTimeDiff(1);
+    server.free_time += t_free;
+
+    GetTimeDiff(0);
+    setDeferredMultiBulkLength(c, replylen, numreplies);
+    long long t_reply = GetTimeDiff(1);
+    server.reply_time += t_reply;
+
+    server.total_scan_time = (t_parsing + t_populate + t_free + t_reply) + server.total_scan_time;
+    server.scan_cmd_cnt++;
     /*Vector response version*/
     /*Load data from Redis or RocksDB*/
     // Vector data;
