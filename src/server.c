@@ -3393,8 +3393,17 @@ sds genRedisInfoString(char *section) {
 
     /*insert info*/
     if(!strcasecmp(section, "insertstats")) {
-    	info = sdscatprintf(info, "[ %d rows inserted] Acc(micro sec): %lld [ parsing : %lld, meta : %lld, tiering : %lld, data : %lld ]\n"
-    			"[ %d rows inserted] Avg(micro sec): %.2f [ parsing : %.2f, meta : %.2f, tiering : %.2f, data : %.2f ]\n",
+    	info = sdscatprintf(info, "#fpWrite stats\n"
+    			"[ %d rows inserted] Acc(micro sec): %lld\n"
+    			"parsing : %lld\n"
+    			"meta : %lld\n"
+    			"tiering : %lld\n"
+    			"data : %lld\n"
+    			"[ %d rows inserted] Avg(micro sec): %.2f\n"
+    			"parsing : %.2f\n"
+    			"meta : %.2f\n"
+    			"tiering : %.2f\n"
+    			"data : %.2f\n",
     			server.inserted_row_cnt, server.total_time, server.parsing_time, server.meta_time, server.tiering_time, server.data_time,
 				server.inserted_row_cnt, (float)server.total_time/(float)server.inserted_row_cnt,(float)server.parsing_time/(float)server.inserted_row_cnt,
 				(float)server.meta_time/(float)server.inserted_row_cnt, (float)server.tiering_time/(float)server.inserted_row_cnt,
@@ -3408,9 +3417,21 @@ sds genRedisInfoString(char *section) {
     /*scan info*/
     if(!strcasecmp(section, "scanstats")) {
 
-    	info = sdscatprintf(info, "[SCAN][Executed : %d] Acc(micro sec): %lld [parsing : %lld, populate : %lld, scan : (REDIS : %lld, RocksDB : %lld), "
-    			"free : %lld, reply : %lld]\n[SCAN][Executed : %d] Avg(micro sec): %.2f [parsing : %.2f, populate : %.2f, scan : (REDIS : %.2f, "
-    			"RocksDB : %.2f), free : %.2f, reply : %.2f]\n",
+    	info = sdscatprintf(info, "#fpScan stats\n"
+    			"[SCAN][Executed : %d] Acc(micro sec): %lld\n"
+    			"parsing: %lld\n"
+    			"populate: %lld\n"
+    			"scan(Redis): %lld\n"
+    			"scan(RocksDB): %lld\n"
+    			"free: %lld\n"
+    			"reply: %lld\n"
+    			"[SCAN][Executed : %d] Avg(micro sec): %.2f\n"
+    			"parsing: %.2f\n"
+    			"populate: %.2f\n"
+    			"scan(Redis): %.2f\n"
+    			"scan(RocksDB): %.2f\n"
+    			"free: %.2f\n"
+    			"reply : %.2f\n",
     			server.scan_cmd_cnt, server.total_scan_time, server.scan_parsing_time, server.populate_time, server.redis_scan_time, server.rocksdb_scan_time,
 				server.free_time, server.reply_time, server.scan_cmd_cnt, (float)server.total_scan_time/(float)server.scan_cmd_cnt,
 				(float)server.scan_parsing_time/(float)server.scan_cmd_cnt,(float)server.populate_time/(float)server.scan_cmd_cnt,

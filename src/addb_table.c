@@ -44,14 +44,14 @@ void reset_insert_info(){
 }
 
 void reset_scan_info(){
-    server.scan_cmd_cnt =0;
-    server.scan_parsing_time =0;
-    server.populate_time =0;
-    server.redis_scan_time =0;
-    server.rocksdb_scan_time =0;
-    server.free_time =0;
-    server.reply_time =0;
-    server.total_scan_time =0;
+	server.scan_cmd_cnt =0;
+	server.scan_parsing_time =0;
+	server.populate_time =0;
+	server.redis_scan_time =0;
+	server.rocksdb_scan_time =0;
+	server.free_time =0;
+	server.reply_time =0;
+	server.total_scan_time =0;
 }
 
 /*
