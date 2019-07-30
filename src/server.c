@@ -1575,10 +1575,16 @@ void initServerConfig(void) {
     /* fpWrite info stats */
     server.inserted_row_cnt = 0;
     server.parsing_time = 0;
+    server.parameter_check_time = 0;
     server.meta_time = 0;
-    server.tiering_time = 0;
+    server.datakey_gen_time = 0;
+    server.partial_time = 0;
     server.data_time = 0;
     server.total_time = 0;
+    server.serial_string = 0;
+    server.serialize_time = 0;
+    server.dict_clear_call_cnt;
+    server.dict_free_time;
 
     /* fpScan info stats */
     server.scan_cmd_cnt =0;
@@ -3396,18 +3402,30 @@ sds genRedisInfoString(char *section) {
     	info = sdscatprintf(info, "#fpWrite stats\n"
     			"[ %d rows inserted] Acc(micro sec): %lld\n"
     			"parsing : %lld\n"
+    			"param_check : %lld\n"
     			"meta : %lld\n"
+    			"datakey_gen : %lld\n"
     			"tiering : %lld\n"
     			"data : %lld\n"
+    			"serialize[ %d ] : %lld\n"
+    			"free[ %d ] : %lld\n"
     			"[ %d rows inserted] Avg(micro sec): %.2f\n"
     			"parsing : %.2f\n"
+    			"param_check : %.2f\n"
     			"meta : %.2f\n"
+    			"datakey_gen : %.2f\n"
     			"tiering : %.2f\n"
-    			"data : %.2f\n",
-    			server.inserted_row_cnt, server.total_time, server.parsing_time, server.meta_time, server.tiering_time, server.data_time,
-				server.inserted_row_cnt, (float)server.total_time/(float)server.inserted_row_cnt,(float)server.parsing_time/(float)server.inserted_row_cnt,
-				(float)server.meta_time/(float)server.inserted_row_cnt, (float)server.tiering_time/(float)server.inserted_row_cnt,
-				(float)server.data_time/(float)server.inserted_row_cnt);
+    			"data : %.2f\n"
+    			"serialize : %.2f\n"
+    			"free : %.2f\n",
+				server.inserted_row_cnt, server.total_time,server.parsing_time, server.parameter_check_time, server.meta_time,
+				server.datakey_gen_time, server.partial_time,server.data_time, server.serial_string,
+				server.serialize_time, server.dict_clear_call_cnt, server.dict_free_time, server.inserted_row_cnt,
+				(float)server.total_time/(float)server.inserted_row_cnt,(float)server.parsing_time/(float)server.inserted_row_cnt,
+				(float)server.parameter_check_time/(float)server.inserted_row_cnt, (float)server.meta_time/(float)server.inserted_row_cnt,
+				(float)server.datakey_gen_time/(float)server.inserted_row_cnt, (float)server.partial_time/(float)server.inserted_row_cnt,
+				(float)server.data_time/(float)server.inserted_row_cnt,(float)server.serialize_time/(float)server.serial_string,
+				(float)server.dict_free_time/(float)server.dict_clear_call_cnt);
     }
     /*reset insert info*/
     if(!strcasecmp(section, "resetinsertstats")) {

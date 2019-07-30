@@ -1246,10 +1246,16 @@ struct redisServer {
     /* fpWrite info stats */
     int inserted_row_cnt;
     long long parsing_time;
+    long long parameter_check_time;
     long long meta_time;
-    long long tiering_time;
+    long long datakey_gen_time;
+    long long partial_time;
     long long data_time;
     long long total_time;
+    int serial_string;
+    long long serialize_time;
+    int dict_clear_call_cnt;
+    long long dict_free_time;
 
     /* fpScan info stats */
     int scan_cmd_cnt;

@@ -38,9 +38,15 @@ void reset_insert_info(){
 	server.inserted_row_cnt =0;
 	server.parsing_time =0;
 	server.meta_time =0;
-	server.tiering_time =0;
+	server.datakey_gen_time =0;
+	server.partial_time =0;
 	server.data_time =0;
+	server.serialize_time = 0;
+	server.serial_string =0;
 	server.total_time = 0;
+  server.dict_clear_call_cnt=0;
+  server.dict_free_time=0;
+  server.parameter_check_time =0;
 }
 
 void reset_scan_info(){
@@ -97,6 +103,12 @@ void fpWriteCommand(client *c){
     /*parsing dataInfo*/
     NewDataKeyInfo *dataKeyInfo = parsingDataKeyInfo((sds)c->argv[1]->ptr);
 
+    long long time1 = GetTimeDiff(1);
+    server.parsing_time += time1;
+    //serverLog(LL_WARNING, "Parsing END TIME %lld", time1); //parsing time
+    GetTimeDiff(0);
+
+
     /*get column number*/
     int column_number = atoi((char *) c->argv[3]->ptr);
     assert(column_number <= MAX_COLUMN_NUMBER);
@@ -112,9 +124,8 @@ void fpWriteCommand(client *c){
     	addReplyError(c, "column_number Error");
     	return;
     }
-    long long time1 = GetTimeDiff(1);
-    server.parsing_time += time1;
-    //serverLog(LL_WARNING, "Parsing END TIME %lld", time1); //parsing time
+    long long check_time = GetTimeDiff(1);
+    server.parameter_check_time += check_time;
 
     serverLog(LL_DEBUG,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
               dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroupId);
@@ -149,6 +160,10 @@ void fpWriteCommand(client *c){
 		robj *dataKeyString = NULL;
 		dataKeyString = generateDataKey(dataKeyInfo);
 		//serverLog(LL_VERBOSE, "DATAKEY1 :  %s", (char *) dataKeyString->ptr);
+		long long datakey_time = GetTimeDiff(1);
+		server.datakey_gen_time += datakey_time;
+
+		 GetTimeDiff(0);
 
 		dictEntry *entryDict = dictFind(c->db->dict, dataKeyString->ptr);
 		if (entryDict != NULL) {
@@ -178,7 +193,7 @@ void fpWriteCommand(client *c){
 
 		//insert_start = ustime();
 		    long long time3 = GetTimeDiff(1);
-		    server.tiering_time += time3;
+		    server.partial_time += time3;
 		    //serverLog(LL_WARNING, "Tiering END TIME %lld", time3); //Meta lookup time
 
 		    GetTimeDiff(0);
@@ -234,7 +249,7 @@ void fpWriteCommand(client *c){
     server.inserted_row_cnt++;
     serverLog(LL_DEBUG,"FPWRITE COMMAND END");
 
-    server.total_time = (time1 + time2 + time3 + time4) + server.total_time;
+    server.total_time = (time1 + time2 + time3 + time4 + check_time + datakey_time) + server.total_time;
 
     serverLog(LL_DEBUG,"DictEntry Registration in a circular queue START");
 
