@@ -3409,7 +3409,6 @@ sds genRedisInfoString(char *section) {
     			"free[ %d ] : %lld\n"
     			"[ %d rows inserted] Avg(micro sec): %.2f\n"
     			"parsing : %.2f\n"
-    			"param_check : %.2f\n"
     			"meta : %.2f\n"
     			"datakey_gen : %.2f\n"
     			"tiering : %.2f\n"
