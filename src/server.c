@@ -1582,8 +1582,8 @@ void initServerConfig(void) {
     server.total_time = 0;
     server.serial_string = 0;
     server.serialize_time = 0;
-    server.dict_clear_call_cnt;
-    server.dict_free_time;
+    server.dict_clear_call_cnt=0;
+    server.dict_free_time=0;
 
     /* fpScan info stats */
     server.scan_cmd_cnt =0;
