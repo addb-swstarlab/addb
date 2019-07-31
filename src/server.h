@@ -1262,6 +1262,8 @@ struct redisServer {
     long long populate_time;
     long long redis_scan_time;
     long long rocksdb_scan_time;
+    int redis_cnt;
+    int rocksdb_cnt;
     long long free_time;
     long long reply_time;
     long long total_scan_time;

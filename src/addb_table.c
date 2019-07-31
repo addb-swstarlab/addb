@@ -99,6 +99,8 @@ void reset_scan_info(){
 	server.free_time =0;
 	server.reply_time =0;
 	server.total_scan_time =0;
+	server.redis_cnt=0;
+	server.rocksdb_cnt=0;
 }
 
 /*

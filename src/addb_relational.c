@@ -1165,6 +1165,7 @@ size_t scanDataFromADDB_non_vector(client *c, redisDb *db,
             long long t_rocksdb_scan = GetTimeDiff(1);
             server.rocksdb_scan_time += t_rocksdb_scan;
             server.total_scan_time += t_rocksdb_scan;
+            server.rocksdb_cnt++;
             continue;
         }
 
@@ -1173,6 +1174,7 @@ size_t scanDataFromADDB_non_vector(client *c, redisDb *db,
         long long t_redis_scan = GetTimeDiff(1);
         server.redis_scan_time += t_redis_scan;
         server.total_scan_time += t_redis_scan;
+        server.redis_cnt++;
     }
     return numReplies;
 }

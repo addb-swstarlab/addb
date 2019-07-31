@@ -1590,7 +1590,9 @@ void initServerConfig(void) {
     server.scan_parsing_time =0;
     server.populate_time =0;
     server.redis_scan_time =0;
+    server.redis_cnt =0;
     server.rocksdb_scan_time =0;
+    server.rocksdb_cnt=0;
     server.free_time =0;
     server.reply_time =0;
     server.total_scan_time =0;
@@ -3436,21 +3438,22 @@ sds genRedisInfoString(char *section) {
     			"[SCAN][Executed : %d] Acc(micro sec): %lld\n"
     			"parsing: %lld\n"
     			"populate: %lld\n"
-    			"scan(Redis): %lld\n"
-    			"scan(RocksDB): %lld\n"
+    			"scan[Redis ( %d )]: %lld\n"
+    			"scan[RocksDB ( %d )]: %lld\n"
     			"free: %lld\n"
     			"reply: %lld\n"
     			"[SCAN][Executed : %d] Avg(micro sec): %.2f\n"
     			"parsing: %.2f\n"
     			"populate: %.2f\n"
-    			"scan(Redis): %.2f\n"
-    			"scan(RocksDB): %.2f\n"
+    			"scan[Redis ( %d )]: %.2f\n"
+    			"scan[RocksDB ( %d )]: %.2f\n"
     			"free: %.2f\n"
     			"reply : %.2f\n",
-    			server.scan_cmd_cnt, server.total_scan_time, server.scan_parsing_time, server.populate_time, server.redis_scan_time, server.rocksdb_scan_time,
-				server.free_time, server.reply_time, server.scan_cmd_cnt, (float)server.total_scan_time/(float)server.scan_cmd_cnt,
+    			server.scan_cmd_cnt, server.total_scan_time, server.scan_parsing_time, server.populate_time, server.redis_cnt, server.redis_scan_time,
+				server.rocksdb_cnt, server.rocksdb_scan_time, server.free_time, server.reply_time, server.scan_cmd_cnt,
+				(float)server.total_scan_time/(float)server.scan_cmd_cnt,
 				(float)server.scan_parsing_time/(float)server.scan_cmd_cnt,(float)server.populate_time/(float)server.scan_cmd_cnt,
-				(float)server.redis_scan_time/(float)server.scan_cmd_cnt,(float)server.rocksdb_scan_time/(float)server.scan_cmd_cnt,
+				server.redis_cnt,(float)server.redis_scan_time/(float)server.redis_cnt, server.rocksdb_cnt,(float)server.rocksdb_scan_time/(float)server.rocksdb_cnt,
 				(float)server.free_time/(float)server.scan_cmd_cnt, (float)server.reply_time/(float)server.scan_cmd_cnt);
     }
     /*reset scan info*/
