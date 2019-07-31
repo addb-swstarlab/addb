@@ -33,6 +33,48 @@ long long GetTimeDiff(unsigned int nFlag){
 
 }
 
+long long _Serial_GetTimeDiff(unsigned int nFlag){
+
+	const long long NANOS = 1000000000LL;
+	static struct timespec startTS, endTS;
+	static long long retDiff = 0;
+
+	if(nFlag == 0){
+		retDiff = 0;
+		if(-1 == clock_gettime(CLOCK_MONOTONIC, &startTS))
+			printf("FAILED TO CALL CLOCK_GETTIME\n");
+	}
+	else {
+		if(-1 == clock_gettime(CLOCK_MONOTONIC, &endTS))
+			printf("FAILED TO CALL CLOCK_GETTIME\n");
+
+		retDiff = NANOS * (endTS.tv_sec - startTS.tv_sec) + (endTS.tv_nsec - startTS.tv_nsec);
+	}
+	return retDiff/1000;  //1000000 - mili  1000 - micro  1 - nano
+
+}
+
+long long _dictfree_GetTimeDiff(unsigned int nFlag){
+
+	const long long NANOS = 1000000000LL;
+	static struct timespec startTS, endTS;
+	static long long retDiff = 0;
+
+	if(nFlag == 0){
+		retDiff = 0;
+		if(-1 == clock_gettime(CLOCK_MONOTONIC, &startTS))
+			printf("FAILED TO CALL CLOCK_GETTIME\n");
+	}
+	else {
+		if(-1 == clock_gettime(CLOCK_MONOTONIC, &endTS))
+			printf("FAILED TO CALL CLOCK_GETTIME\n");
+
+		retDiff = NANOS * (endTS.tv_sec - startTS.tv_sec) + (endTS.tv_nsec - startTS.tv_nsec);
+	}
+	return retDiff/1000;  //1000000 - mili  1000 - micro  1 - nano
+
+}
+
 void reset_insert_info(){
 	/*reset info*/
 	server.inserted_row_cnt =0;
@@ -46,7 +88,6 @@ void reset_insert_info(){
 	server.total_time = 0;
   server.dict_clear_call_cnt=0;
   server.dict_free_time=0;
-  server.parameter_check_time =0;
 }
 
 void reset_scan_info(){
@@ -103,12 +144,6 @@ void fpWriteCommand(client *c){
     /*parsing dataInfo*/
     NewDataKeyInfo *dataKeyInfo = parsingDataKeyInfo((sds)c->argv[1]->ptr);
 
-    long long time1 = GetTimeDiff(1);
-    server.parsing_time += time1;
-    //serverLog(LL_WARNING, "Parsing END TIME %lld", time1); //parsing time
-    GetTimeDiff(0);
-
-
     /*get column number*/
     int column_number = atoi((char *) c->argv[3]->ptr);
     assert(column_number <= MAX_COLUMN_NUMBER);
@@ -124,8 +159,9 @@ void fpWriteCommand(client *c){
     	addReplyError(c, "column_number Error");
     	return;
     }
-    long long check_time = GetTimeDiff(1);
-    server.parameter_check_time += check_time;
+
+    long long time1 = GetTimeDiff(1);
+    server.parsing_time += time1;
 
     serverLog(LL_DEBUG,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
               dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroupId);
@@ -249,7 +285,7 @@ void fpWriteCommand(client *c){
     server.inserted_row_cnt++;
     serverLog(LL_DEBUG,"FPWRITE COMMAND END");
 
-    server.total_time = (time1 + time2 + time3 + time4 + check_time + datakey_time) + server.total_time;
+    server.total_time = (time1 + time2 + time3 + time4 + datakey_time) + server.total_time;
 
     serverLog(LL_DEBUG,"DictEntry Registration in a circular queue START");
 

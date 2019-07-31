@@ -1246,7 +1246,6 @@ struct redisServer {
     /* fpWrite info stats */
     int inserted_row_cnt;
     long long parsing_time;
-    long long parameter_check_time;
     long long meta_time;
     long long datakey_gen_time;
     long long partial_time;
@@ -2129,6 +2128,8 @@ void queueEmptyCommand(client *c);
 void serializeCommand(client *c);
 void deserializeCommand(client *c);
 long long GetTimeDiff(unsigned int nFlag);
+long long _Serial_GetTimeDiff(unsigned int nFlag);
+long long _dictfree_GetTimeDiff(unsigned int nFlag);
 
 /*
  * 2018. 5. 11

@@ -810,9 +810,9 @@ void prepareBatchWriteToRocksDB(redisDb *db, Vector *evict_keys,
             sprintf(keystr, "%s:%s%s", key, REL_MODEL_FIELD_PREFIX, field_key);
             sds rockskey = sdsnew(keystr);
 
-            GetTimeDiff(0);
+            _Serial_GetTimeDiff(0);
             char *serialized_vector_obj = VectorSerialize(vector_obj);
-            long long serial_time = GetTimeDiff(1);
+            long long serial_time = _Serial_GetTimeDiff(1);
             server.serialize_time +=serial_time;
             server.serial_string++;
 

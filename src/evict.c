@@ -715,9 +715,9 @@ int freeMemoryIfNeeded(void) {
 				robj *victimKeyobj = createStringObject(victimKey,
 						sdslen(victimKey));
 				//serverLog(LL_VERBOSE, "freed = %s" , victimKey);
-				GetTimeDiff(0);
+				_dictfree_GetTimeDiff(0);
 				isFlushed = dbClear_(db, victimKeyobj);
-				long long dbclear_time = GetTimeDiff(1);
+				long long dbclear_time = _dictfree_GetTimeDiff(1);
 				server.dict_free_time += dbclear_time;
 				server.dict_clear_call_cnt++;
 
