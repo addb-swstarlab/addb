@@ -206,6 +206,17 @@ function Set_batch() {
 	fi
 }
 
+function Set_batchfree() {
+	if [ -z "$1" ]; then
+		echo -e "\nPlease enter batch_free_size"
+		echo "Ex) addb_RR -batchfree 500"
+		exit 1;
+	else
+		echo -e "\n## ADDB Redis -Set batch_free_size "
+		SetConfiguration_Grep1 "batch_free_size" "batch_free_size" $1
+	fi
+}
+
 function Set_slow() {
 	if [ -z "$1" ]; then
 		echo -e "\nPlease enter slow log threshold"
@@ -438,6 +449,9 @@ function main() {
 			;;
 		-batch)
 			Set_batch $2
+			;;
+		-batchfree)
+			Set_batchfree $2
 			;;
 		-slow)
 			Set_slow $2

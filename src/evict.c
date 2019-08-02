@@ -614,6 +614,11 @@ int _getRowCount(redisDb *db, sds dataKey) {
 void _batchTiering(redisDb *db, Vector *evict_keys, Vector *evict_relations) {
     int count = server.batch_tiering_size;
     serverLog(LL_DEBUG, "[_batchTiering] Initial batch tiering size: %d", count);
+
+    if (isEmpty(db->EvictQueue)) {
+        return;
+    }
+
     while (!isEmpty(db->EvictQueue) && count > 0) {
         dictEntry *de = chooseBestKeyFromQueue_(db->EvictQueue, db->FreeQueue);
         if (de == NULL) {
@@ -632,6 +637,39 @@ void _batchTiering(redisDb *db, Vector *evict_keys, Vector *evict_relations) {
     server.stat_evictedkeys += vectorCount(evict_relations);
 }
 
+int _batchFree(redisDb *db) {
+    int total_iteration = 0;
+    int count = server.batch_free_size;
+
+    if (isEmpty(db->FreeQueue)) {
+        return;
+    }
+
+    while (!isEmpty(db->FreeQueue) && count > 0) {
+        dictEntry *victim = chooseClearKeyFromQueue_(db->FreeQueue);
+        /* Finally remove the selected key. */
+        if (victim == NULL) {
+            serverLog(LL_DEBUG, "MayBe flush error victim is NULL");
+            continue;
+        }
+        sds key = dictGetKey(victim);
+        robj *relation = dictGetVal(victim);
+        serverAssert(relation->location == LOCATION_PERSISTED);
+        int rowCount = _getRowCount(db, key);
+        count -= rowCount;
+        robj *keyObj = createStringObject(key, sdslen(key));
+        if (dbClear_(db, keyObj) == C_ERR) {
+            serverLog(LL_VERBOSE,"CLEAR FAIL : FreeQueue->size : %d", db->FreeQueue->size);
+            serverAssert(0);
+        }
+        decrRefCount(keyObj);
+        serverLog(LL_DEBUG, "CLEAR VICTIM SUCCESS [rear: %d]",
+                  db->FreeQueue->rear);
+        total_iteration++;
+    }
+    return total_iteration;
+}
+
 int freeMemoryIfNeeded(void) {
     size_t mem_reported, mem_used, mem_tofree, mem_freed;
     mstime_t latency, eviction_latency;
@@ -641,7 +679,6 @@ int freeMemoryIfNeeded(void) {
     int isPersisted = 0;
     int isFlushed = 0;
     int isEnd = 0;
-    int victim_free = 0;
 
     /* When clients are paused the dataset should be static not just from the
      * POV of clients not being able to write, but also from the POV of
@@ -676,7 +713,7 @@ int freeMemoryIfNeeded(void) {
         Vector *evict_relations = vectorCreate(STL_TYPE_ROBJ, INIT_VECTOR_SIZE);
         _batchTiering(db, evict_keys, evict_relations);
     }
-    
+
     //		if (db->EvictQueue->size == 0 && db->FreeQueue->size > 1000000) {
     //			dictEntry * de;
     //			serverLog(LL_VERBOSE, "if constraint");
@@ -696,45 +733,19 @@ int freeMemoryIfNeeded(void) {
 
     int index = 0;
     while (mem_used > server.maxmemory) {
-		serverLog(LL_DEBUG,
-				"[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.9 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
-				index++, server.maxmemory * 9 / 10, server.maxmemory, mem_used,
-				mem_tofree, mem_freed);
+        serverLog(LL_DEBUG,
+                  "[FREE_MEMORY CALLED]- [%d] : maxmemory * 0.9 :%ld, maxmemory : %ld, used memory : %d, mem_tofree : %d, mem_freed : %d",
+                  index++, server.maxmemory * 9 / 10, server.maxmemory, mem_used,
+                  mem_tofree, mem_freed);
 
-		sds victimKey = NULL;
-		robj *victVal = NULL;
-		dictEntry *victim = NULL;
-
-		if (!isEmpty(db->FreeQueue)) {
-			victim = chooseClearKeyFromQueue_(db->FreeQueue);
-			/* Finally remove the selected key. */
-			if (victim != NULL) {
-				victimKey = dictGetKey(victim);
-				victVal = dictGetVal(victim);
-				serverAssert(victVal->location == LOCATION_PERSISTED);
-				robj *victimKeyobj = createStringObject(victimKey,
-						sdslen(victimKey));
-				//serverLog(LL_VERBOSE, "freed = %s" , victimKey);
-				isFlushed = dbClear_(db, victimKeyobj);
-				if (isFlushed) {
-					serverLog(LL_VERBOSE,"CLEAR FAIL : FreeQueue->size : %d", db->FreeQueue->size);
-					serverAssert(0);
-				}
-				decrRefCount(victimKeyobj);
-				serverLog(LL_DEBUG, "CLEAR VICTIM SUCCESS [rear: %d]",
-						db->FreeQueue->rear);
-				victim_free++;
-			} else {
-				serverLog(LL_DEBUG, "MayBe flush error victim is NULL");
-			}
-		} else {
-			serverLog(LL_DEBUG, "[FREE QUEUE is Empty] : size = %d, rear = %d, front = %d, max =%d ",
-					db->FreeQueue->size, db->FreeQueue->rear, db->FreeQueue->front, db->FreeQueue->max);
+        if (isEmpty(db->FreeQueue)) {
+            serverLog(LL_DEBUG, "[FREE QUEUE is Empty] : size = %d, rear = %d, front = %d, max =%d ",
+                      db->FreeQueue->size, db->FreeQueue->rear, db->FreeQueue->front, db->FreeQueue->max);
 			serverLog(LL_DEBUG, "[EVICT QUEUE] : size = %d, rear = %d, front = %d, max =%d ",
-					db->EvictQueue->size, db->EvictQueue->rear, db->EvictQueue->front, db->EvictQueue->max);
-			serverLog(LL_VERBOSE, "[Memory status] : maxmemory= %ld, used memory = %d", server.maxmemory, mem_used);
-			/* TODO(wgchoi): Need to check why freequeue is empty.
-			 *      Maybe, Insert speed is much faster than tiering speed.
+                      db->EvictQueue->size, db->EvictQueue->rear, db->EvictQueue->front, db->EvictQueue->max);
+            serverLog(LL_VERBOSE, "[Memory status] : maxmemory= %ld, used memory = %d", server.maxmemory, mem_used);
+            /* TODO(wgchoi): Need to check why freequeue is empty.
+             *      Maybe, Insert speed is much faster than tiering speed.
              *      We handle this issue by some workaround that force-evicts
              *      more relations to RocksDB. */
             Vector *force_evict_keys = vectorCreate(STL_TYPE_SDS,
@@ -742,14 +753,23 @@ int freeMemoryIfNeeded(void) {
             Vector *force_evict_relations = vectorCreate(STL_TYPE_ROBJ,
                                                          INIT_VECTOR_SIZE);
 			_batchTiering(db, force_evict_keys, force_evict_relations);
-		}
 
-		mem_used = zmalloc_used_memory();
-		if (server.aof_state != AOF_OFF) {
-			mem_used -= sdslen(server.aof_buf);
-			mem_used -= aofRewriteBufferSize();
-		}
-	}
+            mem_used = zmalloc_used_memory();
+            if (server.aof_state != AOF_OFF) {
+                mem_used -= sdslen(server.aof_buf);
+                mem_used -= aofRewriteBufferSize();
+            }
+
+            continue;
+        }
+
+        _batchFree(db);
+        mem_used = zmalloc_used_memory();
+        if (server.aof_state != AOF_OFF) {
+            mem_used -= sdslen(server.aof_buf);
+            mem_used -= aofRewriteBufferSize();
+        }
+    }
 
     return C_OK;
 

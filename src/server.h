@@ -168,6 +168,7 @@ typedef long long mstime_t; /* millisecond time type. */
 
 /* ADDB Related */
 #define CONFIG_DEFAULT_BATCH_TIERING_SIZE 1 /* Single tiering */
+#define CONFIG_DEFAULT_BATCH_FREE_SIZE 1 /* Single free */
 
 #define ACTIVE_EXPIRE_CYCLE_LOOKUPS_PER_LOOP 20 /* Loopkups per loop. */
 #define ACTIVE_EXPIRE_CYCLE_FAST_DURATION 1000 /* Microseconds */
@@ -1253,6 +1254,7 @@ struct redisServer {
 
     /* Batch tiering */
     int batch_tiering_size;
+    int batch_free_size;
 };
 
 typedef struct pubsubPattern {

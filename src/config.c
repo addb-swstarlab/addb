@@ -355,6 +355,15 @@ void loadServerConfigFromString(char *config) {
             if(server.batch_tiering_size == 0){
                 server.batch_tiering_size = 1;  // default
             }
+        } else if (!strcasecmp(argv[0], "batch_free_size") &&argc == 2) {
+            server.batch_free_size = atoi(argv[1]);
+            if(server.batch_free_size < 0){
+                    err = "Invalid batch free size";
+                    goto loaderr;
+            }
+            if(server.batch_free_size == 0){
+                server.batch_free_size = 1;  // default
+            }
         } else if (!strcasecmp(argv[0],"lfu-log-factor") && argc == 2) {
             server.lfu_log_factor = atoi(argv[1]);
             if (server.maxmemory_samples < 0) {

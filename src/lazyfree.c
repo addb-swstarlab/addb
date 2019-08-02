@@ -158,7 +158,7 @@ int dbClear_(redisDb *db, robj *key) {
 		decrRefCount(delKeyObj);
 	}
 	int result = dictDelete(db->dict, key->ptr);
-	return result;
+	return result == DICT_OK ? C_OK : C_ERR;
 }
 
 /* ADDB
