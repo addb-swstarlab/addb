@@ -11,38 +11,6 @@
 #include "circular_queue.h"
 
 /*ADDB*/
-
-long long GetTimeDiff(unsigned int nFlag){
-
-	const long long NANOS = 1000000000LL;
-	static struct timespec startTS, endTS;
-	static long long retDiff = 0;
-
-	if(nFlag == 0){
-		retDiff = 0;
-		if(-1 == clock_gettime(CLOCK_MONOTONIC, &startTS))
-			printf("FAILED TO CALL CLOCK_GETTIME\n");
-	}
-	else {
-		if(-1 == clock_gettime(CLOCK_MONOTONIC, &endTS))
-			printf("FAILED TO CALL CLOCK_GETTIME\n");
-
-		retDiff = NANOS * (endTS.tv_sec - startTS.tv_sec) + (endTS.tv_nsec - startTS.tv_nsec);
-	}
-	return retDiff/1000;  //1000000 - mili  1000 - micro  1 - nano
-
-}
-
-void reset_insert_info(){
-	/*reset info*/
-	server.inserted_row_cnt =0;
-	server.parsing_time =0;
-	server.meta_time =0;
-	server.tiering_time =0;
-	server.data_time =0;
-	server.total_time = 0;
-}
-
 /*
  * fpWriteCommand
  *  Write relation data to ADDB.
@@ -67,7 +35,6 @@ void reset_insert_info(){
  */
 void fpWriteCommand(client *c){
 
-	GetTimeDiff(0); //start time check
     serverLog(LL_DEBUG,"FPWRITE COMMAND START");
 
     int fpWrite_result = C_OK;
@@ -101,14 +68,9 @@ void fpWriteCommand(client *c){
     	addReplyError(c, "column_number Error");
     	return;
     }
-    long long time1 = GetTimeDiff(1);
-    server.parsing_time += time1;
-    //serverLog(LL_WARNING, "Parsing END TIME %lld", time1); //parsing time
 
     serverLog(LL_DEBUG,"VALID DATAKEYSTRING ==> tableId : %d, partitionInfo : %s, rowgroup : %d",
               dataKeyInfo->tableId, dataKeyInfo->partitionInfo.partitionString, dataKeyInfo->rowGroupId);
-
-    GetTimeDiff(0);
 
     /*get rowgroup info from Metadict*/
     int rowGroupId = getRowgroupInfo(c->db, dataKeyInfo);
@@ -129,11 +91,6 @@ void fpWriteCommand(client *c){
     	row_number = 0;
     	Enroll_queue = 1;
     }
-
-	    long long time2 = GetTimeDiff(1);
-	    server.meta_time += time2;
-	    //serverLog(LL_WARNING, "Check META END TIME %lld", time2); //Meta lookup time
-	    GetTimeDiff(0);
 
 		robj *dataKeyString = NULL;
 		dataKeyString = generateDataKey(dataKeyInfo);
@@ -166,11 +123,6 @@ void fpWriteCommand(client *c){
 //		server.stat_time_meta_update += ustime() - meta_start;
 
 		//insert_start = ustime();
-		    long long time3 = GetTimeDiff(1);
-		    server.tiering_time += time3;
-		    //serverLog(LL_WARNING, "Tiering END TIME %lld", time3); //Meta lookup time
-
-		    GetTimeDiff(0);
 
     int idx =0;
     int init =0;
@@ -218,12 +170,7 @@ void fpWriteCommand(client *c){
     insertedRow /= column_number;
     incRowNumber(c->db, dataKeyInfo, insertedRow);
 
-    long long time4 = GetTimeDiff(1);
-    server.data_time += time4;
-    server.inserted_row_cnt++;
     serverLog(LL_DEBUG,"FPWRITE COMMAND END");
-
-    server.total_time = (time1 + time2 + time3 + time4) + server.total_time;
 
     serverLog(LL_DEBUG,"DictEntry Registration in a circular queue START");
 
