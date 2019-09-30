@@ -41,15 +41,12 @@ void fpWriteCommand(client *c){
     int i;
     long long insertedRow = 0;
     int Enroll_queue = 0;
-    //long long meta_start = 0;
-    //long long insert_start = 0;
 
     //struct redisClient *fakeClient = NULL;
 
     serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
             (char *) c->argv[1]->ptr,(char *) c->argv[2]->ptr, (char *) c->argv[3]->ptr , (char *) c->argv[4]->ptr);
 
-    //meta_start = ustime();
     /*parsing dataInfo*/
     NewDataKeyInfo *dataKeyInfo = parsingDataKeyInfo((sds)c->argv[1]->ptr);
 
@@ -120,9 +117,7 @@ void fpWriteCommand(client *c){
 					dataKeyString->ptr);
 			row_number = 0;
 		}
-//		server.stat_time_meta_update += ustime() - meta_start;
 
-		//insert_start = ustime();
 		if(row_number < 0 || row_number > server.rowgroup_size)
 			serverAssert(0);
 
@@ -164,8 +159,6 @@ void fpWriteCommand(client *c){
      decrRefCount(dataField);
      decrRefCount(valueObj);
     }
-    //server.stat_time_data_insert += ustime() - insert_start;
-
     /*addb update row number info*/
     insertedRow /= column_number;
     incRowNumber(c->db, dataKeyInfo, insertedRow);
