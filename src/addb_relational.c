@@ -213,12 +213,12 @@ int getRowNumberInfoAndSetRowNumberInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo
 	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
 
 	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
-	if(metaHashdictObj == NULL){
-		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
-	}
-	else{
-		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
-	}
+//	if(metaHashdictObj == NULL){
+//		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
+//	}
+//	else{
+//		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
+//	}
 
 	robj *metaField  = createStringObjectFromLongLong((long long) dataKeyInfo->rowGroupId);
 	rowNumber = lookupCompInfoForRowNumberInMeta(metaHashdictObj, metaField);
@@ -237,12 +237,12 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
 
 	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
-	if(metaHashdictObj == NULL){
-		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
-	}
-	else{
-		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
-	}
+//	if(metaHashdictObj == NULL){
+//		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
+//	}
+//	else{
+//		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
+//	}
 
 	robj *metaField = shared.integers[0];
     serverLog(LL_VERBOSE, "getRowGroupInfoAndSetRowGroupInfo: Call lookupCompInfoForMeta, Size[%zu]", zmalloc_used_memory());
@@ -701,13 +701,9 @@ int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, ro
 
         int ret = dictAdd(hashDict,sdsdup(dataField->ptr),  columnVectorObj);
 
-        if(!ret){
-        				serverLog(LL_DEBUG, "Create New Vector & DATA INSERTION SUCCESS. dataKey : %s, dataField : %s, value :%s"
-        						, (char *)dataKeyString->ptr, (char*)dataField->ptr, (char *)valueObj->ptr);
-        }
-        else {
-        				serverLog(LL_WARNING, "Create New Vector & DATA INSERTION FAIL");
-        				serverPanic("Create New Vector & DATA INSERTION ERROR in insertKVpairToRelational");
+        if(ret){
+        	serverLog(LL_WARNING, "Create New Vector & DATA INSERTION FAIL");
+        	serverPanic("Create New Vector & DATA INSERTION ERROR in insertKVpairToRelational");
         }
 	}
 	else {
@@ -720,15 +716,11 @@ int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, ro
 
  		int number = v->count;
  		//check append result
- 		if(!strcmp(vectorGet(v, number-1), (sds)valueObj->ptr)){
-			serverLog(LL_DEBUG, "Append Existed Vector & DATA INSERTION SUCCESS. dataKey : %s, dataField : %s, value :%s"
-					, (char *)dataKeyString->ptr, (char*)dataField->ptr, (char *)valueObj->ptr);
-		}
-		else {
-		  serverLog(LL_WARNING, "Append Vector & DATA INSERTION FAIL");
-			serverPanic("Append Vector & DATA INSERTION ERROR in insertKVpairToRelational");
-		}
-	}
+// 		if(strcmp(vectorGet(v, number-1), (sds)valueObj->ptr) == 0){
+// 			serverLog(LL_WARNING, "Append Vector & DATA INSERTION FAIL");
+// 			serverPanic("Append Vector & DATA INSERTION ERROR in insertKVpairToRelational");
+//		}
+//	}
 	notifyKeyspaceEvent(NOTIFY_HASH,"hset", dataKeyString,c->db->id);
 	server.dirty++;
 	return init;
