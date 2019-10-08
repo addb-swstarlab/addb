@@ -720,7 +720,7 @@ int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, ro
 // 			serverLog(LL_WARNING, "Append Vector & DATA INSERTION FAIL");
 // 			serverPanic("Append Vector & DATA INSERTION ERROR in insertKVpairToRelational");
 //		}
-//	}
+	}
 	notifyKeyspaceEvent(NOTIFY_HASH,"hset", dataKeyString,c->db->id);
 	server.dirty++;
 	return init;
