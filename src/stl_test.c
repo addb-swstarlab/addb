@@ -155,6 +155,66 @@ void testVectorInterfaceCommand(client *c) {
     addReply(c, shared.ok);
 }
 
+/* RocksVectorIter Make / Next / Get Interface Test command. */
+
+/*
+ * testRocksVectorIterCommand
+ * Tests RocksVectorIter interface (Make / Next / Get).
+ * --- Parameters ---
+ *  None
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      None
+ *  Command:
+ *      redis-cli> TESTROCKSVECTORITER
+ *  Results:
+ *      redis-cli> OK (prints results to server logs)
+ */
+void testRocksVectorIterCommand(client *c) {
+    // Vector Type [SDS]
+    Vector v;
+    vectorTypeInit(&v, STL_TYPE_SDS);
+    const sds values[] = {
+        sdsnew("SDS_VALUE_1"),
+        sdsnew("SDS_VALUE_2"),
+        sdsnew("SDS_VALUE_3"),
+    };
+    vectorAdd(&v, (void *) values[0]);
+    vectorAdd(&v, (void *) values[1]);
+    vectorAdd(&v, (void *) values[2]);
+
+    // Serialized Vector (RocksVector)
+    robj *v_obj = createObject(OBJ_VECTOR, &v);
+    char *raw_rocks_v = vectorSerialize((void *) v_obj);
+    sds rocks_v = sdsnew(raw_rocks_v);
+
+    // Make test
+    {
+        RocksVectorIter begin, end;
+        int result = makeRocksVectorIter(rocks_v, &begin, &end);
+
+        assert(result == C_OK);
+        assert(begin.type == STL_TYPE_SDS);
+        assert(begin.count == 3);
+        assert(begin.rocks_v == rocks_v);
+        assert(begin.i == 0);
+        assert(begin._pos == 15);
+
+        assert(end.type == STL_TYPE_SDS);
+        assert(end.count == 3);
+        assert(end.rocks_v == rocks_v);
+        assert(end.i == vectorCount(&v) - 1);
+        assert(end._pos == 39);
+    }
+
+    vectorFreeDeep(&v);
+    zfree(v_obj);
+    zfree(raw_rocks_v);
+    sdsfree(rocks_v);
+    addReply(c, shared.ok);
+}
+
 /* Stack Push / Pop / Free Interface Test command. */
 
 /*

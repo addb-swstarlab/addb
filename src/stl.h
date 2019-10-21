@@ -31,7 +31,6 @@ typedef struct _Vector {
 } Vector;
 
 void vectorInit(Vector *v);
-void vecotrInitWithSize(Vector *v, size_t size);
 void vectorTypeInit(Vector *v, int type);
 void vectorTypeInitWithSize(Vector *v, int type, size_t size);
 Vector *vectorCreate(int type, size_t size);
@@ -50,6 +49,21 @@ char *vectorSerialize(void *o);
 int vectorDeserialize(sds rawVector, Vector **result);
 // Deprecated
 Vector *VectordeSerialize(char *VectorString);
+
+// Implement like C++ style
+typedef struct _RocksVectorIter {
+    sds rocks_v;
+    unsigned type:2;
+    size_t count;
+    size_t i;
+    size_t _pos;    // Internal index in rocksdb vector.
+} RocksVectorIter;
+
+int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
+                        RocksVectorIter *end);
+int rocksVectorIterIsEqual(const RocksVectorIter first, const RocksVectorIter second);
+int rocksVectorIterNext(RocksVectorIter *it);
+sds rocksVectorIterGet(const RocksVectorIter it);
 
 /* Stack */
 /* Implemented by using Vector */

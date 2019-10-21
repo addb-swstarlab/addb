@@ -28,12 +28,6 @@ void vectorInit(Vector *v) {
     v->count = 0;
 }
 
-void vectorInitWithSize(Vector *v, size_t size) {
-    vectorInit(v);
-    v->size = size;
-    v->data = (void **) zmalloc(_vectorGetDatumSize(v) * v->size);
-}
-
 void vectorTypeInit(Vector *v, int type) {
     vectorInit(v);
     v->type = type;
@@ -481,6 +475,254 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
 
     serverLog(LL_VERBOSE, "Vector deserialize finished");
 	return C_OK;
+}
+
+#define _GET_TARGET_TOKEN_INCLUDE_END_POINT 0
+#define _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL 1
+#define _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN 2
+#define _GET_TARGET_TOKEN_REVERSE 0
+#define _GET_TARGET_TOKEN_NO_REVERSE 1
+sds _getTargetToken(const sds rocks_v, size_t *i, const char end_point,
+                    int mode, int reverse) {
+    sds parse_v;
+    if (reverse == _GET_TARGET_TOKEN_NO_REVERSE) {
+        parse_v = rocks_v + *i;
+    }
+    sds token = sdsempty();
+    size_t token_size = 0;
+
+    int overflowed = 0;
+
+    // Parse until end_point
+    while (1) {
+        if (*i >= sdslen(rocks_v)) {
+            return NULL;
+        }
+        char ch;
+        if (reverse == _GET_TARGET_TOKEN_REVERSE) {
+            ch = rocks_v[sdslen(rocks_v) - 1 - *i];
+        } else {
+            ch = rocks_v[*i];
+        }
+        if (ch == end_point) {
+            if (
+                reverse == _GET_TARGET_TOKEN_NO_REVERSE &&
+                mode == _GET_TARGET_TOKEN_INCLUDE_END_POINT
+            ) {
+                *i = *i + 1;
+                ++token_size;
+            } else if (
+                reverse == _GET_TARGET_TOKEN_NO_REVERSE &&
+                mode == _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN
+            ) {
+                *i = *i + 1;
+            } else if (
+                reverse == _GET_TARGET_TOKEN_REVERSE &&
+                mode == _GET_TARGET_TOKEN_INCLUDE_END_POINT
+            ) {
+                ++token_size;
+            } else if (
+                reverse == _GET_TARGET_TOKEN_REVERSE &&
+                mode == _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN
+            ) {
+                if (*i == 0) {
+                    overflowed = 1;
+                } else {
+                    *i = *i - 1;
+                }
+            } else if (
+                reverse == _GET_TARGET_TOKEN_REVERSE &&
+                mode == _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL
+            ) {
+                if (*i == 0) {
+                    overflowed = 1;
+                } else {
+                    *i = *i - 1;
+                }
+            }
+            break;
+        }
+        *i = *i + 1;
+        ++token_size;
+    }
+
+    if (overflowed) {
+        return NULL;
+    }
+    if (reverse == _GET_TARGET_TOKEN_REVERSE) {
+        parse_v = rocks_v + sdslen(rocks_v) - 1 - *i;
+        token = sdscatlen(token, parse_v, token_size);
+        switch (mode) {
+            case _GET_TARGET_TOKEN_INCLUDE_END_POINT: {
+                *i = *i + 1;
+                break;
+            }
+            case _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN: {
+                *i = *i + 2;
+                break;
+            }
+            case _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL: {
+                break;
+            }
+            default:
+                break;
+        }
+    } else {
+        token = sdscatlen(token, parse_v, token_size);
+    }
+    return token;
+}
+
+int _preprocessMakeRocksVectorIter(const sds rocks_v,
+                                   size_t *i,
+                                   int *v_type,
+                                   int *v_count) {
+    // Parse 'V:{'
+    sds token = _getTargetToken(rocks_v, i, '{',
+                                _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                                _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "V:{") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            rocks_v
+        );
+        return C_ERR;
+    }
+    sdsfree(token);
+
+    // Parse 'T:'
+    token = _getTargetToken(rocks_v, i, ':',
+                            _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "T:") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            rocks_v
+        );
+        return C_ERR;
+    }
+    sdsfree(token);
+
+    // Parse Vector Type
+    token = _getTargetToken(rocks_v, i, ':',
+                            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    *v_type = atoi(token);
+    sdsfree(token);
+
+    // Parse 'N:'
+    token = _getTargetToken(rocks_v, i, ':',
+                            _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "N:") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            rocks_v
+        );
+        return C_ERR;
+    }
+    sdsfree(token);
+
+    // Parse Vector Count
+    token = _getTargetToken(rocks_v, i, '}',
+                            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    *v_count = atoi(token);
+    sdsfree(token);
+
+    // Parse until 'D'
+    token = _getTargetToken(rocks_v, i, 'D',
+                            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    sdsfree(token);
+    return C_OK;
+}
+
+int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
+                        RocksVectorIter *end) {
+    if (
+        rocks_v == NULL || begin == NULL || end == NULL ||
+        sdslen(rocks_v) == 0
+    ) {
+        return C_ERR;
+    }
+
+    size_t i = 0;
+    int v_type = -1;
+    int v_count = -1;
+    if (_preprocessMakeRocksVectorIter(rocks_v, &i, &v_type, &v_count) == C_ERR) {
+        return C_ERR;
+    }
+    serverLog(LL_DEBUG, "Pos: %zu, type: %d, count: %d", i, v_type, v_count);
+
+    begin->rocks_v = rocks_v;
+    begin->type = v_type;
+    begin->count = v_count;
+
+    end->rocks_v = rocks_v;
+    end->type = v_type;
+    end->count = v_count;
+
+    // Parse 'D:['
+    sds token = _getTargetToken(rocks_v, &i, '[',
+                                _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                                _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "D:[") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            rocks_v);
+        return C_ERR;
+    }
+    sdsfree(token);
+
+    begin->i = 0;
+    begin->_pos = i;
+
+    size_t reversed_i = 0;
+    token = _getTargetToken(rocks_v, &reversed_i, ']',
+                            _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                            _GET_TARGET_TOKEN_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "]") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            rocks_v);
+        return C_ERR;
+    }
+    sdsfree(token);
+    token = _getTargetToken(rocks_v, &reversed_i, ':',
+                            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL,
+                            _GET_TARGET_TOKEN_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    sdsfree(token);
+
+    end->i = v_count - 1;
+    end->_pos = sdslen(rocks_v) - 1 - reversed_i;
+
+    return C_OK;
+}
+
+int rocksVectorIterIsEqual(const RocksVectorIter first, const RocksVectorIter second) {
+    return -1;
+}
+
+int rocksVectorIterNext(RocksVectorIter *it) {
+    return -1;
+}
+
+sds rocksVectorIterGet(const RocksVectorIter it) {
+    return NULL;
 }
 
 void stackInit(Stack *s) {
