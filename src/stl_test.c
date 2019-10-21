@@ -232,6 +232,18 @@ void testRocksVectorIterCommand(client *c) {
         assert(begin._pos == 15);
         sdsfree(entry);
     }
+    // IsEqual() test
+    {
+        RocksVectorIter begin, end;
+        makeRocksVectorIter(rocks_v, &begin, &end);
+
+        assert(!rocksVectorIterIsEqual(begin, end));
+
+        RocksVectorIter begin_2, end_2;
+        makeRocksVectorIter(rocks_v, &begin_2, &end_2);
+        assert(rocksVectorIterIsEqual(begin, begin_2));
+        assert(rocksVectorIterIsEqual(end, end_2));
+    }
 
     vectorFreeDeep(&v);
     zfree(v_obj);

@@ -713,8 +713,12 @@ int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
     return C_OK;
 }
 
-int rocksVectorIterIsEqual(const RocksVectorIter first, const RocksVectorIter second) {
-    return -1;
+bool rocksVectorIterIsEqual(const RocksVectorIter first, const RocksVectorIter second) {
+    bool is_rocks_v_equal = first.rocks_v == second.rocks_v &&
+        first.count == second.count &&
+        first.type == second.type;
+    bool is_iter_equal = first.i == second.i && first._pos == second._pos;
+    return is_rocks_v_equal && is_iter_equal;
 }
 
 int rocksVectorIterNext(RocksVectorIter *it, int *eoi) {

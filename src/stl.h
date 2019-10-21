@@ -61,7 +61,7 @@ typedef struct _RocksVectorIter {
 
 int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
                         RocksVectorIter *end);
-int rocksVectorIterIsEqual(const RocksVectorIter first, const RocksVectorIter second);
+bool rocksVectorIterIsEqual(const RocksVectorIter first, const RocksVectorIter second);
 int rocksVectorIterNext(RocksVectorIter *it, int *eoi);
 sds rocksVectorIterGet(const RocksVectorIter it);
 
