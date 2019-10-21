@@ -46,6 +46,10 @@ int vectorFreeDatum(Vector *v, void *datum);
 int vectorFree(Vector *v);
 int vectorFreeDeep(Vector *v);
 sds vectorToSds(Vector *v);
+char *vectorSerialize(void *o);
+int vectorDeserialize(sds rawVector, Vector **result);
+// Deprecated
+Vector *VectordeSerialize(char *VectorString);
 
 /* Stack */
 /* Implemented by using Vector */
@@ -61,9 +65,4 @@ int stackPush(Stack *s, void *datum);
 void *stackPop(Stack *s);
 int stackFree(Stack *s);
 int stackFreeDeep(Stack *s);
-char *VectorSerialize(void *o);
-int vectorDeserialize(sds rawVector, Vector **result);
-// Deprecated
-Vector *VectordeSerialize(char *VectorString);
-void CheckVectorsds(Vector *v);
 #endif

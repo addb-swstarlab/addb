@@ -212,66 +212,37 @@ sds vectorToSds(Vector *v) {
     return vectorSds;
 }
 
-void stackInit(Stack *s) {
-    s->type = STL_TYPE_DEFAULT;
-    vectorInit(&s->data);
-}
-
-void stackTypeInit(Stack *s, int type) {
-    stackInit(s);
-    s->type = type;
-    s->data.type = type;
-}
-
-size_t stackCount(Stack *s) {
-    return s->data.count;
-}
-
-int stackPush(Stack *s, void *datum) {
-    return vectorAdd(&s->data, datum);
-}
-
-void *stackPop(Stack *s) {
-    return vectorPop(&s->data);
-}
-
-int stackFree(Stack *s) {
-    return vectorFree(&s->data);
-}
-
-int stackFreeDeep(Stack *s) {
-    return vectorFreeDeep(&s->data);
-}
-
-char *VectorSerialize(void *o) {
+char *vectorSerialize(void *o) {
 	Vector *v = (Vector *) ((robj *) o)->ptr;
 	int v_type = v->type;
 	int v_count = v->count;
 
-		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
-				v_type, RELMODEL_VECTOR_COUNT_PREFIX, v_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
+    sds serial_buf = sdscatfmt(
+        sdsempty(), "%s{%s%i:%s%i}:%s:%s",
+        RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX, v_type,
+        RELMODEL_VECTOR_COUNT_PREFIX, v_count, RELMODEL_DATA_PREFIX,
+        VECTOR_DATA_PREFIX);
 
-		int i;
-		for(i=0; i < v_count; i++){
-			sds element = (sds)vectorGet(v,i);
-			serial_buf= sdscatsds(serial_buf, element);
+    for(int i = 0; i < v_count; i++) {
+        sds element = (sds)vectorGet(v,i);
+        serial_buf= sdscatsds(serial_buf, element);
 
-			if(i < (v_count -1)){
-				serial_buf = sdscat(serial_buf,RELMODEL_DELIMITER);
-			}
-		}
-		serial_buf = sdscat(serial_buf, VECTOR_DATA_SUFFIX);
+        if(i < (v_count -1)){
+            serial_buf = sdscat(serial_buf,RELMODEL_DELIMITER);
+        }
+    }
+    serial_buf = sdscat(serial_buf, VECTOR_DATA_SUFFIX);
 
-		serverLog(LL_DEBUG, "(char version)SERIALIZE VECTOR : %s", serial_buf);
+    serverLog(LL_DEBUG, "(char version)SERIALIZE VECTOR : %s", serial_buf);
 
-		char *string_buf = zmalloc(sizeof(char) * (sdslen(serial_buf) + 1));
-		memcpy(string_buf, serial_buf, sdslen(serial_buf));
-		string_buf[sdslen(serial_buf)] = '\0';
-		sdsfree(serial_buf);
-		return string_buf;
-
+    char *string_buf = zmalloc(sizeof(char) * (sdslen(serial_buf) + 1));
+    memcpy(string_buf, serial_buf, sdslen(serial_buf));
+    string_buf[sdslen(serial_buf)] = '\0';
+    sdsfree(serial_buf);
+    return string_buf;
 }
 
+// Deprecated
 Vector *VectordeSerialize(char *VectorString){
 	serverLog(LL_VERBOSE, "DESERIALIZE : %s", VectorString);
 	assert(VectorString != NULL);
@@ -512,11 +483,33 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
 	return C_OK;
 }
 
-void CheckVectorsds(Vector *v){
+void stackInit(Stack *s) {
+    s->type = STL_TYPE_DEFAULT;
+    vectorInit(&s->data);
+}
 
-	size_t size= vectorCount(v);
-	for(size_t i =0; i< size; i++){
-		serverLog(LL_VERBOSE, "VECTOR CHECK SDS : [i : %zu, value : %s]", i, vectorGet(v, i));
-	}
+void stackTypeInit(Stack *s, int type) {
+    stackInit(s);
+    s->type = type;
+    s->data.type = type;
+}
 
+size_t stackCount(Stack *s) {
+    return s->data.count;
+}
+
+int stackPush(Stack *s, void *datum) {
+    return vectorAdd(&s->data, datum);
+}
+
+void *stackPop(Stack *s) {
+    return vectorPop(&s->data);
+}
+
+int stackFree(Stack *s) {
+    return vectorFree(&s->data);
+}
+
+int stackFreeDeep(Stack *s) {
+    return vectorFreeDeep(&s->data);
 }
