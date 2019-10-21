@@ -189,7 +189,7 @@ void testRocksVectorIterCommand(client *c) {
     char *raw_rocks_v = vectorSerialize((void *) v_obj);
     sds rocks_v = sdsnew(raw_rocks_v);
 
-    // Make test
+    // Make() test
     {
         RocksVectorIter begin, end;
         int result = makeRocksVectorIter(rocks_v, &begin, &end);
@@ -206,6 +206,19 @@ void testRocksVectorIterCommand(client *c) {
         assert(end.rocks_v == rocks_v);
         assert(end.i == vectorCount(&v) - 1);
         assert(end._pos == 39);
+    }
+    // Next() test
+    {
+        RocksVectorIter begin, end;
+        makeRocksVectorIter(rocks_v, &begin, &end);
+
+        int eoi = 0;
+        int result = rocksVectorIterNext(&begin, &eoi);
+
+        assert(result == C_OK);
+        assert(begin.i == 1);
+        assert(eoi == 0);
+        assert(end._pos == 27);
     }
 
     vectorFreeDeep(&v);

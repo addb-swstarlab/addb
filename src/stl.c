@@ -717,8 +717,25 @@ int rocksVectorIterIsEqual(const RocksVectorIter first, const RocksVectorIter se
     return -1;
 }
 
-int rocksVectorIterNext(RocksVectorIter *it) {
-    return -1;
+int rocksVectorIterNext(RocksVectorIter *it, int *eoi) {
+    if (it == NULL || it->rocks_v == NULL) {
+        return C_ERR;
+    }
+
+    if (it->i == it->count - 1) {
+        *eoi = 1;
+        return C_OK;
+    }
+
+    size_t i = it->_pos;
+    sds token = _getTargetToken(it->rocks_v, &i, ':',
+                                _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                                _GET_TARGET_TOKEN_NO_REVERSE);
+    sdsfree(token);
+
+    it->_pos = i;
+    it->i = it->i + 1;
+    return C_OK;
 }
 
 sds rocksVectorIterGet(const RocksVectorIter it) {
