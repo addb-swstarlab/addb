@@ -567,7 +567,7 @@ sds _getTargetToken(const sds rocks_v, size_t *i, const char end_point,
             default:
                 break;
         }
-    } else {
+    } else if (reverse == _GET_TARGET_TOKEN_NO_REVERSE) {
         token = sdscatlen(token, parse_v, token_size);
     }
     return token;
@@ -739,7 +739,24 @@ int rocksVectorIterNext(RocksVectorIter *it, int *eoi) {
 }
 
 sds rocksVectorIterGet(const RocksVectorIter it) {
-    return NULL;
+    if (it.rocks_v == NULL) {
+        return NULL;
+    }
+
+    if (it.i == it.count - 1) {
+        size_t i = it._pos;
+        sds token = _getTargetToken(
+            it.rocks_v, &i, ']',
+            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
+            _GET_TARGET_TOKEN_NO_REVERSE);
+        return token;
+    }
+
+    size_t i = it._pos;
+    sds token = _getTargetToken(it.rocks_v, &i, ':',
+                                _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
+                                _GET_TARGET_TOKEN_NO_REVERSE);
+    return token;
 }
 
 void stackInit(Stack *s) {

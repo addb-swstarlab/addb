@@ -218,7 +218,19 @@ void testRocksVectorIterCommand(client *c) {
         assert(result == C_OK);
         assert(begin.i == 1);
         assert(eoi == 0);
-        assert(end._pos == 27);
+        assert(begin._pos == 27);
+    }
+    // Get() test
+    {
+        RocksVectorIter begin, end;
+        makeRocksVectorIter(rocks_v, &begin, &end);
+
+        sds entry = rocksVectorIterGet(begin);
+        assert(entry != NULL);
+        assert(sdscmp(entry, values[0]) == 0);
+        assert(begin.i == 0);
+        assert(begin._pos == 15);
+        sdsfree(entry);
     }
 
     vectorFreeDeep(&v);
