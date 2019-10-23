@@ -256,6 +256,9 @@ size_t _cachedScan(client *c, redisDb *db, size_t rowGroupId,
                    ScanParameter *scanParam);
 size_t _cachedScanOnRocksDB(client *c, redisDb *db, size_t rowGroupId,
                             ScanParameter *scanParam);
+size_t _cachedScanOnRocksDB_iterator(client *c, redisDb *db, size_t rowGroupId,
+                                     ScanParameter *scanParam);
+sds getRawColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey);
 
 /*Partition Filter*/
 int dateStrToInteger(const char *dateStr, long *result);

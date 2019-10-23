@@ -951,7 +951,7 @@ size_t scanDataFromADDB(client *c, redisDb *db, ScanParameter *scanParam) {
 
         // Performs ColumnVector cached scan.
         if (scanParam->rowGroupParams[rowGroupId - 1].isInRocksDb) {
-            numReplies += _cachedScanOnRocksDB(c, db, rowGroupId, scanParam);
+            numReplies += _cachedScanOnRocksDB_iterator(c, db, rowGroupId, scanParam);
             continue;
         }
 
@@ -1177,6 +1177,123 @@ Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey) {
     sdsfree(copiedValue);
     rocksdb_free(value);
     return vector;
+}
+
+size_t _cachedScanOnRocksDB_iterator(client *c, redisDb *db, size_t rowGroupId,
+                                     ScanParameter *scanParam) {
+    // RowGroup index(i) = rowGroupId - 1
+    RowGroupParameter *rowGroupParam =
+        &scanParam->rowGroupParams[rowGroupId - 1];
+    ColumnParameter *columnParam = scanParam->columnParam;
+
+    ColumnVectorIter *cachedColumnVectorIters = (ColumnVectorIter **) zmalloc(
+        sizeof(ColumnVectorIter) * columnParam->columnCount);
+    int *cachedColumnVectorIds = (int *) zmalloc(
+        sizeof(int) * columnParam->columnCount);
+    for (size_t i = 0; i < columnParam->columnCount; ++i) {
+        cachedColumnVectorIters[i].col_v = NULL;
+        cachedColumnVectorIds[i] = -1;
+    }
+
+    serverLog(LL_DEBUG, "     ");
+    serverLog(LL_DEBUG, "[SCAN] Scan On RocksDB");
+    serverLog(LL_DEBUG, "RowGroup->rowCount: %d", rowGroupParam->rowCount);
+
+    size_t numReplies = 0;
+
+    for (size_t j = 0; j < rowGroupParam->rowCount; ++j) {
+        size_t rowId = j + 1;
+        for (size_t k = 0; k < columnParam->columnCount; ++k) {
+            size_t columnId = (long) vectorGet(&columnParam->columnIdList, k);
+            size_t columnVectorId = getColumnVectorId(rowId);
+
+            // Caching column vector.
+            if (columnVectorId != cachedColumnVectorIds[k]) {
+                serverLog(
+                    LL_DEBUG,
+                    "Miss! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], cachedColumnVectorIds[%d][%d]",
+                    rowGroupId, rowId, columnId, columnVectorId,
+                    k, cachedColumnVectorIds[k]);
+                // RocksDB Column Vector
+                // RocksDB Key, which is Rocks key
+                // Ex) ""
+                sds dataKey = generateDataRocksKeySds(
+                    scanParam->dataKeyInfo, columnVectorId, columnId);
+                sds colVector = getRawColumnVectorFromRocksDB(db, dataKey);
+                cachedColumnVectorIds[k] = columnVectorId;
+
+                if (cachedColumnVectorIters[k].col_v != NULL) {
+                    sdsfree(cachedColumnVectorIters[k].col_v);
+                }
+
+                ColumnVectorIter begin, end;
+                makeColumnVectorIter(colVector, &begin, &end);
+                cachedColumnVectorIters[k] = begin;
+                sdsfree(dataKey);
+            } else {
+                serverLog(
+                    LL_DEBUG,
+                    "Hit! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], cachedColumnVectorIds[%d][%d]",
+                    rowGroupId, rowId, columnId, columnVectorId,
+                    k, cachedColumnVectorIds[k]);
+            }
+
+            sds value = columnVectorIterGet(cachedColumnVectorIters[k]);
+            int eoi = 0;
+            columnVectorIterNext(&cachedColumnVectorIters[k], &eoi);
+            if (value == NULL) {
+                serverLog(
+                    LL_WARNING,
+                    "rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], ColumnVectorIndex[%zu], value[%s]",
+                    rowGroupId, rowId, columnId, columnVectorId, getColumnVectorIndex(rowId), value);
+            }
+            sdsfree(value);
+            addReplyBulkSds(c, sdsdup(value));
+            numReplies++;
+        }
+    }
+
+    // Removes created ColumnVector robjs.
+    for (size_t k = 0; k < columnParam->columnCount; ++k) {
+        sds colVector = cachedColumnVectorIters[k].col_v;
+        if (colVector != NULL) {
+            sdsfree(colVector);
+        }
+    }
+
+    zfree(cachedColumnVectorIters);
+    zfree(cachedColumnVectorIds);
+
+    return numReplies;
+}
+
+sds getRawColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey) {
+    char *err;
+    size_t valueLen = 0;
+    char *value;
+    size_t keyBufLen = 0;
+
+    serverLog(LL_DEBUG, "[getColumnVectorFromRocksDB] dataRocksKey: %s", dataRocksKey);
+
+    value = rocksdb_get_cf(
+            db->persistent_store->ps,
+            db->persistent_store->ps_options->roptions,
+            db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW],
+            dataRocksKey, sdslen(dataRocksKey), &valueLen, &err);
+
+    serverLog(LL_DEBUG, "[getColumnVectorFromRocksDB] value: %s", value);
+
+    if (value == NULL) {
+        serverLog(
+                LL_WARNING,
+                "[getColumnVectorFromRocksDB] Key: %s, value is not exist.",
+                dataRocksKey);
+        return NULL;
+    }
+
+    sds copiedValue = sdsnewlen(value, valueLen);
+    rocksdb_free(value);
+    return copiedValue;
 }
 
 /* dateStrToInteger function
