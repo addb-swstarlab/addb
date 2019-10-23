@@ -1186,7 +1186,7 @@ size_t _cachedScanOnRocksDB_iterator(client *c, redisDb *db, size_t rowGroupId,
         &scanParam->rowGroupParams[rowGroupId - 1];
     ColumnParameter *columnParam = scanParam->columnParam;
 
-    ColumnVectorIter *cachedColumnVectorIters = (ColumnVectorIter **) zmalloc(
+    ColumnVectorIter *cachedColumnVectorIters = (ColumnVectorIter *) zmalloc(
         sizeof(ColumnVectorIter) * columnParam->columnCount);
     int *cachedColumnVectorIds = (int *) zmalloc(
         sizeof(int) * columnParam->columnCount);
@@ -1247,8 +1247,8 @@ size_t _cachedScanOnRocksDB_iterator(client *c, redisDb *db, size_t rowGroupId,
                     "rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], ColumnVectorIndex[%zu], value[%s]",
                     rowGroupId, rowId, columnId, columnVectorId, getColumnVectorIndex(rowId), value);
             }
-            sdsfree(value);
             addReplyBulkSds(c, sdsdup(value));
+            sdsfree(value);
             numReplies++;
         }
     }
