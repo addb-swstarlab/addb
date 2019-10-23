@@ -714,7 +714,7 @@ int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, ro
  		Vector *v = (Vector *)VectorObj->ptr;
  		vectorAdd(v, sdsdup(valueObj->ptr));
 
- 		int number = v->count;
+// 		int number = v->count;
  		//check append result
 // 		if(strcmp(vectorGet(v, number-1), (sds)valueObj->ptr) == 0){
 // 			serverLog(LL_WARNING, "Append Vector & DATA INSERTION FAIL");
