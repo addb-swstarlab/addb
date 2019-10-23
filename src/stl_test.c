@@ -155,11 +155,11 @@ void testVectorInterfaceCommand(client *c) {
     addReply(c, shared.ok);
 }
 
-/* RocksVectorIter Make / Next / Get Interface Test command. */
+/* ColumnVectorIter Make / Next / Get Interface Test command. */
 
 /*
- * testRocksVectorIterCommand
- * Tests RocksVectorIter interface (Make / Next / Get).
+ * testColumnVectorIterCommand
+ * Tests ColumnVectorIter interface (Make / Next / Get).
  * --- Parameters ---
  *  None
  *
@@ -171,7 +171,7 @@ void testVectorInterfaceCommand(client *c) {
  *  Results:
  *      redis-cli> OK (prints results to server logs)
  */
-void testRocksVectorIterCommand(client *c) {
+void testColumnVectorIterCommand(client *c) {
     // Vector Type [SDS]
     Vector v;
     vectorTypeInit(&v, STL_TYPE_SDS);
@@ -186,34 +186,34 @@ void testRocksVectorIterCommand(client *c) {
 
     // Serialized Vector (RocksVector)
     robj *v_obj = createObject(OBJ_VECTOR, &v);
-    char *raw_rocks_v = vectorSerialize((void *) v_obj);
-    sds rocks_v = sdsnew(raw_rocks_v);
+    char *raw_col_v = vectorSerialize((void *) v_obj);
+    sds col_v = sdsnew(raw_col_v);
 
     // Make() test
     {
-        RocksVectorIter begin, end;
-        int result = makeRocksVectorIter(rocks_v, &begin, &end);
+        ColumnVectorIter begin, end;
+        int result = makeColumnVectorIter(col_v, &begin, &end);
 
         assert(result == C_OK);
         assert(begin.type == STL_TYPE_SDS);
         assert(begin.count == 3);
-        assert(begin.rocks_v == rocks_v);
+        assert(begin.col_v == col_v);
         assert(begin.i == 0);
         assert(begin._pos == 15);
 
         assert(end.type == STL_TYPE_SDS);
         assert(end.count == 3);
-        assert(end.rocks_v == rocks_v);
+        assert(end.col_v == col_v);
         assert(end.i == vectorCount(&v) - 1);
         assert(end._pos == 39);
     }
     // Next() test
     {
-        RocksVectorIter begin, end;
-        makeRocksVectorIter(rocks_v, &begin, &end);
+        ColumnVectorIter begin, end;
+        makeColumnVectorIter(col_v, &begin, &end);
 
         int eoi = 0;
-        int result = rocksVectorIterNext(&begin, &eoi);
+        int result = columnVectorIterNext(&begin, &eoi);
 
         assert(result == C_OK);
         assert(begin.i == 1);
@@ -222,10 +222,10 @@ void testRocksVectorIterCommand(client *c) {
     }
     // Get() test
     {
-        RocksVectorIter begin, end;
-        makeRocksVectorIter(rocks_v, &begin, &end);
+        ColumnVectorIter begin, end;
+        makeColumnVectorIter(col_v, &begin, &end);
 
-        sds entry = rocksVectorIterGet(begin);
+        sds entry = columnVectorIterGet(begin);
         assert(entry != NULL);
         assert(sdscmp(entry, values[0]) == 0);
         assert(begin.i == 0);
@@ -234,31 +234,31 @@ void testRocksVectorIterCommand(client *c) {
     }
     // IsEqual() test
     {
-        RocksVectorIter begin, end;
-        makeRocksVectorIter(rocks_v, &begin, &end);
+        ColumnVectorIter begin, end;
+        makeColumnVectorIter(col_v, &begin, &end);
 
-        assert(!rocksVectorIterIsEqual(begin, end));
+        assert(!columnVectorIterIsEqual(begin, end));
 
-        RocksVectorIter begin_2, end_2;
-        makeRocksVectorIter(rocks_v, &begin_2, &end_2);
-        assert(rocksVectorIterIsEqual(begin, begin_2));
-        assert(rocksVectorIterIsEqual(end, end_2));
+        ColumnVectorIter begin_2, end_2;
+        makeColumnVectorIter(col_v, &begin_2, &end_2);
+        assert(columnVectorIterIsEqual(begin, begin_2));
+        assert(columnVectorIterIsEqual(end, end_2));
     }
     // Hard case test
     {
-        RocksVectorIter begin, end;
-        makeRocksVectorIter(rocks_v, &begin, &end);
+        ColumnVectorIter begin, end;
+        makeColumnVectorIter(col_v, &begin, &end);
 
         int eoi = 0;
         int result;
-        result = rocksVectorIterNext(&begin, &eoi);
+        result = columnVectorIterNext(&begin, &eoi);
         assert(eoi == 0);
         assert(result == C_OK);
-        result = rocksVectorIterNext(&begin, &eoi);
+        result = columnVectorIterNext(&begin, &eoi);
         assert(eoi == 0);
         assert(result == C_OK);
-        assert(rocksVectorIterIsEqual(begin, end));
-        result = rocksVectorIterNext(&begin, &eoi);
+        assert(columnVectorIterIsEqual(begin, end));
+        result = columnVectorIterNext(&begin, &eoi);
         assert(eoi == 1);
         assert(result == C_OK);
     }
@@ -272,41 +272,41 @@ void testRocksVectorIterCommand(client *c) {
 
         // Serialized Vector (RocksVector)
         robj *v_obj = createObject(OBJ_VECTOR, &v);
-        char *raw_rocks_v = vectorSerialize((void *) v_obj);
-        sds rocks_v = sdsnew(raw_rocks_v);
+        char *raw_col_v = vectorSerialize((void *) v_obj);
+        sds col_v = sdsnew(raw_col_v);
 
-        RocksVectorIter begin, end;
+        ColumnVectorIter begin, end;
         int result = 0, eoi = 0;
-        result = makeRocksVectorIter(rocks_v, &begin, &end);
+        result = makeColumnVectorIter(col_v, &begin, &end);
 
         assert(result == C_OK);
         assert(begin.type == STL_TYPE_SDS);
         assert(begin.count == 1);
-        assert(begin.rocks_v == rocks_v);
+        assert(begin.col_v == col_v);
         assert(begin.i == 0);
         assert(begin._pos == 15);
 
         assert(end.type == STL_TYPE_SDS);
         assert(end.count == 1);
-        assert(end.rocks_v == rocks_v);
+        assert(end.col_v == col_v);
         assert(end.i == 0);
         assert(end._pos == 15);
 
-        assert(rocksVectorIterIsEqual(begin, end));
-        result = rocksVectorIterNext(&begin, &eoi);
+        assert(columnVectorIterIsEqual(begin, end));
+        result = columnVectorIterNext(&begin, &eoi);
         assert(result == C_OK);
         assert(eoi == 1);
 
         vectorFreeDeep(&v);
         zfree(v_obj);
-        zfree(raw_rocks_v);
-        sdsfree(rocks_v);
+        zfree(raw_col_v);
+        sdsfree(col_v);
     }
 
     vectorFreeDeep(&v);
     zfree(v_obj);
-    zfree(raw_rocks_v);
-    sdsfree(rocks_v);
+    zfree(raw_col_v);
+    sdsfree(col_v);
     addReply(c, shared.ok);
 }
 

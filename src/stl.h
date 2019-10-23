@@ -51,19 +51,19 @@ int vectorDeserialize(sds rawVector, Vector **result);
 Vector *VectordeSerialize(char *VectorString);
 
 // Implement like C++ style
-typedef struct _RocksVectorIter {
-    sds rocks_v;
+typedef struct _ColumnVectorIter {
+    sds col_v;
     unsigned type:2;
     size_t count;
     size_t i;
     size_t _pos;    // Internal index in rocksdb vector.
-} RocksVectorIter;
+} ColumnVectorIter;
 
-int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
-                        RocksVectorIter *end);
-bool rocksVectorIterIsEqual(const RocksVectorIter first, const RocksVectorIter second);
-int rocksVectorIterNext(RocksVectorIter *it, int *eoi);
-sds rocksVectorIterGet(const RocksVectorIter it);
+int makeColumnVectorIter(const sds col_v, ColumnVectorIter *begin,
+                         ColumnVectorIter *end);
+bool columnVectorIterIsEqual(const ColumnVectorIter first, const ColumnVectorIter second);
+int columnVectorIterNext(ColumnVectorIter *it, int *eoi);
+sds columnVectorIterGet(const ColumnVectorIter it);
 
 /* Stack */
 /* Implemented by using Vector */

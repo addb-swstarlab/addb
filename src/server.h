@@ -2113,7 +2113,7 @@ void testSetMetaCommand(client *c);
 void testGetMetaCommand(client *c);
 void testSdsLocationCommand(client *c);
 void testVectorInterfaceCommand(client *c);
-void testRocksVectorIterCommand(client *c);
+void testColumnVectorIterCommand(client *c);
 void testStackInterfaceCommand(client *c);
 void testToMetaKeyCommand(client *c);
 void testStringMatchRegexCommand(client *c);

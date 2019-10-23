@@ -482,11 +482,11 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
 #define _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN 2
 #define _GET_TARGET_TOKEN_REVERSE 0
 #define _GET_TARGET_TOKEN_NO_REVERSE 1
-sds _getTargetToken(const sds rocks_v, size_t *i, const char end_point,
+sds _getTargetToken(const sds col_v, size_t *i, const char end_point,
                     int mode, int reverse) {
     sds parse_v;
     if (reverse == _GET_TARGET_TOKEN_NO_REVERSE) {
-        parse_v = rocks_v + *i;
+        parse_v = col_v + *i;
     }
     sds token = sdsempty();
     size_t token_size = 0;
@@ -495,14 +495,14 @@ sds _getTargetToken(const sds rocks_v, size_t *i, const char end_point,
 
     // Parse until end_point
     while (1) {
-        if (*i >= sdslen(rocks_v)) {
+        if (*i >= sdslen(col_v)) {
             return NULL;
         }
         char ch;
         if (reverse == _GET_TARGET_TOKEN_REVERSE) {
-            ch = rocks_v[sdslen(rocks_v) - 1 - *i];
+            ch = col_v[sdslen(col_v) - 1 - *i];
         } else {
-            ch = rocks_v[*i];
+            ch = col_v[*i];
         }
         if (ch == end_point) {
             if (
@@ -550,7 +550,7 @@ sds _getTargetToken(const sds rocks_v, size_t *i, const char end_point,
         return NULL;
     }
     if (reverse == _GET_TARGET_TOKEN_REVERSE) {
-        parse_v = rocks_v + sdslen(rocks_v) - 1 - *i;
+        parse_v = col_v + sdslen(col_v) - 1 - *i;
         token = sdscatlen(token, parse_v, token_size);
         switch (mode) {
             case _GET_TARGET_TOKEN_INCLUDE_END_POINT: {
@@ -573,12 +573,12 @@ sds _getTargetToken(const sds rocks_v, size_t *i, const char end_point,
     return token;
 }
 
-int _preprocessMakeRocksVectorIter(const sds rocks_v,
+int _preprocessMakeColumnVectorIter(const sds col_v,
                                    size_t *i,
                                    int *v_type,
                                    int *v_count) {
     // Parse 'V:{'
-    sds token = _getTargetToken(rocks_v, i, '{',
+    sds token = _getTargetToken(col_v, i, '{',
                                 _GET_TARGET_TOKEN_INCLUDE_END_POINT,
                                 _GET_TARGET_TOKEN_NO_REVERSE);
     serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
@@ -586,14 +586,14 @@ int _preprocessMakeRocksVectorIter(const sds rocks_v,
         serverLog(
             LL_WARNING,
             "Fatal: Vector deserialize broken error: [%s]",
-            rocks_v
+            col_v
         );
         return C_ERR;
     }
     sdsfree(token);
 
     // Parse 'T:'
-    token = _getTargetToken(rocks_v, i, ':',
+    token = _getTargetToken(col_v, i, ':',
                             _GET_TARGET_TOKEN_INCLUDE_END_POINT,
                             _GET_TARGET_TOKEN_NO_REVERSE);
     serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
@@ -601,14 +601,14 @@ int _preprocessMakeRocksVectorIter(const sds rocks_v,
         serverLog(
             LL_WARNING,
             "Fatal: Vector deserialize broken error: [%s]",
-            rocks_v
+            col_v
         );
         return C_ERR;
     }
     sdsfree(token);
 
     // Parse Vector Type
-    token = _getTargetToken(rocks_v, i, ':',
+    token = _getTargetToken(col_v, i, ':',
                             _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
                             _GET_TARGET_TOKEN_NO_REVERSE);
     serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
@@ -616,7 +616,7 @@ int _preprocessMakeRocksVectorIter(const sds rocks_v,
     sdsfree(token);
 
     // Parse 'N:'
-    token = _getTargetToken(rocks_v, i, ':',
+    token = _getTargetToken(col_v, i, ':',
                             _GET_TARGET_TOKEN_INCLUDE_END_POINT,
                             _GET_TARGET_TOKEN_NO_REVERSE);
     serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
@@ -624,14 +624,14 @@ int _preprocessMakeRocksVectorIter(const sds rocks_v,
         serverLog(
             LL_WARNING,
             "Fatal: Vector deserialize broken error: [%s]",
-            rocks_v
+            col_v
         );
         return C_ERR;
     }
     sdsfree(token);
 
     // Parse Vector Count
-    token = _getTargetToken(rocks_v, i, '}',
+    token = _getTargetToken(col_v, i, '}',
                             _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
                             _GET_TARGET_TOKEN_NO_REVERSE);
     serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
@@ -639,18 +639,18 @@ int _preprocessMakeRocksVectorIter(const sds rocks_v,
     sdsfree(token);
 
     // Parse until 'D'
-    token = _getTargetToken(rocks_v, i, 'D',
+    token = _getTargetToken(col_v, i, 'D',
                             _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL,
                             _GET_TARGET_TOKEN_NO_REVERSE);
     sdsfree(token);
     return C_OK;
 }
 
-int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
-                        RocksVectorIter *end) {
+int makeColumnVectorIter(const sds col_v, ColumnVectorIter *begin,
+                        ColumnVectorIter *end) {
     if (
-        rocks_v == NULL || begin == NULL || end == NULL ||
-        sdslen(rocks_v) == 0
+        col_v == NULL || begin == NULL || end == NULL ||
+        sdslen(col_v) == 0
     ) {
         return C_ERR;
     }
@@ -658,21 +658,21 @@ int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
     size_t i = 0;
     int v_type = -1;
     int v_count = -1;
-    if (_preprocessMakeRocksVectorIter(rocks_v, &i, &v_type, &v_count) == C_ERR) {
+    if (_preprocessMakeColumnVectorIter(col_v, &i, &v_type, &v_count) == C_ERR) {
         return C_ERR;
     }
     serverLog(LL_DEBUG, "Pos: %zu, type: %d, count: %d", i, v_type, v_count);
 
-    begin->rocks_v = rocks_v;
+    begin->col_v = col_v;
     begin->type = v_type;
     begin->count = v_count;
 
-    end->rocks_v = rocks_v;
+    end->col_v = col_v;
     end->type = v_type;
     end->count = v_count;
 
     // Parse 'D:['
-    sds token = _getTargetToken(rocks_v, &i, '[',
+    sds token = _getTargetToken(col_v, &i, '[',
                                 _GET_TARGET_TOKEN_INCLUDE_END_POINT,
                                 _GET_TARGET_TOKEN_NO_REVERSE);
     serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
@@ -680,7 +680,7 @@ int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
         serverLog(
             LL_WARNING,
             "Fatal: Vector deserialize broken error: [%s]",
-            rocks_v);
+            col_v);
         return C_ERR;
     }
     sdsfree(token);
@@ -689,7 +689,7 @@ int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
     begin->_pos = i;
 
     size_t reversed_i = 0;
-    token = _getTargetToken(rocks_v, &reversed_i, ']',
+    token = _getTargetToken(col_v, &reversed_i, ']',
                             _GET_TARGET_TOKEN_INCLUDE_END_POINT,
                             _GET_TARGET_TOKEN_REVERSE);
     serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
@@ -697,7 +697,7 @@ int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
         serverLog(
             LL_WARNING,
             "Fatal: Vector deserialize broken error: [%s]",
-            rocks_v);
+            col_v);
         return C_ERR;
     }
     sdsfree(token);
@@ -706,28 +706,28 @@ int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
     if (v_count <= 1) {
         delimiter = '[';
     }
-    token = _getTargetToken(rocks_v, &reversed_i, delimiter,
+    token = _getTargetToken(col_v, &reversed_i, delimiter,
                             _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL,
                             _GET_TARGET_TOKEN_REVERSE);
     serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
     sdsfree(token);
 
     end->i = v_count - 1;
-    end->_pos = sdslen(rocks_v) - 1 - reversed_i;
+    end->_pos = sdslen(col_v) - 1 - reversed_i;
 
     return C_OK;
 }
 
-bool rocksVectorIterIsEqual(const RocksVectorIter first, const RocksVectorIter second) {
-    bool is_rocks_v_equal = first.rocks_v == second.rocks_v &&
+bool columnVectorIterIsEqual(const ColumnVectorIter first, const ColumnVectorIter second) {
+    bool is_col_v_equal = first.col_v == second.col_v &&
         first.count == second.count &&
         first.type == second.type;
     bool is_iter_equal = first.i == second.i && first._pos == second._pos;
-    return is_rocks_v_equal && is_iter_equal;
+    return is_col_v_equal && is_iter_equal;
 }
 
-int rocksVectorIterNext(RocksVectorIter *it, int *eoi) {
-    if (it == NULL || it->rocks_v == NULL) {
+int columnVectorIterNext(ColumnVectorIter *it, int *eoi) {
+    if (it == NULL || it->col_v == NULL) {
         return C_ERR;
     }
 
@@ -737,7 +737,7 @@ int rocksVectorIterNext(RocksVectorIter *it, int *eoi) {
     }
 
     size_t i = it->_pos;
-    sds token = _getTargetToken(it->rocks_v, &i, ':',
+    sds token = _getTargetToken(it->col_v, &i, ':',
                                 _GET_TARGET_TOKEN_INCLUDE_END_POINT,
                                 _GET_TARGET_TOKEN_NO_REVERSE);
     sdsfree(token);
@@ -747,22 +747,22 @@ int rocksVectorIterNext(RocksVectorIter *it, int *eoi) {
     return C_OK;
 }
 
-sds rocksVectorIterGet(const RocksVectorIter it) {
-    if (it.rocks_v == NULL) {
+sds columnVectorIterGet(const ColumnVectorIter it) {
+    if (it.col_v == NULL) {
         return NULL;
     }
 
     if (it.i == it.count - 1) {
         size_t i = it._pos;
         sds token = _getTargetToken(
-            it.rocks_v, &i, ']',
+            it.col_v, &i, ']',
             _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
             _GET_TARGET_TOKEN_NO_REVERSE);
         return token;
     }
 
     size_t i = it._pos;
-    sds token = _getTargetToken(it.rocks_v, &i, ':',
+    sds token = _getTargetToken(it.col_v, &i, ':',
                                 _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
                                 _GET_TARGET_TOKEN_NO_REVERSE);
     return token;
