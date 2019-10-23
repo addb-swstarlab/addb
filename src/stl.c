@@ -701,7 +701,12 @@ int makeRocksVectorIter(const sds rocks_v, RocksVectorIter *begin,
         return C_ERR;
     }
     sdsfree(token);
-    token = _getTargetToken(rocks_v, &reversed_i, ':',
+
+    char delimiter = ':';
+    if (v_count <= 1) {
+        delimiter = '[';
+    }
+    token = _getTargetToken(rocks_v, &reversed_i, delimiter,
                             _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL,
                             _GET_TARGET_TOKEN_REVERSE);
     serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));

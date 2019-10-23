@@ -244,6 +244,64 @@ void testRocksVectorIterCommand(client *c) {
         assert(rocksVectorIterIsEqual(begin, begin_2));
         assert(rocksVectorIterIsEqual(end, end_2));
     }
+    // Hard case test
+    {
+        RocksVectorIter begin, end;
+        makeRocksVectorIter(rocks_v, &begin, &end);
+
+        int eoi = 0;
+        int result;
+        result = rocksVectorIterNext(&begin, &eoi);
+        assert(eoi == 0);
+        assert(result == C_OK);
+        result = rocksVectorIterNext(&begin, &eoi);
+        assert(eoi == 0);
+        assert(result == C_OK);
+        assert(rocksVectorIterIsEqual(begin, end));
+        result = rocksVectorIterNext(&begin, &eoi);
+        assert(eoi == 1);
+        assert(result == C_OK);
+    }
+    {
+        Vector v;
+        vectorTypeInit(&v, STL_TYPE_SDS);
+        const sds values[] = {
+            sdsnew("SDS_VALUE_1"),
+        };
+        vectorAdd(&v, (void *) values[0]);
+
+        // Serialized Vector (RocksVector)
+        robj *v_obj = createObject(OBJ_VECTOR, &v);
+        char *raw_rocks_v = vectorSerialize((void *) v_obj);
+        sds rocks_v = sdsnew(raw_rocks_v);
+
+        RocksVectorIter begin, end;
+        int result = 0, eoi = 0;
+        result = makeRocksVectorIter(rocks_v, &begin, &end);
+
+        assert(result == C_OK);
+        assert(begin.type == STL_TYPE_SDS);
+        assert(begin.count == 1);
+        assert(begin.rocks_v == rocks_v);
+        assert(begin.i == 0);
+        assert(begin._pos == 15);
+
+        assert(end.type == STL_TYPE_SDS);
+        assert(end.count == 1);
+        assert(end.rocks_v == rocks_v);
+        assert(end.i == 0);
+        assert(end._pos == 15);
+
+        assert(rocksVectorIterIsEqual(begin, end));
+        result = rocksVectorIterNext(&begin, &eoi);
+        assert(result == C_OK);
+        assert(eoi == 1);
+
+        vectorFreeDeep(&v);
+        zfree(v_obj);
+        zfree(raw_rocks_v);
+        sdsfree(rocks_v);
+    }
 
     vectorFreeDeep(&v);
     zfree(v_obj);
