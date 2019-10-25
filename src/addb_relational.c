@@ -1239,8 +1239,7 @@ size_t _cachedScanOnRocksDB_iterator(client *c, redisDb *db, size_t rowGroupId,
                     "rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], ColumnVectorIndex[%zu], value[%s]",
                     rowGroupId, rowId, columnId, columnVectorId, getColumnVectorIndex(rowId), value);
             }
-            addReplyBulkSds(c, sdsdup(value));
-            sdsfree(value);
+            addReplyBulkSds(c, value);
             numReplies++;
         }
     }
