@@ -1230,17 +1230,18 @@ size_t _cachedScanOnRocksDB_iterator(client *c, redisDb *db, size_t rowGroupId,
                     k, cachedColumnVectorIds[k]);
             }
 
-            sds value = columnVectorIterGet(cachedColumnVectorIters[k]);
-            int eoi = 0;
-            columnVectorIterNext(&cachedColumnVectorIters[k], &eoi);
-            if (value == NULL) {
+            char *value = NULL;
+            size_t value_size = 0;
+            if (columnVectorIterGetNoCopy(cachedColumnVectorIters[k], &value, &value_size) == C_ERR) {
                 serverLog(
                     LL_WARNING,
                     "rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], ColumnVectorIndex[%zu], value[%s]",
                     rowGroupId, rowId, columnId, columnVectorId, getColumnVectorIndex(rowId), value);
             }
-            addReplyBulkCBuffer(c, value, sdslen(value));
-            sdsfree(value);
+            int eoi = 0;
+            columnVectorIterNext(&cachedColumnVectorIters[k], &eoi);
+
+            addReplyBulkCBuffer(c, value, value_size);
             numReplies++;
         }
     }
