@@ -768,6 +768,25 @@ sds columnVectorIterGet(const ColumnVectorIter it) {
     return token;
 }
 
+int columnVectorIterGetNoCopy(const ColumnVectorIter it, char **start,
+                              size_t *size) {
+    if (it.col_v == NULL) {
+        return C_ERR;
+    }
+
+    char delimiter = it.i == (it.count - 1) ? ']' : ':';
+    size_t i = it._pos;
+    size_t length = 0;
+    while (it.col_v[i] != delimiter) {
+        ++length;
+        ++i;
+    }
+    *start = it.col_v + it._pos;
+    *size = length;
+
+    return C_OK;
+}
+
 void stackInit(Stack *s) {
     s->type = STL_TYPE_DEFAULT;
     vectorInit(&s->data);

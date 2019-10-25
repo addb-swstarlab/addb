@@ -232,6 +232,29 @@ void testColumnVectorIterCommand(client *c) {
         assert(begin._pos == 15);
         sdsfree(entry);
     }
+    // GetWithoutCopy() test
+    {
+        ColumnVectorIter begin, end;
+        makeColumnVectorIter(col_v, &begin, &end);
+
+        char *s;
+        size_t size;
+        int result = columnVectorIterGetNoCopy(begin, &s, &size);
+        assert(result == C_OK);
+        sds entry = sdsnewlen(s, size);
+        assert(sdscmp(entry, values[0]) == 0);
+        assert(begin.i == 0);
+        assert(begin._pos == 15);
+        sdsfree(entry);
+
+        result = columnVectorIterGetNoCopy(end, &s, &size);
+        assert(result == C_OK);
+        entry = sdsnewlen(s, size);
+        assert(sdscmp(entry, values[2]) == 0);
+        assert(end.i == vectorCount(&v) - 1);
+        assert(end._pos == 39);
+        sdsfree(entry);
+    }
     // IsEqual() test
     {
         ColumnVectorIter begin, end;

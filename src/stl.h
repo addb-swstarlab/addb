@@ -64,6 +64,8 @@ int makeColumnVectorIter(const sds col_v, ColumnVectorIter *begin,
 bool columnVectorIterIsEqual(const ColumnVectorIter first, const ColumnVectorIter second);
 int columnVectorIterNext(ColumnVectorIter *it, int *eoi);
 sds columnVectorIterGet(const ColumnVectorIter it);
+int columnVectorIterGetNoCopy(const ColumnVectorIter it, char **start,
+                              size_t *size);
 
 /* Stack */
 /* Implemented by using Vector */
