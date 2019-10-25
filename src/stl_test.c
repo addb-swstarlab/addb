@@ -155,6 +155,161 @@ void testVectorInterfaceCommand(client *c) {
     addReply(c, shared.ok);
 }
 
+/* ColumnVectorIter Make / Next / Get Interface Test command. */
+
+/*
+ * testColumnVectorIterCommand
+ * Tests ColumnVectorIter interface (Make / Next / Get).
+ * --- Parameters ---
+ *  None
+ *
+ * --- Usage Examples ---
+ *  Parameters:
+ *      None
+ *  Command:
+ *      redis-cli> TESTROCKSVECTORITER
+ *  Results:
+ *      redis-cli> OK (prints results to server logs)
+ */
+void testColumnVectorIterCommand(client *c) {
+    // Vector Type [SDS]
+    Vector v;
+    vectorTypeInit(&v, STL_TYPE_SDS);
+    const sds values[] = {
+        sdsnew("SDS_VALUE_1"),
+        sdsnew("SDS_VALUE_2"),
+        sdsnew("SDS_VALUE_3"),
+    };
+    vectorAdd(&v, (void *) values[0]);
+    vectorAdd(&v, (void *) values[1]);
+    vectorAdd(&v, (void *) values[2]);
+
+    // Serialized Vector (RocksVector)
+    robj *v_obj = createObject(OBJ_VECTOR, &v);
+    char *raw_col_v = vectorSerialize((void *) v_obj);
+    sds col_v = sdsnew(raw_col_v);
+
+    // Make() test
+    {
+        ColumnVectorIter begin, end;
+        int result = makeColumnVectorIter(col_v, &begin, &end);
+
+        assert(result == C_OK);
+        assert(begin.type == STL_TYPE_SDS);
+        assert(begin.count == 3);
+        assert(begin.col_v == col_v);
+        assert(begin.i == 0);
+        assert(begin._pos == 15);
+
+        assert(end.type == STL_TYPE_SDS);
+        assert(end.count == 3);
+        assert(end.col_v == col_v);
+        assert(end.i == vectorCount(&v) - 1);
+        assert(end._pos == 39);
+    }
+    // Next() test
+    {
+        ColumnVectorIter begin, end;
+        makeColumnVectorIter(col_v, &begin, &end);
+
+        int eoi = 0;
+        int result = columnVectorIterNext(&begin, &eoi);
+
+        assert(result == C_OK);
+        assert(begin.i == 1);
+        assert(eoi == 0);
+        assert(begin._pos == 27);
+    }
+    // Get() test
+    {
+        ColumnVectorIter begin, end;
+        makeColumnVectorIter(col_v, &begin, &end);
+
+        sds entry = columnVectorIterGet(begin);
+        assert(entry != NULL);
+        assert(sdscmp(entry, values[0]) == 0);
+        assert(begin.i == 0);
+        assert(begin._pos == 15);
+        sdsfree(entry);
+    }
+    // IsEqual() test
+    {
+        ColumnVectorIter begin, end;
+        makeColumnVectorIter(col_v, &begin, &end);
+
+        assert(!columnVectorIterIsEqual(begin, end));
+
+        ColumnVectorIter begin_2, end_2;
+        makeColumnVectorIter(col_v, &begin_2, &end_2);
+        assert(columnVectorIterIsEqual(begin, begin_2));
+        assert(columnVectorIterIsEqual(end, end_2));
+    }
+    // Hard case test
+    {
+        ColumnVectorIter begin, end;
+        makeColumnVectorIter(col_v, &begin, &end);
+
+        int eoi = 0;
+        int result;
+        result = columnVectorIterNext(&begin, &eoi);
+        assert(eoi == 0);
+        assert(result == C_OK);
+        result = columnVectorIterNext(&begin, &eoi);
+        assert(eoi == 0);
+        assert(result == C_OK);
+        assert(columnVectorIterIsEqual(begin, end));
+        result = columnVectorIterNext(&begin, &eoi);
+        assert(eoi == 1);
+        assert(result == C_OK);
+    }
+    {
+        Vector v;
+        vectorTypeInit(&v, STL_TYPE_SDS);
+        const sds values[] = {
+            sdsnew("SDS_VALUE_1"),
+        };
+        vectorAdd(&v, (void *) values[0]);
+
+        // Serialized Vector (RocksVector)
+        robj *v_obj = createObject(OBJ_VECTOR, &v);
+        char *raw_col_v = vectorSerialize((void *) v_obj);
+        sds col_v = sdsnew(raw_col_v);
+
+        ColumnVectorIter begin, end;
+        int result = 0, eoi = 0;
+        result = makeColumnVectorIter(col_v, &begin, &end);
+
+        assert(result == C_OK);
+        assert(begin.type == STL_TYPE_SDS);
+        assert(begin.count == 1);
+        assert(begin.col_v == col_v);
+        assert(begin.i == 0);
+        assert(begin._pos == 15);
+
+        assert(end.type == STL_TYPE_SDS);
+        assert(end.count == 1);
+        assert(end.col_v == col_v);
+        assert(end.i == 0);
+        assert(end._pos == 15);
+
+        assert(columnVectorIterIsEqual(begin, end));
+        result = columnVectorIterNext(&begin, &eoi);
+        assert(result == C_OK);
+        assert(eoi == 1);
+
+        vectorFreeDeep(&v);
+        zfree(v_obj);
+        zfree(raw_col_v);
+        sdsfree(col_v);
+    }
+
+    vectorFreeDeep(&v);
+    zfree(v_obj);
+    zfree(raw_col_v);
+    sdsfree(col_v);
+    addReply(c, shared.ok);
+}
+
 /* Stack Push / Pop / Free Interface Test command. */
 
 /*

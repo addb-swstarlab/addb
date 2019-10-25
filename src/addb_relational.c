@@ -751,7 +751,7 @@ void prepareWriteToRocksDB(redisDb *db, robj *keyobj, robj *targetVal) {
 				field_key);
 		sds rocksKey = sdsnew(keystr);
 		//robj *value = createStringObject(val, sdslen(val));
-		char *SerializeString = VectorSerialize(vectorObj);
+		char *SerializeString = vectorSerialize(vectorObj);
 
   	serverLog(LL_DEBUG, "SERIALIZE Serial_val RESULT : %s", SerializeString);
 		setPersistentKeyWithBatch(db->persistent_store, rocksKey,
@@ -801,7 +801,7 @@ void prepareBatchWriteToRocksDB(redisDb *db, Vector *evict_keys,
 
             sprintf(keystr, "%s:%s%s", key, REL_MODEL_FIELD_PREFIX, field_key);
             sds rockskey = sdsnew(keystr);
-            char *serialized_vector_obj = VectorSerialize(vector_obj);
+            char *serialized_vector_obj = vectorSerialize(vector_obj);
 
             serverLog(LL_DEBUG, "SERIALIZE Serial_val RESULT : %s",
                       serialized_vector_obj);
@@ -932,210 +932,7 @@ RowGroupParameter createRowGroupParameter(redisDb *db, robj *dataKey) {
     return param;
 }
 
-// TODO(totoro): legacy functions... For fixing bugs...
-void legacyScanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
-    size_t startRowGroupIdx = scanParam->startRowGroupId;
-    ColumnParameter *columnParam = scanParam->columnParam;
-
-    for (size_t i = startRowGroupIdx; i < scanParam->totalRowGroupCount; ++i) {
-        size_t rowGroupId = i + 1;
-        scanParam->dataKeyInfo->rowGroupId = rowGroupId;
-
-        // Performs ColumnVector cached scan.
-        if (scanParam->rowGroupParams[rowGroupId - 1].isInRocksDb) {
-            _legacyCachedScanOnRocksDB(db, rowGroupId, scanParam, data);
-            continue;
-        }
-
-        _legacyCachedScan(db, rowGroupId, scanParam, data);
-    }
-}
-
-void _legacyCachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
-                       Vector *data) {
-    // RowGroup index(i) = rowGroupId - 1
-    RowGroupParameter *rowGroupParam =
-        &scanParam->rowGroupParams[rowGroupId - 1];
-    ColumnParameter *columnParam = scanParam->columnParam;
-
-    robj **cachedColumnVectorObjs = (robj **) zmalloc(
-        sizeof(robj *) * columnParam->columnCount);
-    int *cachedColumnVectorIds = (int *) zmalloc(
-        sizeof(int) * columnParam->columnCount);
-    for (int i = 0; i < columnParam->columnCount; ++i) {
-        cachedColumnVectorObjs[i] = NULL;
-        cachedColumnVectorIds[i] = -1;
-    }
-
-    serverLog(LL_VERBOSE, "     ");
-    serverLog(LL_VERBOSE, "[SCAN] Scan On Redis");
-    serverLog(
-        LL_VERBOSE,
-        "RowGroupId[%d], RowGroup->rowCount[%d]",
-        rowGroupId, rowGroupParam->rowCount);
-    for (size_t j = 0; j < rowGroupParam->rowCount; ++j) {
-        size_t rowId = j + 1;
-        for (size_t k = 0; k < columnParam->columnCount; ++k) {
-            size_t columnId = (long) vectorGet(&columnParam->columnIdList, k);
-            int columnVectorId = getColumnVectorId(rowId);
-
-            // Caching column vector.
-            if (columnVectorId != cachedColumnVectorIds[k]) {
-                serverLog(
-                    LL_DEBUG,
-                    "Miss! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], cachedColumnVectorIds[%d][%d]",
-                    rowGroupId, rowId, columnId, columnVectorId,
-                    k, cachedColumnVectorIds[k]);
-
-                // Redis Column Vector
-                // Redis Key, which is DataField key (Row & Column pair)
-                // Ex) "1:2"
-                sds dataKey = getDataFieldSds(columnVectorId, columnId);
-                robj *hashDictObj = rowGroupParam->dictObj;
-                dict *hashDict = (dict *) hashDictObj->ptr;
-                dictEntry *entry = dictFind(hashDict, dataKey);
-                if (entry == NULL) {
-                    serverLog(
-                        LL_WARNING,
-                        "[SCAN][FATAL] dataKey[%s] is not exist on hashDict.",
-                        dataKey);
-                    serverLog(
-                        LL_WARNING,
-                        "[SCAN][FATAL] RowGroup: %d, Row: %d, Column: %d, ColumnVector: %d",
-                        rowGroupId, rowId, columnId, columnVectorId);
-                }
-                cachedColumnVectorIds[k] = columnVectorId;
-                cachedColumnVectorObjs[k] = (robj *) dictGetVal(entry);
-                sdsfree(dataKey);
-            } else {
-                serverLog(
-                    LL_DEBUG,
-                    "Hit! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], cachedColumnVectorIds[%d][%d]",
-                    rowGroupId, rowId, columnId, columnVectorId,
-                    k, cachedColumnVectorIds[k]);
-            }
-
-            Vector *columnVector =
-                (Vector *) cachedColumnVectorObjs[k]->ptr;
-            serverLog(LL_DEBUG, "ColumnVector Pointer: %p", columnVector);
-            // for (size_t l = 0; l < vectorCount(columnVector); ++l) {
-            //     serverLog(
-            //         LL_VERBOSE, "ColumnVector[%zu]: [%s]", l,
-            //         vectorGet(columnVector, l));
-            // }
-            sds value = vectorGet(columnVector, getColumnVectorIndex(rowId));
-            if (value == NULL) {
-                serverLog(
-                    LL_DEBUG,
-                    "rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], ColumnVectorIndex[%zu], value[%s]",
-                    rowGroupId, rowId, columnId, columnVectorId,
-                    getColumnVectorIndex(rowId), value);
-                for (size_t l = 0; l < vectorCount(columnVector); ++l) {
-                    serverLog(
-                        LL_VERBOSE, "ColumnVector[%zu]: [%s]", l,
-                        vectorGet(columnVector, l));
-                }
-            }
-            vectorAdd(data, sdsdup(value));
-        }
-    }
-
-    zfree(cachedColumnVectorObjs);
-    zfree(cachedColumnVectorIds);
-}
-
-void _legacyCachedScanOnRocksDB(redisDb *db, size_t rowGroupId,
-                                ScanParameter *scanParam, Vector *data) {
-    // RowGroup index(i) = rowGroupId - 1
-    RowGroupParameter *rowGroupParam =
-        &scanParam->rowGroupParams[rowGroupId - 1];
-    ColumnParameter *columnParam = scanParam->columnParam;
-
-    robj **cachedColumnVectorObjs = (Vector **) zmalloc(
-        sizeof(Vector *) * columnParam->columnCount);
-    int *cachedColumnVectorIds = (int *) zmalloc(
-        sizeof(int) * columnParam->columnCount);
-    for (int i = 0; i < columnParam->columnCount; ++i) {
-        cachedColumnVectorObjs[i] = NULL;
-        cachedColumnVectorIds[i] = -1;
-    }
-
-    serverLog(LL_VERBOSE, "     ");
-    serverLog(LL_VERBOSE, "[SCAN] Scan On RocksDB");
-    serverLog(LL_VERBOSE, "RowGroup->rowCount: %d", rowGroupParam->rowCount);
-    for (size_t j = 0; j < rowGroupParam->rowCount; ++j) {
-        size_t rowId = j + 1;
-        for (size_t k = 0; k < columnParam->columnCount; ++k) {
-            size_t columnId = (long) vectorGet(&columnParam->columnIdList, k);
-            int columnVectorId = getColumnVectorId(rowId);
-
-            // Caching column vector.
-            if (columnVectorId != cachedColumnVectorIds[k]) {
-                serverLog(
-                    LL_DEBUG,
-                    "Miss! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], cachedColumnVectorIds[%d][%d]",
-                    rowGroupId, rowId, columnId, columnVectorId,
-                    k, cachedColumnVectorIds[k]);
-                // RocksDB Column Vector
-                // RocksDB Key, which is Rocks key
-                // Ex) ""
-                sds dataKey = generateDataRocksKeySds(
-                    scanParam->dataKeyInfo, columnVectorId, columnId);
-                Vector *vector = getColumnVectorFromRocksDB(db, dataKey);
-                cachedColumnVectorIds[k] = columnVectorId;
-                cachedColumnVectorObjs[k] = vector;
-                sdsfree(dataKey);
-            } else {
-                serverLog(
-                    LL_DEBUG,
-                    "Hit! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], cachedColumnVectorIds[%d][%d]",
-                    rowGroupId, rowId, columnId, columnVectorId,
-                    k, cachedColumnVectorIds[k]);
-            }
-
-            Vector *columnVector =
-                (Vector *) cachedColumnVectorObjs[k];
-            serverLog(LL_DEBUG, "ColumnVector Pointer: %p", columnVector);
-            // for (size_t l = 0; l < vectorCount(columnVector); ++l) {
-            //     serverLog(
-            //         LL_VERBOSE, "ColumnVector[%zu]: [%s]", l,
-            //         vectorGet(columnVector, l));
-            // }
-            sds value = vectorGet(columnVector, getColumnVectorIndex(rowId));
-            if (value == NULL) {
-                serverLog(
-                    LL_DEBUG,
-                    "rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], ColumnVectorIndex[%zu], value[%s]",
-                    rowGroupId, rowId, columnId, columnVectorId, getColumnVectorIndex(rowId), value);
-                for (size_t l = 0; l < vectorCount(columnVector); ++l) {
-                   serverLog(
-                        LL_DEBUG, "ColumnVector[%zu]: [%s]", l,
-                        vectorGet(columnVector, l));
-                }
-            }
-            vectorAdd(data, sdsdup(value));
-        }
-    }
-
-    // Removes created ColumnVector robjs.
-    for (size_t k = 0; k < columnParam->columnCount; ++k) {
-        serverLog(
-            LL_VERBOSE,
-            "Delete cachedColumnVectorObjs[%d]: pointer[%p]",
-            k,
-            cachedColumnVectorObjs[k]);
-        vectorFreeDeep(cachedColumnVectorObjs[k]);
-        zfree(cachedColumnVectorObjs[k]);
-    }
-
-    zfree(cachedColumnVectorObjs);
-    zfree(cachedColumnVectorIds);
-}
-
-// TODO(totoro): Non-vector mode scan implementations... need to remove this
-// after demo... (or apply non_vector to normal scanDataFromADDB function)
-size_t scanDataFromADDB_non_vector(client *c, redisDb *db,
-                                   ScanParameter *scanParam) {
+size_t scanDataFromADDB(client *c, redisDb *db, ScanParameter *scanParam) {
     size_t startRowGroupIdx = scanParam->startRowGroupId;
     ColumnParameter *columnParam = scanParam->columnParam;
 
@@ -1146,18 +943,17 @@ size_t scanDataFromADDB_non_vector(client *c, redisDb *db,
 
         // Performs ColumnVector cached scan.
         if (scanParam->rowGroupParams[rowGroupId - 1].isInRocksDb) {
-            numReplies += _cachedScanOnRocksDB_non_vector(
-                c, db, rowGroupId, scanParam);
+            numReplies += _cachedScanOnRocksDB_iterator(c, db, rowGroupId, scanParam);
             continue;
         }
 
-        numReplies += _cachedScan_non_vector(c, db, rowGroupId, scanParam);
+        numReplies += _cachedScan(c, db, rowGroupId, scanParam);
     }
     return numReplies;
 }
 
-size_t _cachedScan_non_vector(client *c, redisDb *db, size_t rowGroupId,
-                              ScanParameter *scanParam) {
+size_t _cachedScan(client *c, redisDb *db, size_t rowGroupId,
+                   ScanParameter *scanParam) {
     // RowGroup index(i) = rowGroupId - 1
     RowGroupParameter *rowGroupParam =
         &scanParam->rowGroupParams[rowGroupId - 1];
@@ -1172,10 +968,10 @@ size_t _cachedScan_non_vector(client *c, redisDb *db, size_t rowGroupId,
         cachedColumnVectorIds[i] = -1;
     }
 
-    serverLog(LL_VERBOSE, "     ");
-    serverLog(LL_VERBOSE, "[SCAN] Scan On Redis");
+    serverLog(LL_DEBUG, "     ");
+    serverLog(LL_DEBUG, "[SCAN] Scan On Redis");
     serverLog(
-        LL_VERBOSE,
+        LL_DEBUG,
         "RowGroupId[%d], RowGroup->rowCount[%d]",
         rowGroupId, rowGroupParam->rowCount);
 
@@ -1232,11 +1028,6 @@ size_t _cachedScan_non_vector(client *c, redisDb *db, size_t rowGroupId,
                     getColumnVectorIndex(rowId), columnVector);
                 serverLog(LL_WARNING, "ColumnVector Pointer: %p", columnVector);
             }
-            // for (size_t l = 0; l < vectorCount(columnVector); ++l) {
-            //     serverLog(
-            //         LL_VERBOSE, "ColumnVector[%zu]: [%s]", l,
-            //         vectorGet(columnVector, l));
-            // }
             sds value = vectorGet(columnVector, getColumnVectorIndex(rowId));
             if (value == NULL) {
                 serverLog(
@@ -1260,9 +1051,8 @@ size_t _cachedScan_non_vector(client *c, redisDb *db, size_t rowGroupId,
     return numReplies;
 }
 
-size_t _cachedScanOnRocksDB_non_vector(client *c, redisDb *db,
-                                       size_t rowGroupId,
-                                       ScanParameter *scanParam) {
+size_t _cachedScanOnRocksDB(client *c, redisDb *db, size_t rowGroupId,
+                            ScanParameter *scanParam) {
     // RowGroup index(i) = rowGroupId - 1
     RowGroupParameter *rowGroupParam =
         &scanParam->rowGroupParams[rowGroupId - 1];
@@ -1277,9 +1067,9 @@ size_t _cachedScanOnRocksDB_non_vector(client *c, redisDb *db,
         cachedColumnVectorIds[i] = -1;
     }
 
-    serverLog(LL_VERBOSE, "     ");
-    serverLog(LL_VERBOSE, "[SCAN] Scan On RocksDB");
-    serverLog(LL_VERBOSE, "RowGroup->rowCount: %d", rowGroupParam->rowCount);
+    serverLog(LL_DEBUG, "     ");
+    serverLog(LL_DEBUG, "[SCAN] Scan On RocksDB");
+    serverLog(LL_DEBUG, "RowGroup->rowCount: %d", rowGroupParam->rowCount);
 
     size_t numReplies = 0;
 
@@ -1314,12 +1104,6 @@ size_t _cachedScanOnRocksDB_non_vector(client *c, redisDb *db,
             }
 
             Vector *columnVector = (Vector *) cachedColumnVectorObjs[k];
-            serverLog(LL_VERBOSE, "ColumnVector Pointer: %p", columnVector);
-            // for (size_t l = 0; l < vectorCount(columnVector); ++l) {
-            //     serverLog(
-            //         LL_VERBOSE, "ColumnVector[%zu]: [%s]", l,
-            //         vectorGet(columnVector, l));
-            // }
             sds value = vectorGet(columnVector, getColumnVectorIndex(rowId));
             if (value == NULL) {
                 serverLog(
@@ -1339,11 +1123,6 @@ size_t _cachedScanOnRocksDB_non_vector(client *c, redisDb *db,
 
     // Removes created ColumnVector robjs.
     for (size_t k = 0; k < columnParam->columnCount; ++k) {
-        serverLog(
-            LL_VERBOSE,
-            "Delete cachedColumnVectorObjs[%d]: pointer[%p]",
-            k,
-            cachedColumnVectorObjs[k]);
         vectorFreeDeep(cachedColumnVectorObjs[k]);
         zfree(cachedColumnVectorObjs[k]);
     }
@@ -1354,143 +1133,11 @@ size_t _cachedScanOnRocksDB_non_vector(client *c, redisDb *db,
     return numReplies;
 }
 
-// TODO(totoro): Original scan implementations... please use this functions for
-// scan after demo...
-void scanDataFromADDB(redisDb *db, ScanParameter *scanParam, Vector *data) {
-    size_t startRowGroupIdx = scanParam->startRowGroupId;
-    ColumnParameter *columnParam = scanParam->columnParam;
-
-    robj **cachedColumnVectorObjs = (robj **) zmalloc(
-        sizeof(robj *) * columnParam->columnCount);
-    int *cachedColumnVectorIds = (size_t *) zmalloc(
-        sizeof(int) * columnParam->columnCount);
-
-    for (size_t i = startRowGroupIdx; i < scanParam->totalRowGroupCount; ++i) {
-        size_t rowGroupId = i + 1;
-        scanParam->dataKeyInfo->rowGroupId = rowGroupId;
-
-        // Initializes cache informations.
-        for (size_t j = 0; j < columnParam->columnCount; ++j) {
-            cachedColumnVectorObjs[i] = NULL;
-            cachedColumnVectorIds[i] = -1;
-        }
-
-        // Performs ColumnVector cached scan.
-        _cachedScan(db, rowGroupId, scanParam, data, cachedColumnVectorObjs,
-                   cachedColumnVectorIds);
-    }
-
-    zfree(cachedColumnVectorObjs);
-    zfree(cachedColumnVectorIds);
-}
-
-void _cachedScan(redisDb *db, size_t rowGroupId, ScanParameter *scanParam,
-                Vector *data, robj **cachedColumnVectorObjs,
-                int *cachedColumnVectorIds) {
-    // RowGroup index(i) = rowGroupId - 1
-    RowGroupParameter *rowGroupParam =
-        &scanParam->rowGroupParams[rowGroupId - 1];
-    ColumnParameter *columnParam = scanParam->columnParam;
-
-    for (size_t j = 0; j < rowGroupParam->rowCount; ++j) {
-        size_t rowId = j + 1;
-        for (size_t k = 0; k < columnParam->columnCount; ++k) {
-            size_t columnId = (long) vectorGet(&columnParam->columnIdList, k);
-            int columnVectorId = getColumnVectorId(rowId);
-
-            sds dataKey;
-            if (rowGroupParam->isInRocksDb) {
-                // RocksDB Key, which is Rocks key
-                // Ex) ""
-                dataKey = generateDataRocksKeySds(
-                    scanParam->dataKeyInfo, columnVectorId, columnId);
-            } else {
-                // Redis Key, which is DataField key (Row & Column pair)
-                // Ex) "1:2"
-                dataKey = getDataFieldSds(columnVectorId, columnId);
-            }
-
-            // Caching column vector.
-            if (columnVectorId != cachedColumnVectorIds[k]) {
-                if (rowGroupParam->isInRocksDb) {
-                    // RocksDB Column Vector
-                    serverLog(LL_VERBOSE, "[SCAN] Scan On RocksDB");
-                    Vector *vector = getColumnVectorFromRocksDB(db, dataKey);
-                    cachedColumnVectorIds[k] = columnVectorId;
-                    cachedColumnVectorObjs[k] = (robj *) createObject(
-                        OBJ_VECTOR, vector);
-                } else {
-                    // Redis Column Vector
-                    serverLog(LL_VERBOSE, "[SCAN] Scan On Redis");
-                    robj *hashDictObj = rowGroupParam->dictObj;
-                    dict *hashDict = (dict *) hashDictObj->ptr;
-                    dictEntry *entry = dictFind(hashDict, dataKey);
-                    if (entry == NULL) {
-                        serverLog(
-                            LL_WARNING,
-                            "[SCAN][FATAL] dataKey[%s] is not exist on hashDict.",
-                            dataKey);
-                        serverLog(
-                            LL_WARNING,
-                            "[SCAN][FATAL] RowGroup: %d, Row: %d, Column: %d, ColumnVector: %d",
-                            rowGroupId, rowId, columnId, columnVectorId);
-                    }
-                    cachedColumnVectorIds[k] = columnVectorId;
-                    cachedColumnVectorObjs[k] = (robj *) dictGetVal(entry);
-                    incrRefCount(cachedColumnVectorObjs[k]);
-                }
-                serverLog(
-                    LL_VERBOSE,
-                    "Miss! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu]",
-                    rowGroupId, rowId, columnId, columnVectorId);
-            } else {
-                serverLog(
-                    LL_VERBOSE,
-                    "Hit! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu]",
-                    rowGroupId, rowId, columnId, columnVectorId);
-            }
-            sdsfree(dataKey);
-
-            Vector *columnVector =
-                (Vector *) cachedColumnVectorObjs[k]->ptr;
-            serverLog(LL_VERBOSE, "ColumnVector Pointer: %p", columnVector);
-            // for (size_t l = 0; l < vectorCount(columnVector); ++l) {
-            //     serverLog(
-            //         LL_VERBOSE, "ColumnVector[%zu]: [%s]", l,
-            //         vectorGet(columnVector, l));
-            // }
-            sds value = vectorGet(columnVector, getColumnVectorIndex(rowId));
-            serverLog(
-                LL_VERBOSE,
-                "rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], ColumnVectorIndex[%zu], value[%s]",
-                rowGroupId, rowId, columnId, columnVectorId, getColumnVectorIndex(rowId), value);
-            vectorAdd(data, sdsdup(value));
-        }
-    }
-
-    // Removes created ColumnVector robjs.
-    for (size_t k = 0; k < columnParam->columnCount; ++k) {
-        serverLog(
-            LL_VERBOSE,
-            "Delete cachedColumnVectorObjs[%d]: robj[%p], robj[%p]",
-            k,
-            cachedColumnVectorObjs[k],
-            cachedColumnVectorObjs[k]->ptr);
-        if (cachedColumnVectorObjs[k] != NULL) {
-            decrRefCount(cachedColumnVectorObjs[k]);
-        }
-    }
-}
-
 Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey) {
     char *err;
     size_t valueLen = 0;
     char *value;
     size_t keyBufLen = 0;
-
-    // memcpy(keyBuf, dataRocksKey, sdslen(dataRocksKey) + 1);
-    // keyBuf[sdslen(dataRocksKey)] = '\0';
-    // keyBufLen = sdslen(dataRocksKey) + 2;
 
     serverLog(LL_DEBUG, "[getColumnVectorFromRocksDB] dataRocksKey: %s", dataRocksKey);
 
@@ -1510,8 +1157,6 @@ Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey) {
         return NULL;
     }
 
-    // Vector *vector = VectordeSerialize(value);
-
     sds copiedValue = sdsnewlen(value, valueLen);
     Vector *vector;
     if (vectorDeserialize(copiedValue, &vector) == C_ERR) {
@@ -1524,6 +1169,123 @@ Vector *getColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey) {
     sdsfree(copiedValue);
     rocksdb_free(value);
     return vector;
+}
+
+size_t _cachedScanOnRocksDB_iterator(client *c, redisDb *db, size_t rowGroupId,
+                                     ScanParameter *scanParam) {
+    // RowGroup index(i) = rowGroupId - 1
+    RowGroupParameter *rowGroupParam =
+        &scanParam->rowGroupParams[rowGroupId - 1];
+    ColumnParameter *columnParam = scanParam->columnParam;
+
+    ColumnVectorIter *cachedColumnVectorIters = (ColumnVectorIter *) zmalloc(
+        sizeof(ColumnVectorIter) * columnParam->columnCount);
+    int *cachedColumnVectorIds = (int *) zmalloc(
+        sizeof(int) * columnParam->columnCount);
+    for (size_t i = 0; i < columnParam->columnCount; ++i) {
+        cachedColumnVectorIters[i].col_v = NULL;
+        cachedColumnVectorIds[i] = -1;
+    }
+
+    serverLog(LL_DEBUG, "     ");
+    serverLog(LL_DEBUG, "[SCAN] Scan On RocksDB");
+    serverLog(LL_DEBUG, "RowGroup->rowCount: %d", rowGroupParam->rowCount);
+
+    size_t numReplies = 0;
+
+    for (size_t j = 0; j < rowGroupParam->rowCount; ++j) {
+        size_t rowId = j + 1;
+        for (size_t k = 0; k < columnParam->columnCount; ++k) {
+            size_t columnId = (long) vectorGet(&columnParam->columnIdList, k);
+            size_t columnVectorId = getColumnVectorId(rowId);
+
+            // Caching column vector.
+            if (columnVectorId != cachedColumnVectorIds[k]) {
+                serverLog(
+                    LL_DEBUG,
+                    "Miss! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], cachedColumnVectorIds[%d][%d]",
+                    rowGroupId, rowId, columnId, columnVectorId,
+                    k, cachedColumnVectorIds[k]);
+                // RocksDB Column Vector
+                // RocksDB Key, which is Rocks key
+                // Ex) ""
+                sds dataKey = generateDataRocksKeySds(
+                    scanParam->dataKeyInfo, columnVectorId, columnId);
+                sds colVector = getRawColumnVectorFromRocksDB(db, dataKey);
+                cachedColumnVectorIds[k] = columnVectorId;
+
+                if (cachedColumnVectorIters[k].col_v != NULL) {
+                    sdsfree(cachedColumnVectorIters[k].col_v);
+                }
+
+                ColumnVectorIter begin, end;
+                makeColumnVectorIter(colVector, &begin, &end);
+                cachedColumnVectorIters[k] = begin;
+                sdsfree(dataKey);
+            } else {
+                serverLog(
+                    LL_DEBUG,
+                    "Hit! rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], cachedColumnVectorIds[%d][%d]",
+                    rowGroupId, rowId, columnId, columnVectorId,
+                    k, cachedColumnVectorIds[k]);
+            }
+
+            sds value = columnVectorIterGet(cachedColumnVectorIters[k]);
+            int eoi = 0;
+            columnVectorIterNext(&cachedColumnVectorIters[k], &eoi);
+            if (value == NULL) {
+                serverLog(
+                    LL_WARNING,
+                    "rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], ColumnVectorIndex[%zu], value[%s]",
+                    rowGroupId, rowId, columnId, columnVectorId, getColumnVectorIndex(rowId), value);
+            }
+            addReplyBulkSds(c, sdsdup(value));
+            sdsfree(value);
+            numReplies++;
+        }
+    }
+
+    // Removes created ColumnVector robjs.
+    for (size_t k = 0; k < columnParam->columnCount; ++k) {
+        sds colVector = cachedColumnVectorIters[k].col_v;
+        if (colVector != NULL) {
+            sdsfree(colVector);
+        }
+    }
+
+    zfree(cachedColumnVectorIters);
+    zfree(cachedColumnVectorIds);
+
+    return numReplies;
+}
+
+sds getRawColumnVectorFromRocksDB(redisDb *db, sds dataRocksKey) {
+    char *err;
+    size_t valueLen = 0;
+    char *value;
+    size_t keyBufLen = 0;
+
+    serverLog(LL_DEBUG, "[getColumnVectorFromRocksDB] dataRocksKey: %s", dataRocksKey);
+
+    value = rocksdb_get_cf(
+            db->persistent_store->ps,
+            db->persistent_store->ps_options->roptions,
+            db->persistent_store->ps_cf_handles[PERSISTENT_STORE_CF_RW],
+            dataRocksKey, sdslen(dataRocksKey), &valueLen, &err);
+
+    serverLog(LL_DEBUG, "[getColumnVectorFromRocksDB] value: %s", value);
+
+    if (value == NULL) {
+        serverLog(
+                LL_WARNING,
+                "[getColumnVectorFromRocksDB] Key: %s, value is not exist.",
+                dataRocksKey);
+        return NULL;
+    }
+
+    sds copiedValue = sdsnewlen(value, valueLen);
+    rocksdb_free(value);
+    return copiedValue;
 }
 
 /* dateStrToInteger function

@@ -28,12 +28,6 @@ void vectorInit(Vector *v) {
     v->count = 0;
 }
 
-void vectorInitWithSize(Vector *v, size_t size) {
-    vectorInit(v);
-    v->size = size;
-    v->data = (void **) zmalloc(_vectorGetDatumSize(v) * v->size);
-}
-
 void vectorTypeInit(Vector *v, int type) {
     vectorInit(v);
     v->type = type;
@@ -212,66 +206,37 @@ sds vectorToSds(Vector *v) {
     return vectorSds;
 }
 
-void stackInit(Stack *s) {
-    s->type = STL_TYPE_DEFAULT;
-    vectorInit(&s->data);
-}
-
-void stackTypeInit(Stack *s, int type) {
-    stackInit(s);
-    s->type = type;
-    s->data.type = type;
-}
-
-size_t stackCount(Stack *s) {
-    return s->data.count;
-}
-
-int stackPush(Stack *s, void *datum) {
-    return vectorAdd(&s->data, datum);
-}
-
-void *stackPop(Stack *s) {
-    return vectorPop(&s->data);
-}
-
-int stackFree(Stack *s) {
-    return vectorFree(&s->data);
-}
-
-int stackFreeDeep(Stack *s) {
-    return vectorFreeDeep(&s->data);
-}
-
-char *VectorSerialize(void *o) {
+char *vectorSerialize(void *o) {
 	Vector *v = (Vector *) ((robj *) o)->ptr;
 	int v_type = v->type;
 	int v_count = v->count;
 
-		sds serial_buf = sdscatfmt(sdsempty(), "%s{%s%i:%s%i}:%s:%s",RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX,
-				v_type, RELMODEL_VECTOR_COUNT_PREFIX, v_count, RELMODEL_DATA_PREFIX,VECTOR_DATA_PREFIX);
+    sds serial_buf = sdscatfmt(
+        sdsempty(), "%s{%s%i:%s%i}:%s:%s",
+        RELMODEL_VECTOR_PREFIX, RELMODEL_VECTOR_TYPE_PREFIX, v_type,
+        RELMODEL_VECTOR_COUNT_PREFIX, v_count, RELMODEL_DATA_PREFIX,
+        VECTOR_DATA_PREFIX);
 
-		int i;
-		for(i=0; i < v_count; i++){
-			sds element = (sds)vectorGet(v,i);
-			serial_buf= sdscatsds(serial_buf, element);
+    for(int i = 0; i < v_count; i++) {
+        sds element = (sds)vectorGet(v,i);
+        serial_buf= sdscatsds(serial_buf, element);
 
-			if(i < (v_count -1)){
-				serial_buf = sdscat(serial_buf,RELMODEL_DELIMITER);
-			}
-		}
-		serial_buf = sdscat(serial_buf, VECTOR_DATA_SUFFIX);
+        if(i < (v_count -1)){
+            serial_buf = sdscat(serial_buf,RELMODEL_DELIMITER);
+        }
+    }
+    serial_buf = sdscat(serial_buf, VECTOR_DATA_SUFFIX);
 
-		serverLog(LL_DEBUG, "(char version)SERIALIZE VECTOR : %s", serial_buf);
+    serverLog(LL_DEBUG, "(char version)SERIALIZE VECTOR : %s", serial_buf);
 
-		char *string_buf = zmalloc(sizeof(char) * (sdslen(serial_buf) + 1));
-		memcpy(string_buf, serial_buf, sdslen(serial_buf));
-		string_buf[sdslen(serial_buf)] = '\0';
-		sdsfree(serial_buf);
-		return string_buf;
-
+    char *string_buf = zmalloc(sizeof(char) * (sdslen(serial_buf) + 1));
+    memcpy(string_buf, serial_buf, sdslen(serial_buf));
+    string_buf[sdslen(serial_buf)] = '\0';
+    sdsfree(serial_buf);
+    return string_buf;
 }
 
+// Deprecated
 Vector *VectordeSerialize(char *VectorString){
 	serverLog(LL_VERBOSE, "DESERIALIZE : %s", VectorString);
 	assert(VectorString != NULL);
@@ -512,11 +477,324 @@ int vectorDeserialize(sds rawRocksDBVector, Vector **result) {
 	return C_OK;
 }
 
-void CheckVectorsds(Vector *v){
+#define _GET_TARGET_TOKEN_INCLUDE_END_POINT 0
+#define _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL 1
+#define _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN 2
+#define _GET_TARGET_TOKEN_REVERSE 0
+#define _GET_TARGET_TOKEN_NO_REVERSE 1
+sds _getTargetToken(const sds col_v, size_t *i, const char end_point,
+                    int mode, int reverse) {
+    sds parse_v;
+    if (reverse == _GET_TARGET_TOKEN_NO_REVERSE) {
+        parse_v = col_v + *i;
+    }
+    sds token = sdsempty();
+    size_t token_size = 0;
 
-	size_t size= vectorCount(v);
-	for(size_t i =0; i< size; i++){
-		serverLog(LL_VERBOSE, "VECTOR CHECK SDS : [i : %zu, value : %s]", i, vectorGet(v, i));
-	}
+    int overflowed = 0;
 
+    // Parse until end_point
+    while (1) {
+        if (*i >= sdslen(col_v)) {
+            return NULL;
+        }
+        char ch;
+        if (reverse == _GET_TARGET_TOKEN_REVERSE) {
+            ch = col_v[sdslen(col_v) - 1 - *i];
+        } else {
+            ch = col_v[*i];
+        }
+        if (ch == end_point) {
+            if (
+                reverse == _GET_TARGET_TOKEN_NO_REVERSE &&
+                mode == _GET_TARGET_TOKEN_INCLUDE_END_POINT
+            ) {
+                *i = *i + 1;
+                ++token_size;
+            } else if (
+                reverse == _GET_TARGET_TOKEN_NO_REVERSE &&
+                mode == _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN
+            ) {
+                *i = *i + 1;
+            } else if (
+                reverse == _GET_TARGET_TOKEN_REVERSE &&
+                mode == _GET_TARGET_TOKEN_INCLUDE_END_POINT
+            ) {
+                ++token_size;
+            } else if (
+                reverse == _GET_TARGET_TOKEN_REVERSE &&
+                mode == _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN
+            ) {
+                if (*i == 0) {
+                    overflowed = 1;
+                } else {
+                    *i = *i - 1;
+                }
+            } else if (
+                reverse == _GET_TARGET_TOKEN_REVERSE &&
+                mode == _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL
+            ) {
+                if (*i == 0) {
+                    overflowed = 1;
+                } else {
+                    *i = *i - 1;
+                }
+            }
+            break;
+        }
+        *i = *i + 1;
+        ++token_size;
+    }
+
+    if (overflowed) {
+        return NULL;
+    }
+    if (reverse == _GET_TARGET_TOKEN_REVERSE) {
+        parse_v = col_v + sdslen(col_v) - 1 - *i;
+        token = sdscatlen(token, parse_v, token_size);
+        switch (mode) {
+            case _GET_TARGET_TOKEN_INCLUDE_END_POINT: {
+                *i = *i + 1;
+                break;
+            }
+            case _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN: {
+                *i = *i + 2;
+                break;
+            }
+            case _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL: {
+                break;
+            }
+            default:
+                break;
+        }
+    } else if (reverse == _GET_TARGET_TOKEN_NO_REVERSE) {
+        token = sdscatlen(token, parse_v, token_size);
+    }
+    return token;
+}
+
+int _preprocessMakeColumnVectorIter(const sds col_v,
+                                   size_t *i,
+                                   int *v_type,
+                                   int *v_count) {
+    // Parse 'V:{'
+    sds token = _getTargetToken(col_v, i, '{',
+                                _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                                _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "V:{") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            col_v
+        );
+        return C_ERR;
+    }
+    sdsfree(token);
+
+    // Parse 'T:'
+    token = _getTargetToken(col_v, i, ':',
+                            _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "T:") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            col_v
+        );
+        return C_ERR;
+    }
+    sdsfree(token);
+
+    // Parse Vector Type
+    token = _getTargetToken(col_v, i, ':',
+                            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    *v_type = atoi(token);
+    sdsfree(token);
+
+    // Parse 'N:'
+    token = _getTargetToken(col_v, i, ':',
+                            _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "N:") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            col_v
+        );
+        return C_ERR;
+    }
+    sdsfree(token);
+
+    // Parse Vector Count
+    token = _getTargetToken(col_v, i, '}',
+                            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    *v_count = atoi(token);
+    sdsfree(token);
+
+    // Parse until 'D'
+    token = _getTargetToken(col_v, i, 'D',
+                            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL,
+                            _GET_TARGET_TOKEN_NO_REVERSE);
+    sdsfree(token);
+    return C_OK;
+}
+
+int makeColumnVectorIter(const sds col_v, ColumnVectorIter *begin,
+                        ColumnVectorIter *end) {
+    if (
+        col_v == NULL || begin == NULL || end == NULL ||
+        sdslen(col_v) == 0
+    ) {
+        return C_ERR;
+    }
+
+    size_t i = 0;
+    int v_type = -1;
+    int v_count = -1;
+    if (_preprocessMakeColumnVectorIter(col_v, &i, &v_type, &v_count) == C_ERR) {
+        return C_ERR;
+    }
+    serverLog(LL_DEBUG, "Pos: %zu, type: %d, count: %d", i, v_type, v_count);
+
+    begin->col_v = col_v;
+    begin->type = v_type;
+    begin->count = v_count;
+
+    end->col_v = col_v;
+    end->type = v_type;
+    end->count = v_count;
+
+    // Parse 'D:['
+    sds token = _getTargetToken(col_v, &i, '[',
+                                _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                                _GET_TARGET_TOKEN_NO_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "D:[") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            col_v);
+        return C_ERR;
+    }
+    sdsfree(token);
+
+    begin->i = 0;
+    begin->_pos = i;
+
+    size_t reversed_i = 0;
+    token = _getTargetToken(col_v, &reversed_i, ']',
+                            _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                            _GET_TARGET_TOKEN_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    if (strcmp(token, "]") != 0) {
+        serverLog(
+            LL_WARNING,
+            "Fatal: Vector deserialize broken error: [%s]",
+            col_v);
+        return C_ERR;
+    }
+    sdsfree(token);
+
+    char delimiter = ':';
+    if (v_count <= 1) {
+        delimiter = '[';
+    }
+    token = _getTargetToken(col_v, &reversed_i, delimiter,
+                            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ALL,
+                            _GET_TARGET_TOKEN_REVERSE);
+    serverLog(LL_DEBUG, "Token: %s, Size: %zu", token, sdslen(token));
+    sdsfree(token);
+
+    end->i = v_count - 1;
+    end->_pos = sdslen(col_v) - 1 - reversed_i;
+
+    return C_OK;
+}
+
+bool columnVectorIterIsEqual(const ColumnVectorIter first, const ColumnVectorIter second) {
+    bool is_col_v_equal = first.col_v == second.col_v &&
+        first.count == second.count &&
+        first.type == second.type;
+    bool is_iter_equal = first.i == second.i && first._pos == second._pos;
+    return is_col_v_equal && is_iter_equal;
+}
+
+int columnVectorIterNext(ColumnVectorIter *it, int *eoi) {
+    if (it == NULL || it->col_v == NULL) {
+        return C_ERR;
+    }
+
+    if (it->i == it->count - 1) {
+        *eoi = 1;
+        return C_OK;
+    }
+
+    size_t i = it->_pos;
+    sds token = _getTargetToken(it->col_v, &i, ':',
+                                _GET_TARGET_TOKEN_INCLUDE_END_POINT,
+                                _GET_TARGET_TOKEN_NO_REVERSE);
+    sdsfree(token);
+
+    it->_pos = i;
+    it->i = it->i + 1;
+    return C_OK;
+}
+
+sds columnVectorIterGet(const ColumnVectorIter it) {
+    if (it.col_v == NULL) {
+        return NULL;
+    }
+
+    if (it.i == it.count - 1) {
+        size_t i = it._pos;
+        sds token = _getTargetToken(
+            it.col_v, &i, ']',
+            _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
+            _GET_TARGET_TOKEN_NO_REVERSE);
+        return token;
+    }
+
+    size_t i = it._pos;
+    sds token = _getTargetToken(it.col_v, &i, ':',
+                                _GET_TARGET_TOKEN_EXCLUDE_END_POINT_ON_TOKEN,
+                                _GET_TARGET_TOKEN_NO_REVERSE);
+    return token;
+}
+
+void stackInit(Stack *s) {
+    s->type = STL_TYPE_DEFAULT;
+    vectorInit(&s->data);
+}
+
+void stackTypeInit(Stack *s, int type) {
+    stackInit(s);
+    s->type = type;
+    s->data.type = type;
+}
+
+size_t stackCount(Stack *s) {
+    return s->data.count;
+}
+
+int stackPush(Stack *s, void *datum) {
+    return vectorAdd(&s->data, datum);
+}
+
+void *stackPop(Stack *s) {
+    return vectorPop(&s->data);
+}
+
+int stackFree(Stack *s) {
+    return vectorFree(&s->data);
+}
+
+int stackFreeDeep(Stack *s) {
+    return vectorFreeDeep(&s->data);
 }

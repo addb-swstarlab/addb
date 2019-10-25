@@ -31,7 +31,6 @@ typedef struct _Vector {
 } Vector;
 
 void vectorInit(Vector *v);
-void vecotrInitWithSize(Vector *v, size_t size);
 void vectorTypeInit(Vector *v, int type);
 void vectorTypeInitWithSize(Vector *v, int type, size_t size);
 Vector *vectorCreate(int type, size_t size);
@@ -46,6 +45,25 @@ int vectorFreeDatum(Vector *v, void *datum);
 int vectorFree(Vector *v);
 int vectorFreeDeep(Vector *v);
 sds vectorToSds(Vector *v);
+char *vectorSerialize(void *o);
+int vectorDeserialize(sds rawVector, Vector **result);
+// Deprecated
+Vector *VectordeSerialize(char *VectorString);
+
+// Implement like C++ style
+typedef struct _ColumnVectorIter {
+    sds col_v;
+    unsigned type:2;
+    size_t count;
+    size_t i;
+    size_t _pos;    // Internal index in rocksdb vector.
+} ColumnVectorIter;
+
+int makeColumnVectorIter(const sds col_v, ColumnVectorIter *begin,
+                         ColumnVectorIter *end);
+bool columnVectorIterIsEqual(const ColumnVectorIter first, const ColumnVectorIter second);
+int columnVectorIterNext(ColumnVectorIter *it, int *eoi);
+sds columnVectorIterGet(const ColumnVectorIter it);
 
 /* Stack */
 /* Implemented by using Vector */
@@ -61,9 +79,4 @@ int stackPush(Stack *s, void *datum);
 void *stackPop(Stack *s);
 int stackFree(Stack *s);
 int stackFreeDeep(Stack *s);
-char *VectorSerialize(void *o);
-int vectorDeserialize(sds rawVector, Vector **result);
-// Deprecated
-Vector *VectordeSerialize(char *VectorString);
-void CheckVectorsds(Vector *v);
 #endif
