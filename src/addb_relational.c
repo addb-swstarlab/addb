@@ -1041,7 +1041,7 @@ size_t _cachedScan(client *c, redisDb *db, size_t rowGroupId,
                         vectorGet(columnVector, l));
                 }
             }
-            addReplyBulkSds(c, sdsdup(value));
+            addReplyBulkCBuffer(c, value, sdslen(value));
             numReplies++;
         }
     }
@@ -1116,7 +1116,7 @@ size_t _cachedScanOnRocksDB(client *c, redisDb *db, size_t rowGroupId,
                         vectorGet(columnVector, l));
                 }
             }
-            addReplyBulkSds(c, sdsdup(value));
+            addReplyBulkCBuffer(c, value, sdslen(value));
             numReplies++;
         }
     }
@@ -1239,7 +1239,8 @@ size_t _cachedScanOnRocksDB_iterator(client *c, redisDb *db, size_t rowGroupId,
                     "rowGroupId[%zu], rowId[%zu], columnId[%zu], columnVectorId[%zu], ColumnVectorIndex[%zu], value[%s]",
                     rowGroupId, rowId, columnId, columnVectorId, getColumnVectorIndex(rowId), value);
             }
-            addReplyBulkSds(c, value);
+            addReplyBulkCBuffer(c, value, sdslen(value));
+            sdsfree(value);
             numReplies++;
         }
     }
