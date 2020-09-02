@@ -141,9 +141,9 @@ void fpWriteCommand(client *c){
 
 
      /*check Value Type*/
-     if(!(strcmp((char *)valueObj->ptr, NULLVALUE)))
-        	valueObj = shared.nullValue;
-
+     if(!(strcmp((char *)valueObj->ptr, NULLVALUE))){
+    	 valueObj = shared.nullValue;
+     }
 
      serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
         		(char *)dataKeyString->ptr, (char *)dataField->ptr, (char *)valueObj->ptr);
