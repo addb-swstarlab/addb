@@ -32,6 +32,7 @@
 #define MAX_COLUMN_NUMBER 100  /*Modify later*/
 
 #define NULLVALUE "null"
+#define EMPTYSTRING "\0"
 
 #define DATA_KEY_MAX_SIZE 256
 #define PARTITION_KEY_MAX_SIZE 256
