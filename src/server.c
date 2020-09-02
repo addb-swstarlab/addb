@@ -1363,6 +1363,8 @@ void createSharedObjects(void) {
 
     /*addb shared object*/
     shared.nullValue = createObject(OBJ_STRING, sdsnew(NULLVALUE));
+    shared.emptyString = createObject(OBJ_STRING, sdsnew(EMPTYSTRING));
+
     for (j = 0; j < OBJ_SHARED_INTEGERS; j++) {
         shared.integers[j] =
             makeObjectShared(createObject(OBJ_STRING,(void*)(long)j));
