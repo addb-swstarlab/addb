@@ -213,13 +213,6 @@ int getRowNumberInfoAndSetRowNumberInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo
 	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
 
 	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
-//	if(metaHashdictObj == NULL){
-//		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
-//	}
-//	else{
-//		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
-//	}
-
 	robj *metaField  = createStringObjectFromLongLong((long long) dataKeyInfo->rowGroupId);
 	rowNumber = lookupCompInfoForRowNumberInMeta(metaHashdictObj, metaField);
   dataKeyInfo->row_number = rowNumber;
@@ -237,13 +230,6 @@ int getRowGroupInfoAndSetRowGroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 	setMetaKeyForRowgroup(dataKeyInfo, metaKey);
 
 	robj *metaHashdictObj = lookupSDSKeyForMetadict(db, metaKey);
-//	if(metaHashdictObj == NULL){
-//		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NULL");
-//	}
-//	else{
-//		serverLog(LL_DEBUG, "METAHASHDICT OBJ IS NOTNULL");
-//	}
-
 	robj *metaField = shared.integers[0];
     serverLog(LL_VERBOSE, "getRowGroupInfoAndSetRowGroupInfo: Call lookupCompInfoForMeta, Size[%zu]", zmalloc_used_memory());
 	rowgroup = lookupCompInfoForMeta(metaHashdictObj, metaField);
@@ -267,7 +253,6 @@ int getRowgroupInfo(redisDb *db, NewDataKeyInfo *dataKeyInfo){
 
 
 int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
-	//int retVal, ret;
     if (metaHashdictObj == NULL) {
         serverLog(LL_DEBUG, "[lookupCompInfoForRowNumberInMeta] Meta dict is NULL...");
         return 0;
@@ -292,40 +277,6 @@ int lookupCompInfoForRowNumberInMeta(robj *metaHashdictObj,robj* metaField){
     decrRefCount(ret);
     return retVal;
 
-//	if (metaHashdictObj->encoding == OBJ_ENCODING_ZIPLIST) {
-//			unsigned char *vstr = NULL;
-//			unsigned int vlen = UINT_MAX;
-//			long long vll = LLONG_MAX;
-//
-//			ret = hashTypeGetFromZiplist(metaHashdictObj, metaField, &vstr, &vlen, &vll);
-//			if (ret < 0) {
-//				retVal = 0;
-//			} else {
-//				if (vstr) {
-//					//redisLog(REDIS_ERROR, "# of RowGroup should be integer");
-//					assert(0);
-//				} else {
-//					retVal = vll;
-//				}
-//			}
-//		} else if (metaHashdictObj->encoding == OBJ_ENCODING_HT) {
-//			robj *valObj;
-//
-//			ret = hashTypeGetFromHashTable(metaHashdictObj, metaField, &valObj);
-//			if (ret < 0) {
-//				retVal = 0;
-//			} else {
-//				if (!sdsEncodedObject(valObj)) {
-//					retVal = (int) (long) valObj->ptr;
-//
-//				} else {
-//					retVal= atoi((char * ) valObj->ptr);
-//				}
-//			}
-//		} else {
-//			assert(0);
-//		}
-//	return retVal;
 }
 
 int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
@@ -345,45 +296,6 @@ int lookupCompInfoForMeta(robj *metaHashdictObj,robj* metaField){
     decrRefCount(ret);
     return retVal;
 
-//	int retVal, ret;
-//    if (metaHashdictObj == NULL) {
-//        serverLog(LL_DEBUG, "[lookupCompInfoForRowNumberInMeta] Meta dict is NULL...");
-//        return 0;
-//    }
-//	if (metaHashdictObj->encoding == OBJ_ENCODING_ZIPLIST) {
-//			unsigned char *vstr = NULL;
-//			unsigned int vlen = UINT_MAX;
-//			long long vll = LLONG_MAX;
-//
-//			ret = hashTypeGetFromZiplist(metaHashdictObj, metaField, &vstr, &vlen, &vll);
-//			if (ret < 0) {
-//				retVal = 0;
-//			} else {
-//				if (vstr) {
-//					//redisLog(REDIS_ERROR, "# of RowGroup should be integer");
-//					assert(0);
-//				} else {
-//					retVal = vll;
-//				}
-//			}
-//		} else if (metaHashdictObj->encoding == OBJ_ENCODING_HT) {
-//			robj *valObj;
-//
-//			ret = hashTypeGetFromHashTable(metaHashdictObj, metaField, &valObj);
-//			if (ret < 0) {
-//				retVal = 0;
-//			} else {
-//				if (!sdsEncodedObject(valObj)) {
-//					retVal = (int) (long) valObj->ptr;
-//
-//				} else {
-//					retVal= atoi((char * ) valObj->ptr);
-//				}
-//			}
-//		} else {
-//			assert(0);
-//		}
-//	return retVal;
 }
 
 
@@ -445,8 +357,7 @@ int incRowNumber(redisDb *db, NewDataKeyInfo *dataKeyInfo, int inc_number){
 }
 
 
-//TO-DO MODIFY LATER -HS
-int IncDecCount(redisDb *db, robj *key, robj *field, long long cnt){  // int flags ??
+int IncDecCount(redisDb *db, robj *key, robj *field, long long cnt){
 
     long long value, oldvalue;
     robj *o, *new, *cur_obj;
@@ -714,12 +625,6 @@ int insertKVpairToRelational(client *c, robj *dataKeyString, robj *dataField, ro
  		Vector *v = (Vector *)VectorObj->ptr;
  		vectorAdd(v, sdsdup(valueObj->ptr));
 
-// 		int number = v->count;
- 		//check append result
-// 		if(strcmp(vectorGet(v, number-1), (sds)valueObj->ptr) == 0){
-// 			serverLog(LL_WARNING, "Append Vector & DATA INSERTION FAIL");
-// 			serverPanic("Append Vector & DATA INSERTION ERROR in insertKVpairToRelational");
-//		}
 	}
 	notifyKeyspaceEvent(NOTIFY_HASH,"hset", dataKeyString,c->db->id);
 	server.dirty++;
