@@ -143,6 +143,8 @@ void fpWriteCommand(client *c){
      /*check Value Type*/
      if(!(strcmp((char *)valueObj->ptr, NULLVALUE))){
     	 valueObj = shared.nullValue;
+     } else if(*((char *) valueObj->ptr) == '\0' || *((char *) valueObj->ptr) == ' '){
+    	 valueObj = shared.emptyString;
      }
 
      serverLog(LL_DEBUG, "insertKVpairToRelational key : %s, field : %s, value : %s",
