@@ -42,8 +42,6 @@ void fpWriteCommand(client *c){
     long long insertedRow = 0;
     int Enroll_queue = 0;
 
-    //struct redisClient *fakeClient = NULL;
-
     serverLog(LL_DEBUG, "fpWrite Param List ==> Key : %s, partition : %s, num_of_column : %s, indexColumn : %s",
             (char *) c->argv[1]->ptr,(char *) c->argv[2]->ptr, (char *) c->argv[3]->ptr , (char *) c->argv[4]->ptr);
 
@@ -91,12 +89,10 @@ void fpWriteCommand(client *c){
 
 		robj *dataKeyString = NULL;
 		dataKeyString = generateDataKey(dataKeyInfo);
-		//serverLog(LL_VERBOSE, "DATAKEY1 :  %s", (char *) dataKeyString->ptr);
 
 		dictEntry *entryDict = dictFind(c->db->dict, dataKeyString->ptr);
 		if (entryDict != NULL) {
 			robj * val = dictGetVal(entryDict);
-			//serverLog(LL_VERBOSE, "DATAKEYtest :  %d", val->location);
 
 			// __sync_synchronize();
 			if (val->location != LOCATION_REDIS_ONLY && !Enroll_queue) {
@@ -105,8 +101,7 @@ void fpWriteCommand(client *c){
 				decrRefCount(dataKeyString);
 				dataKeyString = generateDataKey(dataKeyInfo);
 				row_number = 0;
-				//serverLog(LL_VERBOSE, "DATAKEY2 :  %s, rowGroupId : %d  rowgroupId : %d",
-				//		(char *) dataKeyString->ptr, rowGroupId, dataKeyInfo->rowGroupId);
+
 			}
 		} else if (entryDict == NULL && row_number != 0 && !Enroll_queue) {
 			rowGroupId = IncRowgroupIdAndModifyInfo(c->db, dataKeyInfo, 1);
@@ -124,8 +119,6 @@ void fpWriteCommand(client *c){
     int idx =0;
     int init =0;
     for(i = 5; i < c->argc; i++){
-
-    	   /*TODO - pk column check & ROW MAX LIMIT, COLUMN MAX LIMIT, */
 
     	robj *valueObj = getDecodedObject(c->argv[i]);
 
