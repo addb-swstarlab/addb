@@ -6,26 +6,26 @@
 ## arg2: GREP1
 ## arg3: value
 function SetConfiguration_Grep1() {
-	OPTIONNAME=$1
-	GREP1=$2
-	VALUE=$3
-	for port in ${PORT_LIST[@]}
-	do
-		grep_result=$(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "${GREP1}" )
-		sed -i".old" "s/${grep_result}/${OPTIONNAME} ${VALUE}/" "${CONF_DIR}/${CONF_PREFIX}_${port}.conf"
-		if [ $? -ne 0 ]; then
-			echo "[ERROR] Cannot overwrite configuration file..."
-			exit 1
-		fi
-	done
+        OPTIONNAME=$1
+        GREP1=$2
+        VALUE=$3
+        for port in ${PORT_LIST[@]}
+        do
+                grep_result=$(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "${GREP1}" )
+                sed -i".old" "s/${grep_result}/${OPTIONNAME} ${VALUE}/" "${CONF_DIR}/${CONF_PREFIX}_${port}.conf"
+                if [ $? -ne 0 ]; then
+                        echo "[ERROR] Cannot overwrite configuration file..."
+                        exit 1
+                fi
+        done
 
-	echo "Setting is done!"
-	echo "Finally, check ${OPTIONNAME}"
-	for port in ${PORT_LIST[@]}
-	do
-		echo "[${CONF_PREFIX}_${port}.conf]"
-		echo $(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "$GREP1" )
-	done
+        echo "Setting is done!"
+        echo "Finally, check ${OPTIONNAME}"
+        for port in ${PORT_LIST[@]}
+        do
+                echo "[${CONF_PREFIX}_${port}.conf]"
+                echo $(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "$GREP1" )
+        done
 }
 
 ## arg1: Option name
@@ -34,368 +34,457 @@ function SetConfiguration_Grep1() {
 ## arg4: GREP3
 ## arg5: value
 function SetConfiguration_Grep3() {
-	OPTIONNAME=$1
-	GREP1=$2
-	GREP2=$3
-	GREP3=$4
-	VALUE=$5
-	for port in ${PORT_LIST[@]}
-	do
-		grep_result=$(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "$GREP1"| grep -v "$GREP2" | grep -v "$GREP3" )
-		sed -i".old" "s/${grep_result}/${OPTIONNAME} ${VALUE}/" "${CONF_DIR}/${CONF_PREFIX}_${port}.conf"
-		if [ $? -ne 0 ]; then
-			echo "[ERROR] Cannot overwrite configuration file..."
-			exit 1
-		fi
-	done
+        OPTIONNAME=$1
+        GREP1=$2
+        GREP2=$3
+        GREP3=$4
+        VALUE=$5
+        for port in ${PORT_LIST[@]}
+        do
+                grep_result=$(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "$GREP1"| grep -v "$GREP2" | grep -v "$GREP3" )
+                sed -i".old" "s/${grep_result}/${OPTIONNAME} ${VALUE}/" "${CONF_DIR}/${CONF_PREFIX}_${port}.conf"
+                if [ $? -ne 0 ]; then
+                        echo "[ERROR] Cannot overwrite configuration file..."
+                        exit 1
+                fi
+        done
 
-	echo "Setting is done!"
-	echo "Finally, check ${OPTIONNAME}"
-	for port in ${PORT_LIST[@]}
-	do
-		echo "[${CONF_PREFIX}_${port}.conf]"
-		echo $(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "${GREP1}" | grep -v "${GREP2}" | grep -v "${GREP3}" )
-	done
+        echo "Setting is done!"
+        echo "Finally, check ${OPTIONNAME}"
+        for port in ${PORT_LIST[@]}
+        do
+                echo "[${CONF_PREFIX}_${port}.conf]"
+                echo $(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "${GREP1}" | grep -v "${GREP2}" | grep -v "${GREP3}" )
+        done
 }
 
 # -AOF
 ## arg1: yes | no
 function Set_AOF() {
-	if [ -z "$1" ]; then
-		echo -e "\nPlease enter [yes | no]"
-		echo "Ex) addb_RR -AOF yes"
-		exit 1;
-	else
-		echo -e "\n## ADDB Redis - Set AOF"
-		SetConfiguration_Grep3 "appendonly" "appendonly" "#" "appendfilename" $1	
-	fi
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter [yes | no]"
+                echo "Ex) addb_RR -AOF yes"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set AOF"
+                SetConfiguration_Grep3 "appendonly" "appendonly" "#" "appendfilename" $1
+        fi
 }
 
 # -CV
 ## arg1: column vector size
 function Set_CV() {
-	if [ -z "$1" ]; then
-		echo -e "\nPlease enter columnvector_size"
-		echo "Ex) addb_RR -CV 250"
-		exit 1;
-	else
-		echo -e "\n## ADDB Redis - Set Column-vector size"
-		SetConfiguration_Grep1 "columnvector_size" "columnvector_size" $1	
-	fi
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter columnvector_size"
+                echo "Ex) addb_RR -CV 250"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set Column-vector size"
+                SetConfiguration_Grep1 "columnvector_size" "columnvector_size" $1
+        fi
 }
 
 # -offCV
 function Off_CV() {
-	GREP=columnvector_size
-	echo -e "\n## ADDB Redis - Off columnvector_size option "
-	for port in ${PORT_LIST[@]}
-	do
-		grep_result=$(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "${GREP}" )
-		sed -i".old" "s/${grep_result}/#${grep_result}/" "${CONF_DIR}/${CONF_PREFIX}_${port}.conf"
-		if [ $? -ne 0 ]; then
-			echo "[ERROR] Cannot overwrite configuration file..."
-			exit 1
-		fi
-	done
+        GREP=columnvector_size
+        echo -e "\n## ADDB Redis - Off columnvector_size option "
+        for port in ${PORT_LIST[@]}
+        do
+                grep_result=$(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "${GREP}" )
+                sed -i".old" "s/${grep_result}/#${grep_result}/" "${CONF_DIR}/${CONF_PREFIX}_${port}.conf"
+                if [ $? -ne 0 ]; then
+                        echo "[ERROR] Cannot overwrite configuration file..."
+                        exit 1
+                fi
+        done
 
-	echo "Setting is done!"
-	echo "Finally, check ${OPTIONNAME}"
-	for port in ${PORT_LIST[@]}
-	do
-		echo "[${CONF_PREFIX}_${port}.conf]"
-		echo $(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "${GREP}" )
-	done
+        echo "Setting is done!"
+        echo "Finally, check ${OPTIONNAME}"
+        for port in ${PORT_LIST[@]}
+        do
+                echo "[${CONF_PREFIX}_${port}.conf]"
+                echo $(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "${GREP}" )
+        done
 }
 
 # -IP
 function Set_IP() {
-	echo -e "\n## ADDB Redis - Set BindIP option "
-	for port in ${PORT_LIST[@]}
-	do
-		grep_result=$(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "bind " | grep -v "#" )
-		sed -i".old" "s/${grep_result}/bind ${IP}/" "${CONF_DIR}/${CONF_PREFIX}_${port}.conf"
-		if [ $? -ne 0 ]; then
-			echo "[ERROR] Cannot overwrite configuration file..."
-			exit 1
-		fi
-	done
+        echo -e "\n## ADDB Redis - Set BindIP option "
+        for port in ${PORT_LIST[@]}
+        do
+                grep_result=$(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "bind " | grep -v "#" )
+                sed -i".old" "s/${grep_result}/bind ${IP}/" "${CONF_DIR}/${CONF_PREFIX}_${port}.conf"
+                if [ $? -ne 0 ]; then
+                        echo "[ERROR] Cannot overwrite configuration file..."
+                        exit 1
+                fi
+        done
 
-	echo "Setting is done!"
-	echo "Finally, check ${OPTIONNAME}"
-	for port in ${PORT_LIST[@]}
-	do
-		echo "[${CONF_PREFIX}_${port}.conf]"
-		echo $(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "bind " | grep -v "#" )
-	done
+        echo "Setting is done!"
+        echo "Finally, check ${OPTIONNAME}"
+        for port in ${PORT_LIST[@]}
+        do
+                echo "[${CONF_PREFIX}_${port}.conf]"
+                echo $(cat ${CONF_DIR}/${CONF_PREFIX}_${port}.conf | grep "bind " | grep -v "#" )
+        done
 
 }
+
 
 # -loglevel
 ## arg1: log level (notice verbose debug warning) 
 function Set_loglevel() {
-	if [ -z "$1" ]; then
-		echo -e "\nPlease enter log level [notice|verbose|debug|warning]"
-		echo "Ex) addb_RR -loglevel debug"
-		exit 1;
-	else
-		echo -e "\n## ADDB Redis - Set log level "
-		SetConfiguration_Grep1 "loglevel" "loglevel" $1	
-	fi
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter log level [notice|verbose|debug|warning]"
+                echo "Ex) addb_RR -loglevel debug"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set log level "
+                SetConfiguration_Grep1 "loglevel" "loglevel" $1
+        fi
 }
 
 # -maxmemory
 ## arg1: max memory
 function Set_memory() {
-	if [ -z "$1" ]; then
-		echo -e "\nPlease enter max memory"
-		echo "Ex) addb_RR -memory 5GB"
-		exit 1;
-	else
-		echo -e "\n## ADDB Redis - Set max memory "
-		SetConfiguration_Grep3 "maxmemory" "maxmemory" "#" "policy" $1	
-	fi
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter max memory"
+                echo "Ex) addb_RR -memory 5GB"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set max memory "
+                SetConfiguration_Grep3 "maxmemory" "maxmemory" "#" "policy" $1
+        fi
 }
 
 # -rewrite
 ## arg1: rewrite [yes|no]
 function Set_rewrite() {
-	if [ -z "$1" ]; then
-		echo -e "\nPlease enter [yes | no]"
-		echo "Ex) addb_RR -rewrite yes"
-		exit 1;
-	else
-		echo -e "\n## ADDB Redis - Set rewrite option "
-		SetConfiguration_Grep1 "no-appendfsync-on-rewrite" "no-appendfsync-on-rewrite" $1	
-	fi
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter [yes | no]"
+                echo "Ex) addb_RR -rewrite yes"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set rewrite option "
+                SetConfiguration_Grep1 "no-appendfsync-on-rewrite" "no-appendfsync-on-rewrite" $1
+        fi
 }
 
 # -RG
 ## arg1: rowgroup_size
 function Set_RG() {
-	if [ -z "$1" ]; then
-		echo -e "\nPlease enter row group size"
-		echo "Ex) addb_RR -RG 500"
-		exit 1;
-	else
-		echo -e "\n## ADDB Redis - Set row group size "
-		SetConfiguration_Grep1 "rowgroup_size" "rowgroup_size" $1	
-	fi
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter row group size"
+                echo "Ex) addb_RR -RG 500"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set row group size "
+                SetConfiguration_Grep1 "rowgroup_size" "rowgroup_size" $1
+        fi
 }
 
-# -ziplist
+# -zipliste
 ## arg1: ziplist entries
-function Set_ziplist() {
-	if [ -z "$1" ]; then
-		echo -e "\nPlease enter hash-max-ziplist-entries"
-		echo "Ex) addb_RR -ziplist 100000"
-		exit 1;
-	else
-		echo -e "\n## ADDB Redis - Set hash-max-ziplist-entries "
-		SetConfiguration_Grep1 "hash-max-ziplist-entries" "hash-max-ziplist-entries" $1	
-	fi
+function Set_zipliste() {
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter hash-max-ziplist-entries"
+                echo "Ex) addb_RR -zipliste 100000"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set hash-max-ziplist-entries "
+                SetConfiguration_Grep1 "hash-max-ziplist-entries" "hash-max-ziplist-entries" $1
+        fi
+}
+
+# -ziplistv
+## arg1: ziplist value
+function Set_ziplistv() {
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter hash-max-ziplist-value"
+                echo "Ex) addb_RR -ziplistv 100000"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set hash-max-ziplist-value "
+                SetConfiguration_Grep1 "hash-max-ziplist-value" "hash-max-ziplist-value" $1
+        fi
+}
+
+# -hz
+## arg1: hz value
+function Set_hz() {
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter hz"
+                echo "Ex) addb_RR -hz 100"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set hz "
+                SetConfiguration_Grep3 "hz" "hz" "#" "#" $1
+        fi
+}
+
+# -lazyfree-lazy-expire
+## arg1: lazyfree-lazy-expire [yes|no]
+function Set_lazyexpire() {
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter [yes | no]"
+                echo "Ex) addb_RR -lazyexpire yes"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set lazyfree-lazy-expire "
+                SetConfiguration_Grep1 "lazyfree-lazy-expire" "lazyfree-lazy-expire" $1
+        fi
+}
+
+# -lazyfree-lazy-server-del
+## arg1: lazyfree-lazy-server-del [yes|no]
+function Set_lazyserver() {
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter [yes | no]"
+                echo "Ex) addb_RR -lazyserver yes"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set lazyfree-lazy-server-del "
+                SetConfiguration_Grep1 "lazyfree-lazy-server-del" "lazyfree-lazy-server-del" $1
+        fi
+}
+
+# -lazyfree-lazy-eviction
+## arg1: lazyfree-lazy-eviction [yes|no]
+function Set_lazyeviction() {
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter [yes | no]"
+                echo "Ex) addb_RR -lazyeviction yes"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set lazyfree-lazy-eviction "
+                SetConfiguration_Grep1 "lazyfree-lazy-eviction" "lazyfree-lazy-eviction" $1
+        fi
+}
+
+# -activerehashing
+## arg1: activerehashing [yes|no]
+function Set_arhashing() {
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter [yes | no]"
+                echo "Ex) addb_RR -arhashing yes"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis - Set activerehashing "
+                SetConfiguration_Grep3 "activerehashing" "activerehashing" "#" "#" $1
+        fi
 }
 
 function Set_batch() {
-	if [ -z "$1" ]; then
-		echo -e "\nPlease enter batch_tiering_size"
-		echo "Ex) addb_RR -batch 500"
-		exit 1;
-	else
-		echo -e "\n## ADDB Redis -Set batch_tiering_size "
-		SetConfiguration_Grep1 "batch_tiering_size" "batch_tiering_size" $1
-	fi
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter batch_tiering_size"
+                echo "Ex) addb_RR -batch 500"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis -Set batch_tiering_size "
+                SetConfiguration_Grep1 "batch_tiering_size" "batch_tiering_size" $1
+        fi
 }
 
 function Set_slow() {
-	if [ -z "$1" ]; then
-		echo -e "\nPlease enter slow log threshold"
-		echo "Ex) addb_RR -slow 1000000"
-		exit 1;
-	else
-		echo -e "\n## ADDB Redis -Set slow log threshold "
-		SetConfiguration_Grep1 "slowlog-log-slower-than" "slowlog-log-slower-than" $1
-	fi
+        if [ -z "$1" ]; then
+                echo -e "\nPlease enter slow log threshold"
+                echo "Ex) addb_RR -slow 1000000"
+                exit 1;
+        else
+                echo -e "\n## ADDB Redis -Set slow log threshold "
+                SetConfiguration_Grep1 "slowlog-log-slower-than" "slowlog-log-slower-than" $1
+        fi
 }
 
 # -init
 function InitDirectory() {
-	echo -e "\n## ADDB Redis - Initilize directory"
-	mkdir -p ${CONF_DIR}
-	echo "mkdir -p ${CONF_DIR}"
-	for i in ${NODE_LIST[@]}
-	do
-		echo "touch ${CONF_DIR}/nodes${i}.conf"
-		touch ${CONF_DIR}/nodes${i}.conf
-	done	
-	mkdir -p ${LOG_DIR}
-	echo "mkdir -p ${LOG_DIR}"
-	mkdir -p ${RUN_DIR}
-	echo "mkdir -p ${RUN_DIR}"
+        echo -e "\n## ADDB Redis - Initilize directory"
+        mkdir -p ${CONF_DIR}
+        echo "mkdir -p ${CONF_DIR}"
+        for i in ${NODE_LIST[@]}
+        do
+                echo "touch ${CONF_DIR}/nodes${i}.conf"
+                touch ${CONF_DIR}/nodes${i}.conf
+        done
+        mkdir -p ${LOG_DIR}
+        echo "mkdir -p ${LOG_DIR}"
+        mkdir -p ${RUN_DIR}
+        echo "mkdir -p ${RUN_DIR}"
 
-	for port in ${PORT_LIST_1[@]}
-	do
-		mkdir -p ${DATA_DIR_1}/${port}
-		echo "mkdir -p ${DATA_DIR_1}/${port}"
-	done
-	for port in ${PORT_LIST_2[@]}
-	do
-		mkdir -p ${DATA_DIR_2}/${port};
-		echo "mkdir -p ${DATA_DIR_2}/${port}"
-	done
+        for port in ${PORT_LIST_1[@]}
+        do
+                mkdir -p ${DATA_DIR_1}/${port}
+                echo "mkdir -p ${DATA_DIR_1}/${port}"
+        done
+        for port in ${PORT_LIST_2[@]}
+        do
+                mkdir -p ${DATA_DIR_2}/${port};
+                echo "mkdir -p ${DATA_DIR_2}/${port}"
+        done
 }
 
 # -run
 function RunServer() {
-	echo -e "\n## ADDB Redis - Run redis-server"
-	source ~/.bashrc
-	cd ${ADDB_HOME}
-	
-	for port in ${PORT_LIST[@]}
-	do
-		echo "Run [${port}]"
-		./src/${REDIS_SERVER} ${CONF_DIR}/${CONF_PREFIX}_${port}.conf
-	done
-	sleep 5
-	CheckServer
+        echo -e "\n## ADDB Redis - Run redis-server"
+        source ~/.bashrc
+        cd ${ADDB_HOME}
+
+        for port in ${PORT_LIST[@]}
+        do
+                echo "Run [${port}]"
+                ./src/${REDIS_SERVER} ${CONF_DIR}/${CONF_PREFIX}_${port}.conf
+        done
+        sleep 5
+        CheckServer
 }
 
 # -check
 function CheckServer() {
-	echo -e "\n## ADDB Redis - Check redis-server\n"
-	ps -ef | grep ${REDIS_SERVER}
+        echo -e "\n## ADDB Redis - Check redis-server\n"
+        ps -ef | grep ${REDIS_SERVER}
 }
-#	-watch
+#       -watch
 function WatchServer() {
-	echo -e "\n## ADDB Redis - Watch redis-server\n"
-	cd ${ADDB_HOME}
-	content=""
-	for port in ${PORT_LIST_1[@]}
-	do
-		content+=" du -h ${DATA_DIR_1}/${port}/${ROCKSDB_DATA_DIR};"
-	done
-	for port in ${PORT_LIST_2[@]}
-	do
-		content+=" du -h ${DATA_DIR_2}/${port}/${ROCKSDB_DATA_DIR};"
-	done
-	#content+="./scripts/clusterCommand8.sh dbsize"
-	content+="addb_RR -command dbsize;"
-	content+="addb_RR -command info clients"
-	watch -d -n 1 "${content}"
+        echo -e "\n## ADDB Redis - Watch redis-server\n"
+        cd ${ADDB_HOME}
+        content=""
+        for port in ${PORT_LIST_1[@]}
+        do
+                content+=" du -h ${DATA_DIR_1}/${port}/${ROCKSDB_DATA_DIR};"
+        done
+        for port in ${PORT_LIST_2[@]}
+        do
+                content+=" du -h ${DATA_DIR_2}/${port}/${ROCKSDB_DATA_DIR};"
+        done
+        #content+="./scripts/clusterCommand8.sh dbsize"
+        content+="addb_RR -command dbsize;"
+        content+="addb_RR -command info clients"
+        watch -d -n 1 "${content}"
 }
-#	-kill
+#       -kill
 function KillServer() {
-	echo -e "\n## ADDB Redis - Kill redis-server\n"
-	RESULT=$(ps -ef | grep ${REDIS_SERVER} | tr -s ' ' | cut -d ' ' -f 2)
-	for port in ${RESULT[@]}; do
-		sudo kill -9 $port
-	done
-	echo $(ps -ef | grep ${REDIS_SERVER})	
+        echo -e "\n## ADDB Redis - Kill redis-server\n"
+        RESULT=$(ps -ef | grep ${REDIS_SERVER} | tr -s ' ' | cut -d ' ' -f 2)
+        for port in ${RESULT[@]}; do
+                sudo kill -9 $port
+        done
+        echo $(ps -ef | grep ${REDIS_SERVER})   
 }
-#	-clean
+#       -clean
 function CleanData() {
-	echo -e "\n## ADDB Redis - Clean redis data\n"
-	for port in ${PORT_LIST_1[@]}
-	do
-		echo "rm -r ${DATA_DIR_1}/${port}/*"
-		rm -r ${DATA_DIR_1}/${port}/*
-	done
-	for port in ${PORT_LIST_2[@]}
-	do
-		echo "rm -r ${DATA_DIR_2}/${port}/*"
-		rm -r ${DATA_DIR_2}/${port}/*
-	done
+        echo -e "\n## ADDB Redis - Clean redis data\n"
+        for port in ${PORT_LIST_1[@]}
+        do
+                echo "rm -r ${DATA_DIR_1}/${port}/*"
+                rm -r ${DATA_DIR_1}/${port}/*
+        done
+        for port in ${PORT_LIST_2[@]}
+        do
+                echo "rm -r ${DATA_DIR_2}/${port}/*"
+                rm -r ${DATA_DIR_2}/${port}/*
+        done
 
-	echo "rm -r ${LOG_DIR}"
-	rm -r ${LOG_DIR}/*
+        echo "rm -r ${LOG_DIR}"
+        rm -r ${LOG_DIR}/*
 
 }
 
 # -create
 function CreateCluster() {
-	echo -e "\n## ADDB Redis - Create cluster"
-	command="ruby ${ADDB_HOME}/src/redis-trib.rb create"
-	for host in ${HOST_IP_LIST[@]}
-	do
-		for port in ${PORT_LIST[@]}
-		do
-			command="${command} ${host}:${port}"
-		done
-	done	
-	eval $command
+        echo -e "\n## ADDB Redis - Create cluster"
+        command="ruby ${ADDB_HOME}/src/redis-trib.rb create"
+        for host in ${HOST_IP_LIST[@]}
+        do
+                for port in ${PORT_LIST[@]}
+                do
+                        command="${command} ${host}:${port}"
+                done
+        done
+        eval $command
 }
 
 # -command
 # arg1-arg3
 function ClusterCommand() {
-	echo -e "\n## ADDB Redis - Execute command for each redis instance"
-	echo "Run $1 $2 $3"
-	for port in ${PORT_LIST[@]}
-	do
-		echo "[${port}]"
-		./src/redis-cli -c -p ${port} -h ${IP} $1 $2 $3
-	done
+        echo -e "\n## ADDB Redis - Execute command for each redis instance"
+        echo "Run $1 $2 $3"
+        for port in ${PORT_LIST[@]}
+        do
+                echo "[${port}]"
+                ./src/redis-cli -c -p ${port} -h ${IP} $1 $2 $3
+        done
 }
 
 # -reset
 function ResetCluster() {
-	echo -e "\n## ADDB Redis - Reset cluster"
-	ClusterCommand cluster reset hard
+        echo -e "\n## ADDB Redis - Reset cluster"
+        ClusterCommand cluster reset hard
 }
 
 # -reset
 function ClusterInfo() {
-	echo -e "\n## ADDB Redis - show cluster info"
-	ClusterCommand cluster info
+        echo -e "\n## ADDB Redis - show cluster info"
+        ClusterCommand cluster info
 }
 
 # Helper
 function Helper() {
-	echo -e "\n## ADDB Redis Controller Helper "
-	echo -e "\nusage: 
+        echo -e "\n## ADDB Redis Controller Helper "
+        echo -e "\nusage: 
 addb_RR [ -help ]
 
-	# Configuration
-	[ -AOF <yes | no> ]            
+        # Configuration
+        [ -AOF <yes | no> ]            
     := on/off AppendOnlyFile persistent method
-	[ -CV <columnvector_size ]
+        [ -CV <columnvector_size ]
     := set columnvector_size
-	[ -offCV ]
+        [ -offCV ]
     := off columnvector option
-	[ -IP ]
+        [ -IP ]
     := set BindIP based on current system
-	[ -loglevel <notice | verbose | debug | warning> ]
+        [ -loglevel <notice | verbose | debug | warning> ]
     := set loglevel on Redis
-	[ -memory <maxmemory> ]
+        [ -memory <maxmemory> ]
     := set maxmemory. should contain degree such as MB, GB
-	[ -rewrite <yes | no> ]
+        [ -rewrite <yes | no> ]
     := on/off rewrite method
-	[ -RG <rowgroup_size> ]
+        [ -RG <rowgroup_size> ]
     := set rowgroup_size
-	[ -ziplist <hash-max-ziplist-entries> ]
+        [ -zipliste <hash-max-ziplist-entries> ]
     := set max ziplist entries
-
-	# Redis-server
-	[ -init ]                 
+        [ -hz <hz>]
+    := set hz
+        [ -lazyexpire <yes | no>]
+    := set lazyfree-lazy-expire
+        [ -lazyserver <yes | no>]
+    := set lazyfree-lazy-server-del
+        [ -lazyeviction <yes | no>]
+    := set lazyfree-lazy-eviction
+        [ -arhashing <yes | no>]
+    := set activerehashing
+ 
+        # Redis-server
+        [ -init ]                 
     := initialize directories for running redis
-	[ -run ]
+        [ -run ]
     := run each redis instance with configuration file
-	[ -check ]  
+        [ -check ]  
     := check redis server
-	[ -watch ]
-		:= watch status of redis server and RocksDB directory
-	[ -kill ]
+        [ -watch ]
+                := watch status of redis server and RocksDB directory
+        [ -kill ]
     := kill all redis server
-	[ -clean ]  
+        [ -clean ]  
     := clean data directories for Redis and RocksDB
 
-	# Cluster
-	[ -create ] 
+        # Cluster
+        [ -create ] 
     := create redis cluster
-	[ -reset ]
+        [ -reset ]
     := reset redis cluster
-	[ -command ]
+        [ -command ]
     := execute command for each redis instance
-	[ -info ]
+        [ -info ]
     := show cluster information by 'cluster info' command
 "
 }
@@ -404,80 +493,98 @@ addb_RR [ -help ]
 ## arg0: options
 ## arg[1-2]: parameters about corresponding option
 function main() {
-	case $1 in
-		h|help|-h|-help|--h|--help)
+        case $1 in
+                h|help|-h|-help|--h|--help)
       Helper
-			;;
+                        ;;
 
-		-AOF)
-			Set_AOF $2
-			;;
-		-CV)
-			Set_CV $2
-			;;
-		-offCV)
-			Off_CV
-			;;
-		-IP)
-			Set_IP
-			;;
-		-loglevel)
-			Set_loglevel $2
-			;;
-		-memory)
-			Set_memory $2
-			;;
-		-rewrite)
-			Set_rewrite $2
-			;;
-		-RG)
-			Set_RG $2
-			;;
-		-ziplist)
-			Set_ziplist $2
-			;;
-		-batch)
-			Set_batch $2
-			;;
-		-slow)
-			Set_slow $2
-			;;
-		-init)
-			InitDirectory
-			;;
-		-run)
-			RunServer
-			;;
-		-check)
-			CheckServer
-			;;
-		-watch)
-			WatchServer
-			;;
-		-kill)
-			KillServer
-			;;
-		-clean)
-			CleanData
-			;;
+                -AOF)
+                        Set_AOF $2
+                        ;;
+                -CV)
+                        Set_CV $2
+                        ;;
+                -offCV)
+                        Off_CV
+                        ;;
+                -IP)
+                        Set_IP
+                        ;;
+                -loglevel)
+                        Set_loglevel $2
+                        ;;
+                -memory)
+                        Set_memory $2
+                        ;;
+                -rewrite)
+                        Set_rewrite $2
+                        ;;
+                -RG)
+                        Set_RG $2
+                        ;;
+                -zipliste)
+                        Set_zipliste $2
+                        ;;
+                -ziplistv)
+                        Set_ziplistv $2
+                        ;;
+                -hz)
+                        Set_hz $2
+                        ;;
+                -lazyexpire)
+                        Set_lazyexpire $2
+                        ;;
+                -lazyserver)
+                        Set_lazyserver $2
+                        ;;
+                -lazyeviction)
+                        Set_lazyeviction $2
+                        ;;
+                -arhashing)
+                        Set_arhashing $2
+                        ;;
+                -batch)
+                        Set_batch $2
+                        ;;
+                -slow)
+                        Set_slow $2
+                        ;;
+                -init)
+                        InitDirectory
+		;;
+                -run)
+                        RunServer
+                        ;;
+                -check)
+                        CheckServer
+                        ;;
+                -watch)
+                        WatchServer
+                        ;;
+                -kill)
+                        KillServer
+                        ;;
+                -clean)
+                        CleanData
+                        ;;
 
-		-create)
-			CreateCluster
-			;;
-		-command)
-			ClusterCommand $2 $3 $4
-			;;
-		-reset)
-			ResetCluster
-			;;
-		-info)
-			ClusterInfo
-			;;
-		*)
-			echo -e "\n# ADDB Redis Controller "
-			echo "[Invalid argument error]"
-			echo "Please enter correct option name with parameters"
-			echo -e "\nusage: 
+                -create)
+                        CreateCluster
+                        ;;
+                -command)
+                        ClusterCommand $2 $3 $4
+                        ;;
+                -reset)
+                        ResetCluster
+                        ;;
+                -info)
+                        ClusterInfo
+                        ;;
+                *)
+                        echo -e "\n# ADDB Redis Controller "
+                        echo "[Invalid argument error]"
+                        echo "Please enter correct option name with parameters"
+                        echo -e "\nusage: 
 addb_spark [ -help ] 
 
             # Configuration
@@ -489,7 +596,13 @@ addb_spark [ -help ]
             [ -memory <maxmemory> ]
             [ -rewrite <yes | no>]
             [ -RG <rowgroup_size>]
-            [ -ziplist <hash-max-ziplist-entries>]
+            [ -zipliste <hash-max-ziplist-entries>]
+            [ -ziplistv <hash-max-ziplist-value>]
+            [ -hz <hz> ]
+            [ -lazyexpire <yes | no> ]
+            [ -lazyserver <yes | no>  ]
+            [ -lazyeviction <yes | no>  ]
+            [ -arhashing <yes | no>  ]
 
             # Redis-server
             [ -init ]
@@ -500,14 +613,14 @@ addb_spark [ -help ]
             [ -clean ]  
 
             # Cluster
-            [ -create ]
+	[ -create ]
             [ -reset ]
             [ -command ]  
             [ -info ]  
 
 "
-			;;
-	esac
+                        ;;
+        esac
 }
 
 main $1 $2 $3 $4
