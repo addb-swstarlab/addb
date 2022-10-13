@@ -186,7 +186,7 @@ struct ColumnFamilyOptions : public AdvancedColumnFamilyOptions {
   // Default: 64MB
   //
   // Dynamically changeable through SetOptions() API
-  size_t write_buffer_size = 64 << 20;
+  size_t write_buffer_size=524288;
 
   // Compress blocks using the specified compression algorithm.  This
   // parameter can be changed dynamically.
@@ -220,7 +220,7 @@ struct ColumnFamilyOptions : public AdvancedColumnFamilyOptions {
   // Default: 4
   //
   // Dynamically changeable through SetOptions() API
-  int level0_file_num_compaction_trigger = 4;
+  int level0_file_num_compaction_trigger=2;
 
   // If non-nullptr, use the specified function to determine the
   // prefixes for keys.  These prefixes will be placed in the filter.
@@ -250,7 +250,7 @@ struct ColumnFamilyOptions : public AdvancedColumnFamilyOptions {
   // Default: 256MB.
   //
   // Dynamically changeable through SetOptions() API
-  uint64_t max_bytes_for_level_base = 256 * 1048576;
+  uint64_t max_bytes_for_level_base=8388608;
 
   // Disable automatic compactions. Manual compactions can still
   // be issued on this column family
@@ -389,7 +389,7 @@ struct DBOptions {
   // on target_file_size_base and target_file_size_multiplier for level-based
   // compaction. For universal-style compaction, you can usually set it to -1.
   // Default: -1
-  int max_open_files = -1;
+  int max_open_files=1000000;
 
   // If max_open_files is -1, DB will open all files on DB::Open(). You can
   // use this option to increase the number of threads used to open the files.
@@ -483,7 +483,7 @@ struct DBOptions {
   // LOW priority thread pool. For more information, see
   // Env::SetBackgroundThreads
   // Default: -1
-  int max_background_compactions = -1;
+  int max_background_compactions=1;
 
   // This value represents the maximum number of threads that will
   // concurrently perform a compaction job by breaking it into multiple,
@@ -511,7 +511,7 @@ struct DBOptions {
   // HIGH priority thread pool. For more information, see
   // Env::SetBackgroundThreads
   // Default: -1
-  int max_background_flushes = -1;
+  int max_background_flushes=16;
 
   // Specify the maximal size of the info log file. If the log file
   // is larger than `max_log_file_size`, a new info log file will

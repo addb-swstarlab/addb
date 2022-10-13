@@ -137,7 +137,7 @@ struct AdvancedColumnFamilyOptions {
   // files. Also, an in-memory merge may result in writing lesser
   // data to storage if there are duplicate records in each of these
   // individual write buffers.  Default: 1
-  int min_write_buffer_number_to_merge = 1;
+  int min_write_buffer_number_to_merge = 2;
 
   // The total maximum number of write buffers to maintain in memory including
   // copies of buffers that have already been flushed.  Unlike
@@ -276,7 +276,7 @@ struct AdvancedColumnFamilyOptions {
   // This optimization is turned off when set to 0, and positive number to turn
   // it on.
   // Default: 0
-  uint32_t bloom_locality = 1;
+  uint32_t bloom_locality = 0;
 
   // size of one block in arena memory allocation.
   // If <= 0, a proper value is automatically calculated (usually 1/8 of
@@ -335,7 +335,7 @@ struct AdvancedColumnFamilyOptions {
   // Default: 36
   //
   // Dynamically changeable through SetOptions() API
-  int level0_stop_writes_trigger = 32;
+  int level0_stop_writes_trigger = 64;
 
   // Target file size for compaction.
   // target_file_size_base is per-file size for level-1.
@@ -349,13 +349,13 @@ struct AdvancedColumnFamilyOptions {
   // Default: 64MB.
   //
   // Dynamically changeable through SetOptions() API
-  uint64_t target_file_size_base = 2097152;
+  uint64_t target_file_size_base = 2 * 1048576;
 
   // By default target_file_size_multiplier is 1, which means
   // by default files in different levels will have similar size.
   //
   // Dynamically changeable through SetOptions() API
-  int target_file_size_multiplier = 1;
+  int target_file_size_multiplier = 2;
 
   // If true, RocksDB will pick target size of each level dynamically.
   // We will pick a base level b >= 1. L0 will be directly merged into level b,

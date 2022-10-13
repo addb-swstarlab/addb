@@ -63,7 +63,7 @@ struct BlockBasedTableOptions {
   // Indicating if we'd put index/filter blocks to the block cache.
   // If not specified, each "table reader" object will pre-load index/filter
   // block during table initialization.
-  bool cache_index_and_filter_blocks = false;
+  bool cache_index_and_filter_blocks = true;
 
   // If cache_index_and_filter_blocks is enabled, cache index and filter
   // blocks with high priority. If set to true, depending on implementation of
@@ -126,7 +126,7 @@ struct BlockBasedTableOptions {
   // block size specified here corresponds to uncompressed data.  The
   // actual size of the unit read from disk may be smaller if
   // compression is enabled.  This parameter can be changed dynamically.
-  size_t block_size = 4 * 1024;
+  size_t block_size=16384;
 
   // This is used to close a block before it reaches the configured
   // 'block_size'. If the percentage of free space in the current block is less
