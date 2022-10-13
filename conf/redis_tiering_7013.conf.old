@@ -661,7 +661,7 @@ columnvector_size 100
 
 lazyfree-lazy-eviction no
 lazyfree-lazy-expire yes
-lazyfree-lazy-server-del no
+lazyfree-lazy-server-del yes
 slave-lazy-flush no
 
 tiering_enabled yes
@@ -1054,7 +1054,7 @@ notify-keyspace-events ""
 # small number of entries, and the biggest entry does not exceed a given
 # threshold. These thresholds can be configured using the following directives.
 hash-max-ziplist-entries 8
-hash-max-ziplist-value 8
+hash-max-ziplist-value 16
 
 # Lists are also encoded in a special way to save a lot of space.
 # The number of entries allowed per internal list node can be specified
@@ -1126,13 +1126,13 @@ hll-sparse-max-bytes 3000
 # actively rehash the main dictionaries, freeing memory when possible.
 #
 # If unsure:
-# use "activerehashing yes" if you have hard latency requirements and it is
+# use "activerehashing no" if you have hard latency requirements and it is
 # not a good thing in your environment that Redis can reply from time to time
 # to queries with 2 milliseconds delay.
 #
-# use "activerehashing yes" if you don't have such hard requirements but
+# use "activerehashing no" if you don't have such hard requirements but
 # want to free memory asap when possible.
-activerehashing yes
+activerehashing no
 
 # The client output buffer limits can be used to force disconnection of clients
 # that are not reading data from the server fast enough for some reason (a
@@ -1186,7 +1186,7 @@ client-output-buffer-limit pubsub 32mb 8mb 60
 # The range is between 1 and 500, however a value over 100 is usually not
 # a good idea. Most users should use the default of 10 and raise this up to
 # 100 only in environments where very low latency is required.
-hz 91
+hz 11
 
 # When a child rewrites the AOF file, if the following option is enabled
 # the file will be fsync-ed every 32 MB of data generated. This is useful
