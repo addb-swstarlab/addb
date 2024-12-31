@@ -1,4 +1,4 @@
-[![ADDB Version](https://img.shields.io/badge/version-v1.5.0-brightgreen.svg)](https://github.com/addb-swstarlab/addb/tree/v1.5.0)
+[![ADDB Version](https://img.shields.io/badge/version-v1.6.0-brightgreen.svg)](https://github.com/addb-swstarlab/addb/tree/v1.6.0)
 
 # Analytic Distributed DBMS for the project SW-StarLab
 
